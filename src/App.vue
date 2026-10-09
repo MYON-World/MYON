@@ -1,27 +1,33 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import {
-  GAME_VERSION, RESEARCH, createInitialGame, isValidGame, availableLocomotives,
-  startRun, settleRuns, completeResearch, addRoute, deleteRoute,
+  GAME_VERSION, RESEARCH, BASIC_UNLOCKS, UNLOCK_DURATION_MS, cityMissionName,
+  createInitialGame, migrateGame, isValidGame, availableLocomotives,
+  startRun, advanceWorld, beginUnlock, completeResearch, addRoute, deleteRoute,
 } from './gameEngine.js'
 import {
   loadFromIndexedDB, saveToIndexedDB, makePlainSnapshot,
   loadFallback, saveFallback, downloadSaveJson, parseSaveJson,
 } from './storage.js'
+import { CHANGELOG } from './changelog.js'
 
 const menus = [
-  { key: 'overview', label: '운행', icon: '◈' },
-  { key: 'fleet', label: '차량', icon: '▤' },
-  { key: 'routes', label: '노선', icon: '⌁' },
-  { key: 'research', label: '연구', icon: '✳' },
+  { key: 'missions', label: '도시 임무', icon: '◉' },
+  { key: 'company', label: '회사', icon: '▥', companyOnly: true },
+  { key: 'overview', label: '운행', icon: '◈', companyOnly: true },
+  { key: 'fleet', label: '차량', icon: '▤', companyOnly: true },
+  { key: 'routes', label: '노선', icon: '⌁', companyOnly: true },
+  { key: 'research', label: '심층 연구', icon: '✳', companyOnly: true },
+  { key: 'assistant', label: '비서', icon: '◇', assistantOnly: true },
   { key: 'save', label: '저장', icon: '▣' },
 ]
-const tab = ref('overview')
+const tab = ref('missions')
 const game = ref(createInitialGame())
 const ready = ref(false)
 const saveStatus = ref('불러오는 중')
 const toast = ref('')
 const latestArrival = ref(null)
+const latestCity = ref(null)
 const selectedRouteId = ref('route-001')
 const selectedLocoId = ref('L-001')
 const selectedDestination = ref('')
@@ -38,7 +44,17 @@ let initialized = false
 const completed = computed(() => game.value.progress.completedRuns)
 const routeCount = computed(() => game.value.routes.length)
 const researchDone = id => game.value.progress.research.includes(id)
-const timeUnlocked = computed(() => researchDone('time-sense'))
+const timeUnlocked = computed(() => researchDone('time'))
+const fundsUnlocked = computed(() => researchDone('funds'))
+const companyUnlocked = computed(() => researchDone('company'))
+const assistantUnlocked = computed(() => researchDone('assistant'))
+const visibleMenus = computed(() => menus.filter(m =>
+  (!m.companyOnly || companyUnlocked.value) && (!m.assistantOnly || assistantUnlocked.value)))
+const researchStarted = id => Object.hasOwn(game.value.progress.unlockStartedAt, id)
+const unlockEnd = id => game.value.progress.unlockStartedAt[id] + UNLOCK_DURATION_MS
+const formatStandardTime = ms => new Date(ms).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+const fundsText = computed(() => `${(game.value.economy.balance ?? 0).toLocaleString('ko-KR')} M`)
+const missionStatus = id => researchDone(id) ? '해금 완료' : researchStarted(id) ? '연구 중' : '연구 가능'
 const routeUnlocked = computed(() => researchDone('route-design'))
 const selectedRoute = computed(() => game.value.routes.find(r => r.id === selectedRouteId.value) || game.value.routes[0])
 const idleLocos = computed(() => availableLocomotives(game.value))
@@ -93,11 +109,20 @@ function replaceGame(next) {
 function updateWorld() {
   if (!ready.value) return
   now.value = Date.now()
-  const result = settleRuns(game.value, now.value)
-  if (!result.finished.length) return
-  latestArrival.value = result.finished.map(r => `${r.from} → ${r.to}`).join(' / ')
-  replaceGame(result.game)
-  flash(`${result.finished.length}개 운행 완료 · 차량 위치가 갱신되었습니다.`)
+  const result = advanceWorld(game.value, now.value)
+  if (!result.changed) return
+  if (result.finished.length) {
+    latestArrival.value = result.finished.map(r => `${r.from} → ${r.to}`).join(' / ')
+  }
+  if (result.cityCompleted) {
+    latestCity.value = result.cityEarned > 0
+      ? `${result.cityCompleted}건 완료 · 순수익 ${result.cityEarned.toLocaleString('ko-KR')} M`
+      : `${result.cityCompleted}건 완료 · 새 도시 임무로 교체됨`
+  }
+  if (replaceGame(result.game) && result.newlyUnlocked.length) {
+    const names = result.newlyUnlocked.map(id => BASIC_UNLOCKS.find(x => x.id === id)?.title || id)
+    flash(`연구 완료! ${names.join(', ')} 기능이 열렸습니다.`)
+  }
 }
 
 async function hydrate() {
@@ -108,15 +133,16 @@ async function hydrate() {
   const loaded = (validIndexed && cached)
     ? (validIndexed.updatedAt >= cached.updatedAt ? validIndexed : cached)
     : validIndexed || cached || createInitialGame()
-  game.value = makePlainSnapshot(loaded)
+  game.value = migrateGame(loaded, Date.now())
   selectedRouteId.value = game.value.routes[0]?.id || ''
   selectedLocoId.value = game.value.vehicles.find(v => v.type === 'locomotive')?.id || ''
   ready.value = true
-  const result = settleRuns(game.value, Date.now())
+  const result = advanceWorld(game.value, Date.now())
   if (result.finished.length) {
     latestArrival.value = result.finished.map(r => `${r.from} → ${r.to}`).join(' / ')
-    flash(`접속하지 않은 동안 ${result.finished.length}개 운행이 완료되었습니다.`)
   }
+  if (result.cityCompleted) latestCity.value = `${result.cityCompleted}건의 도시 임무를 오프라인에서 정산했습니다.`
+  if (result.newlyUnlocked.length) flash('접속하지 않은 동안 기본 연구가 완료되었습니다.')
   replaceGame(result.game)
   refreshStorageEstimate()
 }
@@ -130,6 +156,14 @@ function dispatch() {
       to: effectiveDestination.value,
     }, Date.now())
     if (replaceGame(next)) flash('운행을 시작했습니다. 도착 시점은 아직 알 수 없습니다.')
+  } catch (e) { flash(e.message) }
+}
+
+function startUnlock(id) {
+  updateWorld()
+  try {
+    const next = beginUnlock(game.value, id, Date.now())
+    if (replaceGame(next)) flash(timeUnlocked.value ? '24시간 연구를 시작했습니다. 사이트를 닫아도 진행됩니다.' : '연구를 시작했습니다. 사이트를 닫아도 진행됩니다.')
   } catch (e) { flash(e.message) }
 }
 
@@ -176,14 +210,14 @@ async function importGame(event) {
     if (!window.confirm('현재 게임 진행 데이터 전체를 save.json의 데이터로 바꿀까요? 기존 게임은 덮어쓰게 됩니다.')) return
     // Update timestamp to ensure the restored save wins over older browser cache.
     parsed.updatedAt = Date.now()
-    const result = settleRuns(parsed, Date.now())
+    const result = advanceWorld(migrateGame(parsed, Date.now()), Date.now())
     if (!replaceGame(result.game)) return
     selectedRouteId.value = game.value.routes[0]?.id || ''
     selectedLocoId.value = game.value.vehicles.find(v => v.type === 'locomotive')?.id || ''
     selectedDestination.value = ''
     latestArrival.value = result.finished.length ? `${result.finished.length}개 운행 복구 정산` : null
-    tab.value = 'overview'
-    flash('save.json을 복원했습니다. 오프라인 운행도 반영되었습니다.')
+    tab.value = 'missions'
+    flash('save.json을 복원했습니다. 오프라인 경과 시간이 반영되었습니다.')
   } catch (e) { flash(`불러오기 실패: ${e.message}`) }
   finally { event.target.value = '' }
 }
@@ -232,7 +266,7 @@ onBeforeUnmount(() => {
       </div>
       <div class="nav-caption">WORKSPACE</div>
       <nav class="side-nav" aria-label="메인 메뉴">
-        <button v-for="menu in menus" :key="menu.key" :class="['nav-button', { active: tab === menu.key }]"
+        <button v-for="menu in visibleMenus" :key="menu.key" :class="['nav-button', { active: tab === menu.key }]"
           type="button" @click="tab = menu.key">
           <span class="nav-symbol">{{ menu.icon }}</span> {{ menu.label }}
           <span v-if="menu.key === 'overview' && game.activeRuns.length" class="nav-count">{{ game.activeRuns.length }}</span>
@@ -247,13 +281,64 @@ onBeforeUnmount(() => {
 
     <div class="content-shell">
       <header class="topbar">
-        <div class="breadcrumb"><span>MYON</span><span class="slash">/</span><strong>{{ menus.find(m => m.key === tab)?.label }}</strong></div>
-        <div class="header-actions"><span class="save-indicator"><i></i>{{ saveStatus }}</span><button class="top-export" type="button" :disabled="!ready" @click="exportGame">↓ save.json</button></div>
+        <div class="breadcrumb"><span>MYON</span><span class="slash">/</span><strong>{{ visibleMenus.find(m => m.key === tab)?.label || '도시 임무' }}</strong></div>
+        <div class="header-actions">
+          <span v-if="timeUnlocked" class="top-world-clock">{{ formatStandardTime(now) }}</span>
+          <span v-if="fundsUnlocked" class="top-world-funds">{{ fundsText }}</span>
+          <span class="save-indicator"><i></i>{{ saveStatus }}</span><button class="top-export" type="button" :disabled="!ready" @click="exportGame">↓ save.json</button></div>
       </header>
 
       <main v-if="ready" class="main-content">
-        <template v-if="tab === 'overview'">
-          <div class="page-heading"><div><span class="section-kicker">RAILWAY · FOUNDATION</span><h1>운행을 시작하는 곳.</h1><p>아직 회사도, 자금도, 시간표도 없습니다. 지금은 열차가 움직이는 것부터 시작합니다.</p></div><div class="phase-tag"><span class="phase-pulse"></span> 시작 단계</div></div>
+        <template v-if="tab === 'missions'">
+          <div class="page-heading"><div><span class="section-kicker">MYON · LIVING CITY</span><h1>도시는 계속 움직입니다.</h1><p>도시 임무 10개는 자동으로 순환합니다. 원하는 기본 연구를 자유롭게 시작해 보세요.</p></div><span class="phase-tag"><span class="phase-pulse"></span> 자동 진행 중</span></div>
+          <section class="panel city-board">
+            <div class="panel-head"><div><span class="panel-kicker">CITY ROTATION · 10</span><h2>도시 임무</h2></div><span class="live-dot">● 진행 중</span></div>
+            <p class="panel-desc">임무는 자동 수행되고 완료되면 교체됩니다. 자금 연구 전에는 보상이 발생하지 않습니다.</p>
+            <div class="city-mission-grid">
+              <article v-for="(mission,index) in game.cityMissions" :key="mission.id" class="city-mission-card">
+                <div class="mission-serial">도시 임무 {{ String(index + 1).padStart(2, '0') }}</div>
+                <strong>{{ cityMissionName(mission) }}</strong>
+                <div class="city-mission-status"><span class="running-state"><i></i>진행 중</span><span v-if="timeUnlocked">{{ dateSeconds(mission.endsAt - now) }} 남음</span></div>
+                <div v-if="timeUnlocked" class="city-mission-times"><span>소요 {{ dateSeconds(mission.endsAt - mission.startedAt) }}</span><span>완료 예정 {{ formatStandardTime(mission.endsAt) }}</span></div>
+              </article>
+            </div>
+            <p v-if="latestCity" class="city-settlement">{{ latestCity }}</p>
+          </section>
+          <section class="unlock-section">
+            <div class="section-heading"><div><span class="section-kicker">FOUNDATION · 4</span><h2>기본 해금 임무</h2></div><span>{{ timeUnlocked ? '각 24시간 · 독립 진행' : '원하는 순서로 연구 가능' }}</span></div>
+            <div class="unlock-grid">
+              <article v-for="(unlock,index) in BASIC_UNLOCKS" :key="unlock.id" class="panel unlock-card">
+                <div class="unlock-card-top"><span>UNLOCK 0{{ index + 1 }}</span><span :class="['unlock-state', { completed: researchDone(unlock.id) }]">{{ missionStatus(unlock.id) }}</span></div>
+                <h3>{{ unlock.title }}</h3><p>{{ unlock.description }}</p>
+                <div v-if="researchStarted(unlock.id) && timeUnlocked" class="unlock-time"><span>소요 24시간</span><span v-if="!researchDone(unlock.id)">남은 {{ dateSeconds(unlockEnd(unlock.id) - now) }}</span><span v-else>연구 완료</span></div>
+                <div v-else-if="researchStarted(unlock.id) && !researchDone(unlock.id)" class="unlock-time">연구가 진행되고 있습니다.</div>
+                <button class="secondary-button full" :disabled="researchDone(unlock.id) || researchStarted(unlock.id)" type="button" @click="startUnlock(unlock.id)">{{ researchDone(unlock.id) ? '✓ 해금 완료' : researchStarted(unlock.id) ? '연구 진행 중' : timeUnlocked ? '24시간 연구 시작' : '연구 시작' }}</button>
+              </article>
+            </div>
+          </section>
+        </template>
+
+        <template v-else-if="tab === 'company' && companyUnlocked">
+          <div class="page-heading"><div><span class="section-kicker">MYON · COMPANY</span><h1>{{ game.identity.company?.name || '나만의 회사' }}</h1><p>회사 해금이 완료되었습니다. 기존 철도 운영 기능과 심층 연구를 여기서부터 발전시킬 수 있습니다.</p></div></div>
+          <div class="company-entry-grid">
+            <button class="panel company-entry" type="button" @click="tab = 'overview'"><strong>철도 운행 ↗</strong><span>기존 노선과 기관차 운행 기능</span></button>
+            <button class="panel company-entry" type="button" @click="tab = 'fleet'"><strong>차량 관리 ↗</strong><span>기관차·객차 개별 정보</span></button>
+            <button class="panel company-entry" type="button" @click="tab = 'routes'"><strong>노선 관리 ↗</strong><span>개인 노선 및 경로 관리</span></button>
+            <button class="panel company-entry" type="button" @click="tab = 'research'"><strong>심층 연구 ↗</strong><span>확장 연구 및 예정 콘텐츠</span></button>
+          </div>
+          <p class="company-note">회사 해금은 심층 연구의 시작입니다. 회사 자금 관리, 고정배차, 리얼 경제는 이후 단계에서 확장됩니다.</p>
+        </template>
+
+        <template v-else-if="tab === 'assistant' && assistantUnlocked">
+          <div class="page-heading"><div><span class="section-kicker">MYON · ASSISTANT</span><h1>비서</h1><p>현재 비서는 시스템 변경기록을 안내합니다.</p></div></div>
+          <section class="panel assistant-panel"><div class="panel-head"><div><span class="panel-kicker">SYSTEM LOG</span><h2>시스템 변경기록</h2></div></div>
+            <article v-for="item in CHANGELOG" :key="item.date + item.title" class="changelog-item"><time>{{ item.date }}</time><div><h3>{{ item.title }}</h3><p>{{ item.detail }}</p></div></article>
+          </section>
+          <section class="panel assistant-hint"><h2>비서 안내</h2><p>더 많은 정보를 얻고 싶으시면 회사 메뉴에서 관련 연구를 확인하세요.</p><p v-if="!companyUnlocked">회사 메뉴는 회사 신설 연구를 완료하면 열립니다. 연구하지 않아도 도시 임무는 계속 진행됩니다.</p></section>
+        </template>
+
+        <template v-else-if="tab === 'overview' && companyUnlocked">
+          <div class="page-heading"><div><span class="section-kicker">RAILWAY · FOUNDATION</span><h1>철도 운행</h1><p>회사에서 운영하는 기존 철도 운행입니다. 도시 임무는 별도로 자동 순환합니다.</p></div><div class="phase-tag"><span class="phase-pulse"></span> 시작 단계</div></div>
           <div class="stats-grid">
             <div class="stat-card"><div class="stat-label">진행 중 운행</div><div class="stat-value">{{ game.activeRuns.length }}<span>건</span></div><div class="stat-detail">진행 상황은 자동으로 갱신됩니다</div></div>
             <div class="stat-card"><div class="stat-label">누적 완료</div><div class="stat-value">{{ completed }}<span>회</span></div><div class="stat-detail">완료 이력은 고정배차 전까지 폐기</div></div>
@@ -271,7 +356,7 @@ onBeforeUnmount(() => {
               </div>
               <div class="dispatch-summary"><span>출발 위치</span><strong>{{ selectedLoco?.station || '운행 가능 차량 없음' }}</strong><span class="arrow-mark">→</span><strong>{{ effectiveDestination || '선택 대기' }}</strong></div>
               <button class="primary-button full" type="button" :disabled="!canDispatch" @click="dispatch">운행 시작 <span>↗</span></button>
-              <div class="quiet-note">남은 시간은 표시되지 않습니다. 운행은 사이트를 닫아도 실제 시간에 따라 진행됩니다.</div>
+              <div class="quiet-note">{{ timeUnlocked ? '시간 정보가 공개되었습니다. 운행은 사이트를 닫아도 계속 경과합니다.' : '남은 시간은 시간 연구를 해금해야 표시됩니다. 운행은 사이트를 닫아도 실제 시간에 따라 진행됩니다.' }}</div>
             </section>
 
             <section class="panel operations-panel">
@@ -290,7 +375,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="bottom-grid">
-            <section class="info-strip"><span class="info-icon">✳</span><div><strong>연구로 새로운 기능을 발견하세요.</strong><p>운행 경험이 쌓이면 노선 설계와 시간 관측 기능을 사용할 수 있습니다.</p></div><button type="button" @click="tab = 'research'">연구 보기 ↗</button></section>
+            <section class="info-strip"><span class="info-icon">✳</span><div><strong>연구로 새로운 기능을 발견하세요.</strong><p>심층 연구로 노선을 확장할 수 있습니다. 시간 정보는 도시 임무의 기본 연구에서 해금합니다.</p></div><button type="button" @click="tab = 'research'">연구 보기 ↗</button></section>
           </div>
         </template>
 
@@ -323,10 +408,10 @@ onBeforeUnmount(() => {
         </template>
 
         <template v-else-if="tab === 'research'">
-          <div class="page-heading"><div><span class="section-kicker">DISCOVERY & RESEARCH</span><h1>연구</h1><p>운영 경험이 쌓이면서 새로운 기능이 열립니다. 초기 연구에는 자금이 필요하지 않습니다.</p></div></div>
+          <div class="page-heading"><div><span class="section-kicker">DISCOVERY & RESEARCH</span><h1>회사 심층 연구</h1><p>회사 해금 후 진행하는 심층 연구입니다. 기본 해금은 도시 임무에서 진행합니다.</p></div></div>
           <div class="research-progress panel"><div><span class="panel-kicker">OPERATIONAL EXPERIENCE</span><h2>{{ completed }}회 운행 완료</h2><p>기본 운행을 반복해 기술을 하나씩 발견합니다.</p></div><div class="research-symbol">✳</div></div>
           <div class="research-grid"><article v-for="(tech,index) in RESEARCH" :key="tech.id" class="panel research-card"><div class="research-step">RESEARCH 0{{ index + 1 }}</div><div class="research-badge" :class="{ done: researchDone(tech.id) }">{{ researchDone(tech.id) ? '연구 완료' : completed >= tech.requirement ? '연구 가능' : '잠김' }}</div><h2>{{ tech.title }}</h2><p>{{ tech.description }}</p><div class="research-requirement">요구 조건 · 운행 완료 {{ tech.requirement }}회</div><button class="secondary-button full" :disabled="researchDone(tech.id) || completed < tech.requirement" @click="unlockResearch(tech.id)">{{ researchDone(tech.id) ? '✓ 완료됨' : completed >= tech.requirement ? '연구 완료하기' : '아직 연구할 수 없음' }}</button></article></div>
-          <section class="future-panel"><span class="section-kicker">NEXT STAGES · DEVELOPMENT ROADMAP</span><h2>앞으로 열릴 시스템</h2><div class="future-chips"><span>차량 연결·분리</span><span>고정배차</span><span>회사 설립</span><span>리얼 경제</span><span>복합열차</span><span>폐색</span><span>항공 ATC</span></div><p>이 항목들은 후속 개발 대상이며, 현재 v{{ GAME_VERSION }}에서는 실행되지 않습니다. 리얼 경제 전환은 연구 완료 후 별도 확인과 함께 영구 적용되는 방식으로 설계합니다.</p></section>
+          <section class="future-panel"><span class="section-kicker">NEXT STAGES · DEVELOPMENT ROADMAP</span><h2>앞으로 열릴 시스템</h2><div class="future-chips"><span>차량 연결·분리</span><span>고정배차</span><span>리얼 경제</span><span>복합열차</span><span>폐색</span><span>항공 ATC</span></div><p>이 항목들은 후속 개발 대상이며, 현재 v{{ GAME_VERSION }}에서는 실행되지 않습니다. 리얼 경제 전환은 연구 완료 후 별도 확인과 함께 영구 적용되는 방식으로 설계합니다.</p></section>
         </template>
 
         <template v-else-if="tab === 'save'">
