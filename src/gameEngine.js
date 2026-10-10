@@ -1,213 +1,168 @@
-/** MYON v0.01 — city-first world; seconds are wall-clock seconds, not frame counts. */
-export const SAVE_SCHEMA = 2
+/** MYON v0.01: city mission engine. All durations are real elapsed time. */
+import { isValidGame as isValidLegacyGame } from './legacyEngine.js'
 export const GAME_VERSION = '0.01'
-export const SECOND_MS = 1_000
-export const UNLOCK_DURATION_MS = 24 * 60 * 60 * SECOND_MS
-export const ACCEPT_RATE = 50
-export const REWARD_RATE = 100
-export const MISSION_COUNT = 10
-
-export const BASIC_UNLOCKS = Object.freeze([
-  { id: 'company', title: '회사 신설하기', description: '나만의 회사와 심층 연구의 기반을 엽니다.', symbol: 'C' },
-  { id: 'time', title: '시간 연구하기', description: '표준시간과 진행 중인 임무의 시간을 볼 수 있습니다.', symbol: 'T' },
-  { id: 'funds', title: '자금 연구하기', description: 'MYON 화폐 M을 활성화하고 도시 임무 수익을 축적합니다.', symbol: 'M' },
-  { id: 'assistant', title: '비서 연구하기', description: '시스템 변경기록을 확인할 수 있습니다.', symbol: 'A' },
-])
-export const CITY_TASKS = Object.freeze([
-  '도심 기반시설 현황 조사',
-  '신도시 개발계획 검토',
-  '지역 교통수요 분석',
-  '도시 생활환경 실태조사',
-  '주요 상업지구 현황 분석',
-  '도시 인구이동 조사',
-  '공공시설 운영현황 점검',
-  '지역 산업단지 수요조사',
-  '도시 연결망 개선방안 검토',
-  '신규 도시개발 후보지 조사',
-])
-export const CITIES = Object.freeze(['서울', '부산', '인천', '수원', '대전', '대구', '광주', '울산', '세종', '제주'])
-const UNLOCK_IDS = new Set(BASIC_UNLOCKS.map(x => x.id))
-const isTime = x => Number.isSafeInteger(x) && x >= 0
-const isStr = (v, max = 100) => typeof v === 'string' && v.length > 0 && v.length <= max
-const copy = item => JSON.parse(JSON.stringify(item))
-
-// Stable pseudo-random mission generation makes offline recovery reproducible.
-function noise(seed, slot, sequence) {
-  let x = ((Math.floor(seed / 1000) >>> 0) ^ Math.imul(slot + 1, 0x9e3779b1) ^ Math.imul(sequence + 1, 0x85ebca6b)) >>> 0
-  x ^= x >>> 16; x = Math.imul(x, 0x7feb352d)
-  x ^= x >>> 15; x = Math.imul(x, 0x846ca68b)
-  return (x ^ (x >>> 16)) >>> 0
+export const SAVE_SCHEMA = 5
+export const MAX_ACTIVE_MISSIONS = 2
+export const OFFER_COUNT = 5
+const clone = value => JSON.parse(JSON.stringify(value))
+const validTime = n => Number.isSafeInteger(n) && n >= 0
+const validAmount = n => Number.isSafeInteger(n) && n >= 0
+const nextSeed = value => {let x=value>>>0 || 0x6d2b79f5;x^=x<<13;x^=x>>>17;x^=x<<5;return x>>>0 || 1}
+const templates = [
+ // 제목, 총 수행비용, 시 선부담, 순이익, 수행초 (0원으로 시작 가능한 임무 포함)
+ ['도시 안내문 배포',200,200,800,50],
+ ['거리 환경 정비',300,300,1000,65],
+ ['지역 주민 설문 조사',250,250,900,50],
+ ['공공 행사 안내 지원',500,500,1300,85],
+ ['대중교통 이용 실태 조사',400,400,1100,70],
+ ['야간 안전 점검',650,650,1600,90],
+ ['공원 시설 순찰',420,420,1050,65],
+ ['소규모 행사 물품 운반',900,750,1900,105],
+ ['시내 긴급 서류 배송',850,650,2100,115],
+ ['택시 승객 운송 지원',1200,900,2800,130],
+ ['버스 정류소 정비',1700,1200,3700,160],
+ ['시내 도로 안내 표지 교체',2200,1300,4200,165],
+ ['문화 행사 시설 설치',2800,1700,5100,170],
+ ['공영 주차장 환경 개선',3100,1800,6000,200],
+ ['지역 상권 배송 지원',2600,1600,4800,155],
+ ['산업단지 화물 운송',4600,2000,7400,240],
+ ['시내 버스 임시 노선 운영',5500,3000,9000,275],
+ ['철도역 시설 유지보수',7500,3700,12000,320],
+ ['도시 통신 설비 점검',6200,3000,10500,260],
+ ['하천 정화 사업',8500,4000,14000,300],
+ ['지역 축제 종합 운영',12500,5000,18500,355],
+ ['공항 셔틀 수송 지원',18000,8000,25000,400],
+ ['해상 물자 하역 지원',24000,10500,32000,445],
+ ['광역 버스 임시 운행',30000,12000,41000,480],
+ ['철도 차량 정비 사업',55000,20000,69000,520],
+ ['공항 시설 개선 사업',80000,30000,100000,640],
+ ['항만 물류 지원 사업',95000,35000,120000,720],
+ ['도시 복합교통 시설 개선',135000,40000,165000,840],
+]
+const starterCount = 7
+function roll(g, min, max){g.missions.seed=nextSeed(g.missions.seed);return min+g.missions.seed%(max-min+1)}
+function addLog(g, at, text){g.logs.unshift({at,message:text});if(g.logs.length>50)g.logs.length=50}
+const freshMissions = seed => ({seed:nextSeed(seed),sequence:0,offers:[],active:[],history:[]})
+export function createInitialGame(now=Date.now(), seed=Math.floor(Math.random()*0xffffffff)){
+ const citySeed=seed>>>0||42
+ return {schemaVersion:SAVE_SCHEMA,gameVersion:GAME_VERSION,createdAt:now,updatedAt:now,
+  city:{name:'',seed:citySeed},phase:'intro',company:null,
+  economy:{balance:0,currency:'M',gross:0,spent:0},missions:freshMissions(citySeed),logs:[]}
 }
-export function createCityMission(slot, sequence, startedAt, seed) {
-  const random = noise(seed, slot, sequence)
-  const durationSeconds = (3 + (random % 46)) * 300 // 15 min to 4 h, 5-min increments
-  return {
-    id: `city-${slot + 1}`, slot, sequence,
-    cityId: (slot + Math.floor(random / 47)) % CITIES.length,
-    taskId: sequence === 0 ? slot : Math.floor(random / 997) % CITY_TASKS.length,
-    startedAt,
-    endsAt: startedAt + durationSeconds * SECOND_MS,
-  }
+function validMission(m, active=false){
+ if(!m||!Number.isSafeInteger(m.id)||m.id<1||typeof m.title!=='string'||m.title.length<1||m.title.length>70||
+  ![m.cost,m.cityShare,m.companyCost,m.reward,m.companyProfit,m.durationSeconds].every(validAmount)||
+  m.cityShare+m.companyCost!==m.cost||m.reward<m.cost||m.companyProfit!==Math.floor((m.reward-m.cost)*0.1)||
+  m.durationSeconds<10||m.durationSeconds>86400||!validTime(m.offeredAt)||!validTime(m.expiresAt)||m.expiresAt<=m.offeredAt) return false
+ if(active&&(!validTime(m.startedAt)||!validTime(m.endsAt)||m.endsAt!==m.startedAt+m.durationSeconds*1000))return false
+ return true
 }
-export const cityMissionName = mission => `${CITIES[mission.cityId]} · ${CITY_TASKS[mission.taskId]}`
-export const isUnlocked = (game, id) => game.progress.unlocked.includes(id)
-
-export function createInitialGame(now = Date.now()) {
-  return {
-    schemaVersion: SAVE_SCHEMA,
-    gameVersion: GAME_VERSION,
-    createdAt: now, updatedAt: now,
-    progress: { unlocked: [], startedAt: {} },
-    identity: { company: null },
-    economy: { balance: null, currency: 'M', ledger: { completed: 0, gross: 0, expenses: 0 } },
-    cityMissions: Array.from({ length: MISSION_COUNT }, (_, slot) => createCityMission(slot, 0, now, now)),
-    // Extension space for subsequent company research. Does not appear in the base UI.
-    modules: { studies: [], data: {} },
-    // Old railway state can be imported without returning obsolete railway menus.
-    legacyArchive: null,
-  }
+export function isValidGame(g){
+ if(!g||g.schemaVersion!==SAVE_SCHEMA||g.gameVersion!==GAME_VERSION||!validTime(g.createdAt)||!validTime(g.updatedAt)||
+   !g.city||typeof g.city.name!=='string'||g.city.name.length>40||!Number.isInteger(g.city.seed)||
+   !['intro','ready'].includes(g.phase)||(g.phase==='intro'&&g.city.name!=='')||(g.phase==='ready'&&!g.city.name.trim())||
+   !(g.company===null||(typeof g.company?.name==='string'&&!!g.company.name.trim()&&g.company.name.length<=40&&validTime(g.company.acquiredAt)&&typeof g.company.welcomed==='boolean'))||
+   (g.company&&g.phase!=='ready')||!g.economy||g.economy.currency!=='M'||!['balance','gross','spent'].every(k=>validAmount(g.economy[k]))||
+   !g.missions||!Number.isInteger(g.missions.seed)||!Number.isSafeInteger(g.missions.sequence)||g.missions.sequence<0||
+   !Array.isArray(g.missions.offers)||g.missions.offers.length>OFFER_COUNT||!Array.isArray(g.missions.active)||g.missions.active.length>MAX_ACTIVE_MISSIONS||
+   !Array.isArray(g.missions.history)||!Array.isArray(g.logs)||g.logs.length>50||
+   (g.phase==='intro'&&(g.company!==null||g.missions.offers.length||g.missions.active.length))||
+   (!g.company&&(g.missions.offers.length||g.missions.active.length)))return false
+ const ids=new Set()
+ for(const m of [...g.missions.offers,...g.missions.active]){
+  if(!validMission(m,g.missions.active.includes(m))||ids.has(m.id)||m.id>g.missions.sequence)return false
+  ids.add(m.id)
+ }
+ // The full history is deliberately retained in the save file.
+ return true
 }
-
-export function isValidGame(g) {
-  if (!g || typeof g !== 'object' || Array.isArray(g) || g.schemaVersion !== SAVE_SCHEMA ||
-      !isTime(g.createdAt) || !isTime(g.updatedAt)) return false
-  const p = g.progress
-  if (!p || !Array.isArray(p.unlocked) || p.unlocked.some(id => !UNLOCK_IDS.has(id)) ||
-      new Set(p.unlocked).size !== p.unlocked.length || !p.startedAt || typeof p.startedAt !== 'object' ||
-      Array.isArray(p.startedAt) || Object.entries(p.startedAt).some(([id, at]) => !UNLOCK_IDS.has(id) || !isTime(at))) return false
-  if (!g.identity || !(g.identity.company === null || (
-    isStr(g.identity.company.name, 40) && isTime(g.identity.company.foundedAt)))) return false
-  const e = g.economy
-  if (!e || e.currency !== 'M' || !(e.balance === null || Number.isSafeInteger(e.balance) && e.balance >= 0) ||
-      !e.ledger || ['completed', 'gross', 'expenses'].some(k => !Number.isSafeInteger(e.ledger[k]) || e.ledger[k] < 0)) return false
-  if (p.unlocked.includes('funds') !== (e.balance !== null)) return false
-  if (p.unlocked.includes('company') !== Boolean(g.identity.company)) return false
-  if (!Array.isArray(g.cityMissions) || g.cityMissions.length !== MISSION_COUNT ||
-      g.cityMissions.some((m, slot) => !m || m.id !== `city-${slot + 1}` || m.slot !== slot ||
-        !Number.isSafeInteger(m.sequence) || m.sequence < 0 || !Number.isInteger(m.cityId) ||
-        m.cityId < 0 || m.cityId >= CITIES.length || !Number.isInteger(m.taskId) ||
-        m.taskId < 0 || m.taskId >= CITY_TASKS.length || !isTime(m.startedAt) ||
-        !isTime(m.endsAt) || m.endsAt <= m.startedAt)) return false
-  if (!g.modules || !Array.isArray(g.modules.studies) || !g.modules.data || typeof g.modules.data !== 'object') return false
-  if (!Object.hasOwn(g, 'legacyArchive')) return false
-  return true
+const ensure = g => {if(!isValidGame(g))throw new Error('저장 데이터가 올바르지 않습니다.')}
+function newOffer(g,at,forceStarter=false){
+ const blocked=new Set([...g.missions.offers,...g.missions.active].map(m=>m.title))
+ let pool=forceStarter?templates.slice(0,starterCount):templates
+ const available=pool.filter(t=>!blocked.has(t[0]))
+ if(available.length)pool=available
+ const t=pool[roll(g,0,pool.length-1)]
+ const cost=t[1],cityShare=t[2],reward=cost+t[3]
+ return {id:++g.missions.sequence,title:t[0],cost,cityShare,companyCost:cost-cityShare,
+  reward,companyProfit:Math.floor((reward-cost)*0.1),durationSeconds:t[4],
+  offeredAt:at,expiresAt:at+roll(g,90,240)*1000}
 }
-
-export function beginUnlock(g, id, now = Date.now()) {
-  if (!UNLOCK_IDS.has(id)) throw new Error('없는 연구입니다.')
-  if (isUnlocked(g, id)) throw new Error('이미 해금된 연구입니다.')
-  if (Object.hasOwn(g.progress.startedAt, id)) throw new Error('이미 진행 중입니다.')
-  return {
-    ...g, updatedAt: now,
-    progress: { ...g.progress, startedAt: { ...g.progress.startedAt, [id]: now } },
-  }
+function topUpOffers(g,at){
+ while(g.missions.offers.length<OFFER_COUNT){
+  const ensureFree=!g.missions.offers.some(m=>m.companyCost<=g.economy.balance)
+  g.missions.offers.push(newOffer(g,at,ensureFree))
+ }
 }
-
-export function renameCompany(g, name, now = Date.now()) {
-  if (!isUnlocked(g, 'company')) throw new Error('회사를 먼저 해금해 주세요.')
-  const clean = String(name ?? '').trim()
-  if (!clean || clean.length > 40) throw new Error('회사 이름은 1~40자로 입력해 주세요.')
-  return { ...g, updatedAt: now, identity: { company: { ...g.identity.company, name: clean } } }
+export function startGame(g,name,at=Date.now()){
+ ensure(g)
+ if(g.phase!=='intro')throw new Error('게임은 이미 시작되었습니다.')
+ const city=String(name??'').trim();if(!city||city.length>40)throw new Error('도시 이름을 1~40자로 입력해 주세요.')
+ const next=clone(g);next.city.name=city;next.phase='ready';next.updatedAt=at
+ return next
 }
-
-// Each completed city task can settle once; rewards begin strictly AFTER fund unlock.
-export function advanceWorld(g, now = Date.now()) {
-  const research = [...g.progress.unlocked]
-  const newlyUnlocked = []
-  for (const { id } of BASIC_UNLOCKS) {
-    const started = g.progress.startedAt[id]
-    if (!research.includes(id) && isTime(started) && now >= started + UNLOCK_DURATION_MS) {
-      research.push(id)
-      newlyUnlocked.push(id)
-    }
-  }
-  const fundsUnlocked = research.includes('funds')
-  const cutoff = isTime(g.progress.startedAt.funds)
-    ? g.progress.startedAt.funds + UNLOCK_DURATION_MS : (isUnlocked(g, 'funds') ? g.updatedAt : Infinity)
-  let completed = 0
-  let paid = 0
-  let gross = 0
-  let expenses = 0
-  let paidCompletions = 0
-  const cityMissions = g.cityMissions.map(original => {
-    let m = original
-    while (m.endsAt <= now) {
-      completed++
-      if (fundsUnlocked && m.endsAt > cutoff) {
-        const seconds = (m.endsAt - m.startedAt) / SECOND_MS
-        const amount = seconds * REWARD_RATE
-        const cost = seconds * ACCEPT_RATE
-        paid += amount - cost
-        paidCompletions++
-        gross += amount
-        expenses += cost
-      }
-      m = createCityMission(m.slot, m.sequence + 1, m.endsAt, g.createdAt)
-    }
-    return m
-  })
-  const changed = newlyUnlocked.length > 0 || completed > 0
-  if (!changed) return { game: g, changed: false, newlyUnlocked, completed, paid }
-  const company = newlyUnlocked.includes('company')
-    ? { name: '나의 회사', foundedAt: g.progress.startedAt.company + UNLOCK_DURATION_MS }
-    : g.identity.company
-  const baseBalance = fundsUnlocked ? (g.economy.balance ?? 0) : null
-  const result = {
-    ...g, updatedAt: now,
-    progress: { ...g.progress, unlocked: research },
-    identity: { ...g.identity, company },
-    economy: { ...g.economy, balance: fundsUnlocked ? baseBalance + paid : null,
-      ledger: { completed: g.economy.ledger.completed + paidCompletions,
-        gross: g.economy.ledger.gross + gross, expenses: g.economy.ledger.expenses + expenses } },
-    cityMissions,
-  }
-  return { game: result, changed: true, newlyUnlocked, completed, paid }
+export function establishCompany(g,name,at=Date.now()){
+ ensure(g)
+ if(g.phase!=='ready'||g.company)throw new Error('회사가 이미 등록되어 있습니다.')
+ const title=String(name??'').trim();if(!title||title.length>40)throw new Error('회사 이름을 1~40자로 입력해 주세요.')
+ const next=clone(g);next.company={name:title,acquiredAt:at,welcomed:true};next.updatedAt=at
+ topUpOffers(next,at);addLog(next,at,`${title} 설립`);return next
 }
-
-/** Converts the former railway-first v0.01 save into the clean city-first format. */
-export function migrateLegacyGame(previous, now = Date.now()) {
-  if (!previous || previous.schemaVersion !== 1 || !previous.progress ||
-      !Array.isArray(previous.progress.research) || !Array.isArray(previous.routes) ||
-      !Array.isArray(previous.vehicles) || !Array.isArray(previous.activeRuns) ||
-      !Array.isArray(previous.runHistory) || !isTime(previous.createdAt)) {
-    throw new Error('이전 저장 데이터가 올바르지 않습니다.')
-  }
-  const next = createInitialGame(now)
-  const unlocked = [...new Set(previous.progress.research.map(id => id === 'time-sense' ? 'time' : id)
-    .filter(id => UNLOCK_IDS.has(id)))]
-  const previousStart = previous.progress.unlockStartedAt || {}
-  const startedAt = {}
-  for (const id of UNLOCK_IDS) {
-    if (isTime(previousStart[id])) startedAt[id] = previousStart[id]
-    else if (unlocked.includes(id)) startedAt[id] = Math.max(0, now - UNLOCK_DURATION_MS)
-  }
-  next.progress = { unlocked, startedAt }
-  if (unlocked.includes('company')) next.identity.company = {
-    name: (previous.identity?.company?.name || '나의 회사').slice(0, 40),
-    foundedAt: previous.identity?.company?.foundedAt ?? now,
-  }
-  if (unlocked.includes('funds')) next.economy.balance = Number.isSafeInteger(previous.economy?.balance)
-    ? Math.max(0, previous.economy.balance) : 0
-  // Keep the former railway assets in save.json, but do not reactivate their obsolete interface.
-  next.legacyArchive = {
-    importedAt: now,
-    routes: copy(previous.routes),
-    vehicles: copy(previous.vehicles),
-    activeRuns: copy(previous.activeRuns),
-    runHistory: copy(previous.runHistory),
-    progress: copy(previous.progress),
-    extensions: copy(previous.extensions || {}),
-  }
-  // Preserve ongoing city tasks when the previous snapshot already had them.
-  if (Array.isArray(previous.cityMissions) && previous.cityMissions.length === MISSION_COUNT) {
-    next.createdAt = previous.createdAt
-    next.cityMissions = copy(previous.cityMissions)
-  }
-  if (!isValidGame(next)) throw new Error('구 저장 데이터를 변환할 수 없습니다.')
+export function acceptMission(g,id,at=Date.now()){
+ ensure(g)
+ if(!g.company)throw new Error('회사 이름을 먼저 정해 주세요.')
+ if(g.missions.active.length>=MAX_ACTIVE_MISSIONS)throw new Error('동시에 최대 2개 임무만 수행할 수 있습니다.')
+ const offer=g.missions.offers.find(m=>m.id===id)
+ if(!offer||offer.expiresAt<=at)throw new Error('수락 기한이 지난 임무입니다.')
+ if(g.economy.balance<offer.companyCost)throw new Error('회사 수락 비용이 부족합니다.')
+ const next=clone(g),m=next.missions.offers.find(x=>x.id===id)
+ next.missions.offers=next.missions.offers.filter(x=>x.id!==id)
+ next.economy.balance-=m.companyCost;next.economy.spent+=m.companyCost
+ next.missions.active.push({...m,startedAt:at,endsAt:at+m.durationSeconds*1000})
+ topUpOffers(next,at);next.updatedAt=at;addLog(next,at,`${m.title} 임무 수락`)
+ return next
+}
+export function advanceWorld(g,at=Date.now()){
+ ensure(g)
+ if(!g.company)return {game:g,changed:false,completed:[],expired:0,earned:0}
+ const next=clone(g),completed=[]
+ let expired=0
+ next.missions.offers=next.missions.offers.filter(m=>{if(m.expiresAt>at)return true;expired++;return false})
+ const remaining=[]
+ for(const m of next.missions.active){
+  if(m.endsAt>at){remaining.push(m);continue}
+  // The company pays its part upfront, and receives the advance back with its profit at completion.
+  const depositReturn=m.companyCost+m.companyProfit
+  next.economy.balance+=depositReturn;next.economy.gross+=depositReturn
+  const completedEntry={id:m.id,title:m.title,completedAt:m.endsAt,cost:m.cost,cityShare:m.cityShare,
+    companyCost:m.companyCost,reward:m.reward,companyProfit:m.companyProfit}
+  next.missions.history.unshift(completedEntry);completed.push(completedEntry)
+  addLog(next,m.endsAt,`${m.title} 완료 · 회사 수익 +${m.companyProfit.toLocaleString('ko-KR')} M`)
+ }
+ next.missions.active=remaining
+ const before=next.missions.offers.length
+ topUpOffers(next,at)
+ const changed=expired>0||completed.length>0||next.missions.offers.length!==before
+ if(!changed)return {game:g,changed:false,completed:[],expired:0,earned:0}
+ next.updatedAt=at
+ return {game:next,changed:true,completed,expired,earned:completed.reduce((s,m)=>s+m.companyProfit,0)}
+}
+export function renameCompany(g,name,at=Date.now()){
+ ensure(g);if(!g.company)throw new Error('먼저 회사를 설립해 주세요.')
+ const title=String(name??'').trim();if(!title||title.length>40)throw new Error('회사 이름을 1~40자로 입력해 주세요.')
+ const next=clone(g);next.company.name=title;next.updatedAt=at;return next
+}
+/** Migrates only valid old 0.01 saves. Old taxi data stays archived, not active. */
+export function normalizeImport(input,at=Date.now()){
+ if(isValidGame(input))return clone(input)
+ if(isValidLegacyGame(input)){
+  const next=createInitialGame(input.createdAt,input.city.seed)
+  next.phase=input.phase;next.city=clone(input.city);next.company=clone(input.company);next.economy=clone(input.economy)
+  next.updatedAt=at
+  next.legacyTransport={taxis:clone(input.taxis),stats:clone(input.stats),history:clone(input.history),logs:clone(input.logs)}
+  next.logs=[{at,message:'이전 운행 자료 보존 · 도시 임무 시스템 적용'}]
+  if(next.company)topUpOffers(next,at)
   return next
-}
-export function normalizeImport(input, now = Date.now()) {
-  if (isValidGame(input)) return copy(input)
-  if (input?.schemaVersion === 1) return migrateLegacyGame(input, now)
-  throw new Error('MYON 저장 파일이 아니거나 데이터가 손상되었습니다.')
+ }
+ throw new Error('MYON 저장 형식이 올바르지 않습니다.')
 }
