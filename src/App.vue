@@ -1,8 +1,8 @@
 <script setup>
 import ObservationView from './ObservationView.vue'
-// 회사 설립 기능은 아직 구현되지 않았습니다.
-// 회사 설립 전에는 관전 화면만 렌더링합니다.
-// 원본 v0.01 화면은 LegacyApp.vue에 변경 없이 보관합니다.
+// v0.01 관전 화면을 계승하며, v0.02 진행 상태에 따라
+// 회사 생성과 메뉴 개방 화면을 같은 진입점에서 표시합니다.
+// 기존 게임 화면은 LegacyApp.vue에 별도로 보존합니다.
 </script>
 
 <template>
