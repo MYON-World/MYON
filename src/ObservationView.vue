@@ -9,10 +9,16 @@ import {
   loadOrCreateProgress, loadProgress, saveProgress,
   companyFormOpen, menuIsUnlocked, createCompany, beginMenuUnlock,
 } from './progression.js'
+import {
+  loadOrCreateFinance, updateFinance, financeUnlocked, submenuUnlocked,
+  startFinanceUnlock, startSubmenuUnlock, toggleFinance, balanceM, HOUR_MS,
+} from './financeEngine.js'
 
 const now = ref(Date.now())
 const state = ref(null)
 const progress = ref(null)
+const financeState = ref(null)
+const financeBusy = ref(false)
 const view = ref('home')
 const menuStack = ref(['base'])
 const companyInput = ref('')
@@ -24,14 +30,29 @@ const CATEGORIES = { bus: '버스', rail: '철도', air: '항공', sea: '해상'
 // 후속 버전에서 children에 항목을 추가해도 탐색 구조는 변경하지 않습니다.
 const MENU_TREE = Object.freeze({
   base: { title: '기본 메뉴', parent: null, children: ['company', 'settings'] },
-  company: { title: '회사 관리', parent: 'base', children: [], locked: true },
-  settings: { title: '설정', parent: 'base', children: [], locked: true },
+  company: { title: '회사 관리', parent: 'base', children: [] },
+  settings: { title: '설정', parent: 'base', children: [] },
 })
 
 const currentMenu = computed(() => MENU_TREE[menuStack.value.at(-1)] ?? MENU_TREE.base)
 const hasCompany = computed(() => Boolean(progress.value?.companyName))
 const showCompanyForm = computed(() => companyFormOpen(progress.value, now.value))
 const menuUnlocked = computed(() => menuIsUnlocked(progress.value, now.value))
+const financeIsUnlocked = computed(() => financeUnlocked(financeState.value, now.value))
+const financeIsWaiting = computed(() => menuUnlocked.value && financeState.value && financeState.value.unlockStartedAt === null)
+const financeIsCounting = computed(() => menuUnlocked.value && financeState.value &&
+  financeState.value.unlockStartedAt !== null && !financeIsUnlocked.value)
+const financeIsEnabled = computed(() => Boolean(financeState.value?.enabled))
+const activeCount = computed(() => state.value?.tasks?.length ?? 0)
+const incomePerSecond = computed(() => financeIsEnabled.value ? activeCount.value : 0)
+const displayedBalance = computed(() => balanceM(financeState.value, state.value, now.value))
+const formattedBalance = computed(() => new Intl.NumberFormat('ko-KR').format(displayedBalance.value) + 'M')
+const currentMenuId = computed(() => menuStack.value.at(-1))
+function submenuIsUnlocked(id) { return submenuUnlocked(financeState.value, id, now.value) }
+function submenuHasStarted(id) { return financeState.value?.menuUnlocks?.[id] !== null && financeState.value?.menuUnlocks?.[id] !== undefined }
+function submenuTimeLeft(id) {
+  return formatCountdown(Math.max(0, Math.ceil((financeState.value.menuUnlocks[id] + HOUR_MS - now.value) / 1000)))
+}
 const menuWaiting = computed(() => hasCompany.value && progress.value.menuUnlockStartedAt === null)
 const menuCounting = computed(() => hasCompany.value && progress.value.menuUnlockStartedAt !== null && !menuUnlocked.value)
 const companyValid = computed(() => companyInput.value.trim().replace(/\s+/g, ' ').length > 0 &&
@@ -45,6 +66,9 @@ const sortedItems = computed(() => {
   }
   if (menuCounting.value) {
     items.push({ id: 'unlock-menu', kind: 'menu-countdown', endsAt: progress.value.menuUnlockedAt })
+  }
+  if (financeIsCounting.value) {
+    items.push({ id: 'unlock-finance', kind: 'finance-countdown', endsAt: financeState.value.unlockedAt })
   }
   items.sort((a, b) => a.endsAt - b.endsAt || (a.startedAt ?? 0) - (b.startedAt ?? 0))
   return items
@@ -60,6 +84,8 @@ let timer = 0
 let lastPaintSecond = -1
 let observationSaveQueue = Promise.resolve()
 let isMounted = false
+let financeSyncPromise = null
+let lastFinanceSyncAt = 0
 
 function persistObservation(snapshot) {
   observationSaveQueue = observationSaveQueue.catch(() => {}).then(() => saveObservation(snapshot))
@@ -75,10 +101,40 @@ function reconcile(time) {
   }
 }
 
+async function syncFinance() {
+  if (financeSyncPromise || !isMounted || !state.value || !financeState.value || financeBusy.value) return financeSyncPromise
+  const at = Date.now()
+  financeSyncPromise = updateFinance(state.value, at)
+    .then(updated => { if (isMounted && !financeBusy.value) financeState.value = updated; lastFinanceSyncAt = at })
+    .catch(error => console.warn('MYON 자금 정산 오류:', error))
+    .finally(() => { financeSyncPromise = null })
+  return financeSyncPromise
+}
+
+async function commitFinanceAction(transform) {
+  if (financeBusy.value || !state.value || !financeState.value) return false
+  financeBusy.value = true
+  errorMessage.value = ''
+  try {
+    if (financeSyncPromise) await financeSyncPromise
+    const at = Date.now()
+    const next = await updateFinance(state.value, at, transform)
+    if (isMounted) financeState.value = next
+    lastFinanceSyncAt = at
+    return true
+  } catch (error) {
+    errorMessage.value = error.message || '자금 엔진 정보를 저장하지 못했습니다.'
+    return false
+  } finally {
+    financeBusy.value = false
+  }
+}
+
 function refresh() {
   if (!isMounted) return
   const time = Date.now()
   reconcile(time)
+  if (financeState.value?.enabled && time - lastFinanceSyncAt >= 5000) syncFinance()
   if (Math.floor(time / 1000) !== lastPaintSecond) {
     now.value = time
     lastPaintSecond = Math.floor(time / 1000)
@@ -112,6 +168,17 @@ async function initialize() {
     console.warn('MYON 진행 정보 오류:', error)
     if (!isMounted) return
     errorMessage.value = '진행 정보를 불러올 수 없습니다. 브라우저 저장소를 확인해 주세요.'
+  }
+  try {
+    const loadedFinance = await loadOrCreateFinance()
+    if (!isMounted) return
+    financeState.value = loadedFinance
+    // 재접속 중 종료된 운행 임무도 시간 구간을 계산하여 한 번에 정산합니다.
+    await syncFinance()
+  } catch (error) {
+    console.warn('MYON 자금 엔진 저장 오류:', error)
+    if (!isMounted) return
+    errorMessage.value = '자금 엔진 정보를 불러올 수 없습니다. 브라우저 저장소를 확인해 주세요.'
   }
   booting.value = false
   refresh()
@@ -155,15 +222,31 @@ async function startMenu() {
   }
 }
 
+async function startFinance() {
+  if (!financeIsWaiting.value || financeBusy.value) return
+  await commitFinanceAction(current => startFinanceUnlock(current, Date.now()))
+}
+
+async function changeFinanceEnabled(enable) {
+  if (!financeIsUnlocked.value || financeBusy.value) return
+  if (enable && !window.confirm('자금 엔진을 켜시겠습니까? 다시 켜면 보유 자금이 0M부터 시작합니다.')) return
+  if (!enable && !window.confirm('자금 엔진을 끄면 수익이 멈춥니다. 다시 켤 때 자금은 0M부터 시작합니다. 끄시겠습니까?')) return
+  await commitFinanceAction(current => toggleFinance(current, enable, Date.now()))
+}
+
 function enterMenu() {
   if (!menuUnlocked.value) return
   menuStack.value = ['base']
   view.value = 'menu'
   window.scrollTo({ top: 0, behavior: 'instant' })
 }
-function openChild(id) {
+async function openChild(id) {
   const current = currentMenu.value
-  if (!current.children.includes(id) || !MENU_TREE[id] || MENU_TREE[id].locked) return
+  if (!current.children.includes(id) || !MENU_TREE[id] || financeBusy.value || !financeState.value) return
+  if (!submenuIsUnlocked(id)) {
+    if (!submenuHasStarted(id)) await commitFinanceAction(current => startSubmenuUnlock(current, id, Date.now()))
+    return
+  }
   menuStack.value = [...menuStack.value, id]
   window.scrollTo({ top: 0, behavior: 'instant' })
 }
@@ -178,7 +261,7 @@ function goPrevious() {
 
 async function syncOnFocus() {
   refresh()
-  // 다른 탭에서 회사를 생성/해금한 경우, 재진입 시 최신 상태를 복구합니다.
+  // 다른 탭에서 진행 상태가 변경되었어도 기존 저장 내용을 덮어쓰지 않습니다.
   if (!isMounted || busy.value || !progress.value) return
   try {
     const latest = await loadProgress()
@@ -186,6 +269,7 @@ async function syncOnFocus() {
   } catch (error) {
     console.warn('MYON 진행 동기화 오류:', error)
   }
+  await syncFinance()
 }
 
 onMounted(() => {
@@ -217,7 +301,7 @@ onBeforeUnmount(() => {
         </template>
       </div>
       <div v-if="hasCompany" class="header-meta">
-        <span class="header-version">v0.02</span>
+        <span class="header-version">v0.03</span>
         <time class="header-clock" aria-label="현재 한국 표준시간">{{ kstTime }}</time>
       </div>
     </header>
@@ -250,7 +334,7 @@ onBeforeUnmount(() => {
               <time class="observation-timer">{{ timeLeft(item) }}</time>
             </article>
             <article v-else class="observation-card unlock-countdown-card">
-              <span class="observation-task-name">{{ item.kind === 'company-countdown' ? '회사생성' : '기본 메뉴 해금' }}</span>
+              <span class="observation-task-name">{{ item.kind === 'company-countdown' ? '회사생성' : item.kind === 'finance-countdown' ? '자금 엔진 해금' : '기본 메뉴 해금' }}</span>
               <time class="observation-timer">{{ timeLeft(item) }}</time>
             </article>
           </template>
@@ -259,6 +343,11 @@ onBeforeUnmount(() => {
             :disabled="busy" @click="startMenu">
             <span class="observation-task-name">기본 메뉴 해금</span>
             <span class="waiting-start">시작 ›</span>
+          </button>
+          <button v-if="financeIsWaiting" type="button" class="observation-card waiting-menu-card"
+            :disabled="financeBusy" @click="startFinance">
+            <span class="observation-task-name">자금 엔진 해금</span>
+            <span class="waiting-start">시작 · 01:00:00 ›</span>
           </button>
         </div>
       </template>
@@ -269,11 +358,37 @@ onBeforeUnmount(() => {
       <div class="menu-card-list">
         <template v-for="childId in currentMenu.children" :key="childId">
           <button class="observation-card menu-child-card" type="button"
-            :disabled="MENU_TREE[childId].locked" @click="openChild(childId)">
+            :disabled="financeBusy || !financeState" @click="openChild(childId)">
             <span class="observation-task-name">{{ MENU_TREE[childId].title }}</span>
-            <span v-if="MENU_TREE[childId].locked" class="observation-coming-soon">Coming soon</span>
-            <span v-else class="menu-chevron" aria-hidden="true">›</span>
+            <span v-if="submenuIsUnlocked(childId)" class="menu-chevron" aria-hidden="true">›</span>
+            <time v-else-if="submenuHasStarted(childId)" class="observation-timer">{{ submenuTimeLeft(childId) }}</time>
+            <span v-else class="observation-coming-soon">해금 시작 · 1시간 ›</span>
           </button>
+        </template>
+
+        <template v-if="currentMenuId === 'company'">
+          <section v-if="financeIsUnlocked" class="finance-panel">
+            <div class="finance-panel-heading"><strong>자금 엔진</strong><span :class="financeIsEnabled ? 'finance-on' : 'finance-off'">{{ financeIsEnabled ? 'ON' : 'OFF' }}</span></div>
+            <span class="finance-helper">현재 보유 자금</span>
+            <strong class="finance-amount">{{ formattedBalance }}</strong>
+            <div class="finance-stat"><span>진행 중인 운행·운항 임무</span><strong>{{ activeCount.toLocaleString('ko-KR') }}개</strong></div>
+            <div class="finance-stat"><span>현재 자동 수익</span><strong>{{ financeIsEnabled ? '+' + incomePerSecond.toLocaleString('ko-KR') + 'M / 초' : '수익 없음' }}</strong></div>
+            <p class="finance-note">{{ financeIsEnabled ? '임무 1개당 현실 1초에 1M씩 누적됩니다.' : '자금 엔진이 꺼져 있어 수익이 발생하지 않습니다.' }}</p>
+          </section>
+          <article v-else class="observation-card finance-placeholder">자금 엔진을 해금하면 자금 현황이 표시됩니다.</article>
+        </template>
+
+        <template v-if="currentMenuId === 'settings'">
+          <section v-if="financeIsUnlocked" class="finance-panel">
+            <div class="finance-panel-heading"><strong>자금 엔진 설정</strong><span :class="financeIsEnabled ? 'finance-on' : 'finance-off'">{{ financeIsEnabled ? 'ON' : 'OFF' }}</span></div>
+            <div class="finance-setting-row">
+              <div class="finance-setting-description"><strong>자동 수익</strong><span>진행 중인 임무 1개당 초당 1M</span></div>
+              <button type="button" class="finance-switch" :aria-pressed="financeIsEnabled" :disabled="financeBusy" @click="changeFinanceEnabled(!financeIsEnabled)">{{ financeIsEnabled ? '끄기' : '켜기' }}</button>
+            </div>
+            <p class="finance-note">OFF여도 관전 임무는 계속됩니다. OFF 후 다시 ON하면 보유 자금이 0M부터 시작합니다.</p>
+            <p class="finance-note">경제 모드에서는 후속 엔진·기능 업그레이드에 자금이 필요하고, OFF 상태에서는 시간만 필요합니다. 비용은 후속 기능 도입 시 설정됩니다.</p>
+          </section>
+          <article v-else class="observation-card finance-placeholder">자금 엔진을 해금하면 엔진 ON/OFF 설정이 표시됩니다.</article>
         </template>
       </div>
       <p v-if="errorMessage" class="error-message" role="alert">{{ errorMessage }}</p>
@@ -310,9 +425,18 @@ onBeforeUnmount(() => {
 .company-form-card>strong{font-size:15px}.company-label{font-size:12px;color:#b6d6c4;font-weight:650}
 .company-controls{display:flex;gap:9px;align-items:stretch}.company-controls input{flex:1 1 auto;width:100%;min-width:0;min-height:43px;padding:10px 12px;border-radius:7px;background:#0d1b1a;border:1px solid #426354;color:#e6f6ea;font-size:14px}.company-controls input::placeholder{color:#7d9c90}
 .company-submit{flex:0 0 auto;border:1px solid #b3ebcf;background:#b3ebcf;color:#122a20;border-radius:7px;font-size:13px;font-weight:750;padding:10px 15px;white-space:nowrap}.company-submit:disabled{opacity:.45}
-.menu-child-card{cursor:pointer}.menu-child-card:hover:not(:disabled){background:#1c2b32}.menu-child-card:disabled{cursor:default;opacity:1;color:#dce9e3}.observation-coming-soon{margin-left:auto;white-space:nowrap;font-size:clamp(11px,1.5vw,14px);color:#82998e;font-weight:650}
+.menu-child-card{cursor:pointer}.menu-child-card:hover:not(:disabled){background:#1c2b32}.menu-child-card:disabled{cursor:default;opacity:.7;color:#dce9e3}.observation-coming-soon{margin-left:auto;white-space:nowrap;font-size:clamp(11px,1.5vw,14px);color:#82998e;font-weight:650}
 .menu-footer{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#0d151a;border-top:1px solid #2a4139;min-height:66px;padding:10px clamp(8px,1.6vw,20px) max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);align-items:center;gap:7px}
 .menu-footer button{border:1px solid #2c4540;border-radius:8px;background:#152321;color:#d5eade;min-height:40px;white-space:nowrap;font-size:13px;font-weight:680;padding:9px 7px}.menu-footer button:hover{background:#20352e}.current-menu-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-size:13px;font-weight:750}
+.finance-panel{background:#111c23;border:1px solid #314b44;border-radius:9px;padding:17px clamp(12px,2vw,19px);display:flex;flex-direction:column;gap:13px}
+.finance-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px}
+.finance-on{color:#9de3bd;font-size:12px;font-weight:750}.finance-off{color:#9aaea6;font-size:12px;font-weight:750}
+.finance-helper{font-size:12px;color:#93afa3}.finance-amount{font-size:clamp(22px,4.5vw,35px);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.finance-stat{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}.finance-stat span{color:#a7bcb2}.finance-stat strong{font-variant-numeric:tabular-nums}
+.finance-note{margin:0;color:#95aca1;font-size:12px;line-height:1.65}.finance-setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.finance-setting-description{display:flex;flex-direction:column;gap:5px;font-size:13px}.finance-setting-description span{color:#95aca1;font-size:11px}
+.finance-switch{min-width:65px;border:1px solid #648a78;background:#1b3a2d;border-radius:8px;color:#d4f5e2;padding:11px 14px;font-weight:750;cursor:pointer}.finance-switch:disabled{opacity:.5;cursor:default}
+.finance-placeholder{font-size:13px;color:#95b5a5}
 .empty-text{padding:22px 10px;color:#92a79e;font-size:13px}.error-message{padding:13px 14px;color:#ffd9c8;border:1px solid #8e5144;background:#33221e;border-radius:8px;font-size:12px;line-height:1.6}
 @media(max-width:440px){.observation-header{gap:5px}.observation-brand{gap:6px}.header-meta{gap:6px}.header-version{font-size:9px}.observation-mark{width:26px;height:26px}.observation-brand strong{font-size:14px}.company-brand{font-size:12px}}
 @media(max-width:360px){.observation-card{gap:6px;padding-left:8px;padding-right:8px}.observation-category{min-width:30px;padding:4px 5px}.company-controls{flex-wrap:wrap}.company-submit{flex:1}}
