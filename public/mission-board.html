@@ -18,6 +18,12 @@ body{background:#0a0f15;color:#e7edea;font-family:Inter,Pretendard,'Noto Sans KR
 .receive-button{width:100%;height:50px;border:1px solid #9edab8;background:#abdac1;color:#0d2419;font-weight:800;font-size:15px;letter-spacing:-.02em;border-radius:10px;cursor:pointer;display:flex;justify-content:center;align-items:center;gap:10px;transition:transform .13s,background .13s,opacity .13s}
 .receive-button:active:not(:disabled){transform:scale(.992);background:#90c9aa}.receive-button:disabled{opacity:.5;cursor:default}
 .receive-button .icon{height:17px;width:17px;display:inline-grid;place-items:center}
+.receive-actions{display:grid;grid-template-columns:minmax(0,1fr) 108px;gap:8px}
+.auto-button{min-width:0;border:1px solid #3d5a51;background:#172923;color:#b8cdc3;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;letter-spacing:-.02em;transition:background .15s,border-color .15s,color .15s}
+.auto-button:active{transform:scale(.98)}
+.auto-button.active{border-color:#8dc6a7;background:#254d3b;color:#c8ffdb}
+.auto-button:focus-visible,.receive-button:focus-visible{outline:2px solid #9decc1;outline-offset:3px}
+
 .stage{position:relative;border:1px solid #4b7668;background:linear-gradient(120deg,#18352c,#122a2b);border-radius:10px;min-height:96px;padding:19px 15px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .stage[hidden]{display:none}
 .stage.is-scanning::before{content:'';position:absolute;inset:0;background:linear-gradient(95deg,transparent 15%,rgba(149,239,195,.14) 48%,transparent 80%);transform:translateX(-120%);animation:scan 1.05s linear infinite}
@@ -35,7 +41,7 @@ body{background:#0a0f15;color:#e7edea;font-family:Inter,Pretendard,'Noto Sans KR
 .domain{font-size:11px;font-weight:750;white-space:nowrap;color:#c1decf;background:#254638;border-radius:5px;padding:5px 7px;flex:0 0 auto}.mission-name{min-width:0;flex:1;overflow-wrap:anywhere;font-size:13px;font-weight:620;letter-spacing:-.02em}.remaining{white-space:nowrap;flex:0 0 auto;font-size:13px;font-weight:730;color:#d8eee3;font-variant-numeric:tabular-nums;text-align:right}
 .empty{padding:35px 12px;text-align:center;border:1px dashed #324642;color:#93a59e;font-size:13px;border-radius:9px}.warning{font-size:12px;padding:12px 14px;margin-top:16px;border:1px solid #85534d;border-radius:8px;background:#342520;color:#ffd3c8}
 @media(max-width:500px){.board-header{height:78px;padding:0 12px}.brand{gap:6px}.mark{width:27px;height:27px}.brand strong{font-size:14px}.kst-date{font-size:11px}.kst-time{font-size:27px}.board-content{padding:12px 9px 35px}.receive-button{height:49px}.stage{min-height:94px;padding:16px 12px}.revealed-title{font-size:15px}.revealed-time{font-size:12px}.mission-row{gap:7px;padding:12px 10px;min-height:53px}.domain{font-size:10px;padding:5px 6px}.mission-name{font-size:12px}.remaining{font-size:12px}}
-@media(max-width:360px){.mission-row{gap:5px;padding-left:7px;padding-right:7px}.remaining{font-size:11px}.revealed{gap:5px}}
+@media(max-width:360px){.receive-actions{grid-template-columns:minmax(0,1fr) 93px}.auto-button{font-size:12px}.mission-row{gap:5px;padding-left:7px;padding-right:7px}.remaining{font-size:11px}.revealed{gap:5px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -43,7 +49,10 @@ body{background:#0a0f15;color:#e7edea;font-family:Inter,Pretendard,'Noto Sans KR
 <header class="board-header"><div class="brand"><span class="mark">M</span><strong>MYON</strong></div><time class="kst" id="clock"><span class="kst-date" id="clock-date">----.--.--</span><span class="kst-time" id="clock-time">--:--</span></time></header>
 <main class="board-content">
   <section class="receive" aria-label="임무 받기">
-    <button type="button" id="receive-button" class="receive-button"><span class="icon">＋</span><span id="receive-label">임무 받기</span></button>
+    <div class="receive-actions">
+      <button type="button" id="receive-button" class="receive-button"><span class="icon">＋</span><span id="receive-label">임무 받기</span></button>
+      <button type="button" id="auto-button" class="auto-button" aria-pressed="false">자동 OFF</button>
+    </div>
     <div class="stage" id="stage" aria-live="polite" hidden></div>
   </section>
   <section aria-label="임무 목록"><div class="list-head"><strong>임무</strong><span><span id="active-count">–</span> / 20</span></div><div id="mission-list" class="mission-list"></div></section>
@@ -116,19 +125,76 @@ function makeMission(seed, index, startedAt) {
 
 function initialBoard(now=Date.now(),seed=freshSeed()){
  const normalized=seed>>>0;
- return {schemaVersion:3,createdAt:now,updatedAt:now,seed:normalized,generatedCount:INITIAL_MISSIONS,tasks:Array.from({length:INITIAL_MISSIONS},(_,i)=>makeMission(normalized,i,now)),staged:null};
+ return {
+   schemaVersion:4,createdAt:now,updatedAt:now,seed:normalized,
+   generatedCount:INITIAL_MISSIONS,
+   tasks:Array.from({length:INITIAL_MISSIONS},(_,i)=>makeMission(normalized,i,now)),
+   staged:null,scan:null,autoEnabled:false
+ };
 }
 function validTask(task){return !!(task&&typeof task.id==='string'&&Object.hasOwn(DOMAIN_LABELS,task.category)&&typeof task.title==='string'&&Number.isFinite(task.startedAt)&&Number.isFinite(task.endsAt)&&Number.isFinite(task.durationSeconds)&&task.durationSeconds>0&&task.endsAt===task.startedAt+task.durationSeconds*1000)}
-function validBoard(data){return !!(data&&data.schemaVersion===3&&Number.isFinite(data.createdAt)&&Number.isFinite(data.updatedAt)&&Number.isInteger(data.seed)&&data.seed>=0&&data.seed<=0xffffffff&&Number.isSafeInteger(data.generatedCount)&&data.generatedCount>=0&&Array.isArray(data.tasks)&&data.tasks.length<=MAX_ACTIVE_MISSIONS&&data.tasks.every(validTask)&&(!data.staged||(validTask(data.staged.mission)&&Number.isFinite(data.staged.until))))}
+function validLegacyBoard(data){return !!(data&&data.schemaVersion===3&&Number.isFinite(data.createdAt)&&Number.isFinite(data.updatedAt)&&Number.isInteger(data.seed)&&data.seed>=0&&data.seed<=0xffffffff&&Number.isSafeInteger(data.generatedCount)&&data.generatedCount>=0&&Array.isArray(data.tasks)&&data.tasks.length<=MAX_ACTIVE_MISSIONS&&data.tasks.every(validTask)&&(!data.staged||(validTask(data.staged.mission)&&Number.isFinite(data.staged.until))))}
+function migrateBoard(data){
+ if(!data)return null;
+ if(validLegacyBoard(data))return {...data,schemaVersion:4,autoEnabled:false,scan:null,staged:data.staged?{...data.staged,mode:'manual'}:null};
+ return data;
+}
+function validBoard(data){
+ return !!(data&&data.schemaVersion===4&&Number.isFinite(data.createdAt)&&Number.isFinite(data.updatedAt)&&Number.isInteger(data.seed)&&data.seed>=0&&data.seed<=0xffffffff&&Number.isSafeInteger(data.generatedCount)&&data.generatedCount>=0&&Array.isArray(data.tasks)&&data.tasks.length<=MAX_ACTIVE_MISSIONS&&data.tasks.every(validTask)&&typeof data.autoEnabled==='boolean'&&(!data.scan||(Number.isFinite(data.scan.startedAt)&&['manual','auto'].includes(data.scan.mode)))&&(!data.staged||(validTask(data.staged.mission)&&Number.isFinite(data.staged.until)&&['manual','auto'].includes(data.staged.mode)))&&!(data.scan&&data.staged)&&data.tasks.length+(data.staged?1:0)<=MAX_ACTIVE_MISSIONS);
+}
+
+// 브라우저가 닫혀 있는 동안에도 종료/자동수락 이벤트를 실제 시각 순서로 계산합니다.
+// 프레임 단위 반복 대신 종료·수락·배치 시점으로 점프합니다.
 function advanceBoard(data,now=Date.now()){
  if(!validBoard(data))throw new Error('저장 형식 오류');
- const tasks=data.tasks.filter(t=>t.endsAt>now);
- let staged=data.staged;
- if(staged&&staged.until<=now){if(staged.mission.endsAt>now&&tasks.length<MAX_ACTIVE_MISSIONS)tasks.push(staged.mission);staged=null;}
- if(staged&&staged.mission.endsAt<=now)staged=null;
- if(tasks.length===data.tasks.length&&staged===data.staged)return data;
- return {...data,tasks,staged,updatedAt:now};
+ if(now<data.updatedAt)return data;
+ const next={...data,tasks:[...data.tasks]};
+ let changed=false;
+ let at=Math.min(now,Math.max(data.updatedAt,data.createdAt));
+ let operations=0;
+ const OPERATION_LIMIT=20000;
+ while(true){
+   const before=next.tasks.length;
+   next.tasks=next.tasks.filter(m=>m.endsAt>at);
+   if(next.tasks.length!==before)changed=true;
+
+   if(next.staged&&next.staged.until<=at){
+     if(next.staged.mission.endsAt>at&&next.tasks.length<MAX_ACTIVE_MISSIONS)next.tasks.push(next.staged.mission);
+     next.staged=null;changed=true;
+   }
+   if(next.scan&&next.scan.startedAt+SCAN_MS<=at){
+     const startedAt=next.scan.startedAt+SCAN_MS;
+     if(!next.staged&&next.tasks.length<MAX_ACTIVE_MISSIONS){
+       const mission=makeMission(next.seed,next.generatedCount,startedAt);
+       next.generatedCount+=1;
+       next.staged={mission,until:startedAt+SHOW_MS,mode:next.scan.mode};
+     }
+     next.scan=null;changed=true;
+   }
+   if(next.autoEnabled&&!next.scan&&!next.staged&&next.tasks.length<MAX_ACTIVE_MISSIONS){
+     next.scan={mode:'auto',startedAt:at};changed=true;
+   }
+   if(at>=now)break;
+   const future=[
+     next.scan?next.scan.startedAt+SCAN_MS:Infinity,
+     next.staged?next.staged.until:Infinity,
+     ...next.tasks.map(m=>m.endsAt)
+   ].filter(t=>t>at&&t<=now);
+   if(!future.length)break;
+   at=Math.min(...future);
+   operations++;
+   if(operations>OPERATION_LIMIT){
+     // 극단적으로 오랫동안 미접속한 경우에도 화면이 멈추지 않도록
+     // 오래된 활성 임무는 정리하고 현재 시점부터 재가동합니다.
+     next.tasks=next.tasks.filter(m=>m.endsAt>now);
+     next.staged=null;next.scan=next.autoEnabled?{mode:'auto',startedAt:now}:null;
+     changed=true;
+     break;
+   }
+ }
+ return changed?{...next,updatedAt:now}:data;
 }
+
 function formatRemaining(seconds) {
   const total = Math.max(0, Math.ceil(seconds))
   const days = Math.floor(total / 86400)
@@ -178,24 +244,39 @@ async function saveBoard(data) {
 }
 
 
-const ui={clock:document.getElementById('clock'),clockDate:document.getElementById('clock-date'),clockTime:document.getElementById('clock-time'),button:document.getElementById('receive-button'),label:document.getElementById('receive-label'),count:document.getElementById('active-count'),list:document.getElementById('mission-list'),stage:document.getElementById('stage'),warning:document.getElementById('warning')};
+const ui={
+ clock:document.getElementById('clock'),clockDate:document.getElementById('clock-date'),clockTime:document.getElementById('clock-time'),
+ button:document.getElementById('receive-button'),label:document.getElementById('receive-label'),auto:document.getElementById('auto-button'),
+ count:document.getElementById('active-count'),list:document.getElementById('mission-list'),stage:document.getElementById('stage'),warning:document.getElementById('warning')
+};
 const kstClock=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 function formatKstClock(date){
  const parts=Object.fromEntries(kstClock.formatToParts(date).map(part=>[part.type,part.value]));
  return `${parts.year}.${parts.month}.${parts.day} ${parts.hour}:${parts.minute}`;
 }
-let board=null,scanStarted=0,scanning=false,lastSecond=-1,lastStructure='',lastListAt=0,saveQueue=Promise.resolve(),scanTimer=null;
+let board=null,lastSecond=-1,lastStructure='',lastListAt=0,saveQueue=Promise.resolve();
 function warn(message){ui.warning.hidden=false;ui.warning.textContent=message}
 function queueSave(snapshot){saveQueue=saveQueue.catch(()=>{}).then(()=>saveBoard(snapshot)).catch(()=>warn('저장 실패'));}
 function receiveCount(){return board.tasks.length+(board.staged?1:0)}
-function updateButton(){if(!board)return;const full=receiveCount()>=MAX_ACTIVE_MISSIONS;ui.button.disabled=scanning||!!board.staged||full;ui.label.textContent=scanning?'임무 탐색 중':full?'임무 목록 가득 참':'임무 받기'}
+function updateButton(){
+ if(!board)return;
+ const full=receiveCount()>=MAX_ACTIVE_MISSIONS;
+ ui.button.disabled=!!board.scan||!!board.staged||full;
+ ui.label.textContent=board.scan?'임무 탐색 중':full?'임무 목록 가득 참':'임무 받기';
+ ui.auto.classList.toggle('active',board.autoEnabled);
+ ui.auto.textContent=board.autoEnabled?'자동 ON':'자동 OFF';
+ ui.auto.setAttribute('aria-pressed',String(board.autoEnabled));
+}
 function renderStage(now){
- if(scanning){
+ if(board?.scan){
   ui.stage.hidden=false;ui.stage.className='stage is-scanning';
-  if(!ui.stage.querySelector('.scanning'))ui.stage.innerHTML='<div class="scanning"><div class="scan-line" id="scan-text">분야 분석 중<span class="scan-dots">···</span></div><div class="scan-track"><div id="scan-fill" class="scan-fill"></div></div></div>';
-  const progress=Math.min(1,(now-scanStarted)/SCAN_MS);
-  const scanFill=document.getElementById('scan-fill');if(scanFill)scanFill.style.transform=`scaleX(${progress})`;
-  const msg=document.getElementById('scan-text');if(msg){const phases=['분야 분석 중','임무 시간 계산 중','임무 배정 중'];const p=Math.min(2,Math.floor(progress*3));msg.firstChild.nodeValue=phases[p];}
+  if(!ui.stage.querySelector('.scanning')){
+    ui.stage.dataset.token='';
+    ui.stage.innerHTML='<div class="scanning"><div class="scan-line" id="scan-text">분야 분석 중<span class="scan-dots">···</span></div><div class="scan-track"><div id="scan-fill" class="scan-fill"></div></div></div>';
+  }
+  const progress=Math.min(1,Math.max(0,(now-board.scan.startedAt)/SCAN_MS));
+  const fill=document.getElementById('scan-fill');if(fill)fill.style.transform=`scaleX(${progress})`;
+  const msg=document.getElementById('scan-text');if(msg){const phases=['분야 분석 중','임무 시간 계산 중','임무 배정 중'];msg.firstChild.nodeValue=phases[Math.min(2,Math.floor(progress*3))]}
   return;
  }
  if(board?.staged){
@@ -242,31 +323,60 @@ function renderList(now){
  }
  ui.list.replaceChildren(frag);lastStructure=structure;lastListAt=now;
 }
-function render(now){const displayClock=formatKstClock(new Date(now));const [datePart,timePart]=displayClock.split(' ');ui.clockDate.textContent=datePart;ui.clockTime.textContent=timePart;ui.clock.dateTime=new Date(now).toISOString();ui.clock.setAttribute('aria-label',displayClock);if(!board)return;ui.count.textContent=receiveCount();updateButton();renderStage(now);renderList(now)}
-function tick(){if(!board)return;const now=Date.now();const next=advanceBoard(board,now);if(next!==board){board=next;queueSave(board)}const s=Math.floor(now/1000);if(s!==lastSecond||scanning||!!board.staged||next!==board){render(now);lastSecond=s}}
+function render(now){
+ const displayClock=formatKstClock(new Date(now));const [datePart,timePart]=displayClock.split(' ');
+ ui.clockDate.textContent=datePart;ui.clockTime.textContent=timePart;ui.clock.dateTime=new Date(now).toISOString();ui.clock.setAttribute('aria-label',displayClock);
+ if(!board)return;
+ ui.count.textContent=receiveCount();updateButton();renderStage(now);renderList(now);
+}
+function tick(){
+ if(!board)return;
+ const now=Date.now();const next=advanceBoard(board,now);
+ if(next!==board){board=next;queueSave(board)}
+ const second=Math.floor(now/1000);
+ if(second!==lastSecond||!!board.scan||!!board.staged||next!==board){render(now);lastSecond=second}
+}
 function beginReceive(){
- if(!board||scanning||board.staged||receiveCount()>=MAX_ACTIVE_MISSIONS)return;
- scanning=true;scanStarted=Date.now();render(scanStarted);
- scanTimer=setTimeout(()=>{
-  scanTimer=null;if(!board)return;
-  scanning=false;
-  const now=Date.now();const item=makeMission(board.seed,board.generatedCount,now);
-  board={...board,generatedCount:board.generatedCount+1,staged:{mission:item,until:now+SHOW_MS},updatedAt:now};
-  queueSave(board);render(now);
- },SCAN_MS);
+ if(!board||board.scan||board.staged||receiveCount()>=MAX_ACTIVE_MISSIONS)return;
+ const now=Date.now();
+ board={...board,scan:{mode:'manual',startedAt:now},updatedAt:now};
+ queueSave(board);render(now);
+}
+function toggleAuto(){
+ if(!board)return;
+ const now=Date.now();
+ const enabled=!board.autoEnabled;
+ board={...board,autoEnabled:enabled,
+   scan:(!enabled&&board.scan?.mode==='auto')?null:board.scan,
+   updatedAt:now};
+ board=advanceBoard(board,now);
+ queueSave(board);render(now);
 }
 ui.button.addEventListener('click',beginReceive);
+ui.auto.addEventListener('click',toggleAuto);
 async function boot(){
  try{
-  const stored=await loadBoard();if(stored&&!validBoard(stored)){warn('저장 데이터 형식 오류');return}
-  board=advanceBoard(stored??initialBoard(),Date.now());if(!stored||board!==stored)queueSave(board);render(Date.now());
+  const stored=await loadBoard();const migrated=migrateBoard(stored);
+  if(migrated&&!validBoard(migrated)){warn('저장 데이터 형식 오류');return}
+  board=advanceBoard(migrated??initialBoard(),Date.now());
+  if(!stored||board!==stored)queueSave(board);
+  render(Date.now());
  }catch(err){console.warn(err);warn('브라우저 저장소를 열 수 없습니다.')}
 }
-async function resume(){if(!board||scanning)return;try{await saveQueue;const saved=await loadBoard();if(validBoard(saved)&&saved.updatedAt>=board.updatedAt)board=saved}catch{}tick()}
+async function resume(){
+ if(!board)return;
+ try{
+  await saveQueue;
+  const saved=migrateBoard(await loadBoard());
+  if(validBoard(saved)&&saved.updatedAt>board.updatedAt)board=saved;
+ }catch{}
+ tick();
+}
 window.setInterval(tick,120);
 window.addEventListener('pageshow',resume);
 window.addEventListener('focus',resume);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)resume()});
 boot();
+
 </script>
 </body></html>

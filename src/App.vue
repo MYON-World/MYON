@@ -1,7 +1,7 @@
 <script setup>
 import ObservationView from './ObservationView.vue'
 
-// v0.04 승인된 임무판을 기본 화면으로 사용하고, 기존 v0.03 기능은 별도 경로로 보존합니다.
+// v0.05 자동임무판을 기본 화면으로 사용하고, 기존 v0.03 기능은 별도 경로로 보존합니다.
 const legacy = new URLSearchParams(window.location.search).get('mode') === 'legacy'
 const boardUrl = `${import.meta.env.BASE_URL}mission-board.html`
 </script>
