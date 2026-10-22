@@ -16,7 +16,7 @@
 .menu{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:57px;width:100%;background:#111c23;color:#e7edea;border:1px solid #273b3d;border-radius:9px;padding:15px;text-align:left;font-size:14px;font-weight:750}.menu.primary{background:#173027;border-color:#426754}.chevron{font-size:23px;color:#a7dbc2;line-height:1}
 .card{background:#111c23;border:1px solid #293e3c;border-radius:8px;overflow:hidden}.inner{padding:12px}.row{display:flex;align-items:center;justify-content:space-between;gap:8px}.name{font-size:14px;font-weight:800}.dim{color:#97aca2;font-size:11px}.num{font-weight:750;font-variant-numeric:tabular-nums}.green{color:#bdebd0}
 .pill{border:1px solid #4b5550;background:#293332;border-radius:5px;color:#cbdad1;padding:4px 7px;font-size:10px;font-weight:750;white-space:nowrap}.pill.paid{border-color:#427651;background:#1e4431;color:#bdf2ce}
-.thin{height:4px;background:#30423e;border-radius:10px;overflow:hidden;margin-top:7px}.thin i{display:block;height:100%;background:#a4dbba;transition:width .2s;border-radius:10px}.subrow{margin-top:9px}
+.thin{height:4px;background:#30423e;border-radius:10px;overflow:hidden;margin-top:7px}.thin i{display:block;height:100%;background:#a4dbba;transition:width .2s;border-radius:10px}.subrow{margin-top:9px}.delay{color:#e8c58f}.trip{margin-top:9px;display:flex;flex-direction:column;gap:6px}.trip-label{font-size:12px;font-weight:650;min-width:0;overflow-wrap:anywhere}.trip .thin{margin-top:0}.trip-bottom{font-size:11px}.num{white-space:nowrap}
 .actions{margin-top:10px;display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:6px}.btn{min-height:37px;padding:8px 9px;border-radius:7px;border:1px solid #3f5a4e;background:#1b302a;color:#d2eade;font-weight:750;font-size:12px}.btn.mainbtn{background:#abdac1;border-color:#abdac1;color:#11261a}.btn.full{width:100%}
 .panel{background:#142125;border-top:1px solid #2a4140;padding:12px;display:flex;flex-direction:column;gap:10px}.detailrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;font-size:12px}.detailrow span{color:#9eb6aa}.detailrow strong{text-align:right;font-variant-numeric:tabular-nums}
 .entry{display:flex;gap:6px}.entry input{min-width:0;width:100%;flex:1;background:#0e171b;border:1px solid #35534c;color:#e6eee9;border-radius:6px;padding:9px}.entry button{border:1px solid #487459;background:#1d4230;color:#d4f5e0;border-radius:6px;padding:9px 12px;font-weight:750}
@@ -87,11 +87,19 @@ function validate(s){
  return {balance:Number.isSafeInteger(s.balance)&&s.balance>=0?s.balance:0,rate:Number.isInteger(s.rate)?Math.max(0,Math.min(90,s.rate)):90,seq:Math.max(...ids)+1,cars};
 }
 function fareFor(km){return 4800+Math.floor(Math.max(0,Math.round(km*1000)-1600)/131)*100;}
+function timeLeft(seconds){
+ const s=Math.max(0,Math.ceil(seconds));
+ const hours=Math.floor(s/3600),minutes=Math.floor((s%3600)/60),secs=s%60;
+ return (hours?hours+':':'')+String(minutes).padStart(2,'0')+':'+String(secs).padStart(2,'0');
+}
 function newTrip(c){
  if(c.task)return;
  const km=Math.round((1+Math.random()*9)*10)/10;
- const duration=4500+km*650;
- c.task={km,fare:fareFor(km),duration,end:Date.now()+duration};
+ // 교통정체 발생 확률은 현재 50%로 임시 적용합니다.
+ const delayMinutes=Math.random()<0.5?10+Math.floor(Math.random()*51):0;
+ const duration=(km*3+delayMinutes)*60*1000;
+ const fare=fareFor(km)+delayMinutes*200;
+ c.task={km,delayMinutes,fare,duration,end:Date.now()+duration};
  changed();
 }
 function settle(c){
@@ -101,7 +109,7 @@ function settle(c){
  c.debt-=paid;
  const received=gross-paid;
  state.balance+=received;
- c.last={fare:gross,received,city:paid,km:c.task.km};
+ c.last={fare:gross,received,city:paid,km:c.task.km,delayMinutes:c.task.delayMinutes||0};
  c.count++;
  c.task=null;
  if(c.debt===0)newTrip(c);
@@ -110,20 +118,29 @@ function settle(c){
 function progress(c){return c.initial===0?100:(c.initial-c.debt)/c.initial*100;}
 function carHTML(c){
  const paid=c.debt===0,pct=progress(c);
- const secs=c.task?Math.max(0,Math.ceil((c.task.end-Date.now())/1000)):0;
+ const trip=c.task,last=c.last;
+ const seconds=trip?(trip.end-Date.now())/1000:0;
+ const delay=trip&&trip.delayMinutes?'<span class="delay"> · 지연 +'+trip.delayMinutes+'분</span>':'';
  return '<article class="card"><div class="inner">'+
  '<div class="row"><strong class="name">택시 '+c.id+'호차</strong><span class="pill '+(paid?'paid':'')+'">'+(paid?'자동운행':'수동 · 시 납부 '+c.rate+'%')+'</span></div>'+
  (paid?
- '<div class="row subrow"><span class="dim">운행 '+(c.task?c.task.km.toFixed(1)+'km':'준비 중')+' · '+c.count+'회 완료</span><span class="num green" data-timer="'+c.id+'">'+(c.task?secs+'초':'-')+'</span></div>'+
- (c.task?'<div class="thin"><i data-trip="'+c.id+'" style="width:'+Math.max(0,Math.min(100,100*(1-(c.task.end-Date.now())/c.task.duration)))+'%"></i></div>':'')+
- '<div class="row subrow"><span class="dim">최근 운행 수익</span><strong class="num green">'+(c.last?'+'+money(c.last.received):'-')+'</strong></div>'
+ '<div class="row subrow"><span class="dim">누적 운행 '+c.count+'회</span><strong class="num green">'+(last?'최근 +'+money(last.received):'운행 중')+'</strong></div>'
  :
  '<div class="row subrow"><span class="dim">남은 지원금</span><strong class="num">'+money(c.debt)+'</strong></div>'+
- '<div class="thin"><i style="width:'+pct+'%"></i></div>'+
- '<div class="row subrow"><span class="dim">'+(c.task?'운행 중 · '+c.task.km.toFixed(1)+'km':'상환 '+pct.toFixed(1)+'%')+'</span><span class="num dim" data-timer="'+c.id+'">'+(c.task?secs+'초':c.last?'최근 수익 +'+money(c.last.received):'운행 대기')+'</span></div>'+
- (c.task?'<div class="thin"><i data-trip="'+c.id+'" style="width:'+Math.max(0,Math.min(100,100*(1-(c.task.end-Date.now())/c.task.duration)))+'%"></i></div>':'')+
- '<div class="actions"><button type="button" class="btn mainbtn" data-act="run" data-id="'+c.id+'" '+(c.task?'disabled':'')+'>'+(c.task?'운행 중':'수동운행')+'</button><button type="button" class="btn" data-act="expand" data-id="'+c.id+'" aria-label="상환 상세">'+(opened===c.id?'⌃':'···')+'</button></div>'
+ '<div class="thin"><i style="width:'+pct+'%"></i></div>'
  )+
+ (trip?
+ '<div class="trip">'+
+ '<div class="row"><span class="trip-label">운행 '+trip.km.toFixed(1)+'km'+delay+'</span><strong class="num green" data-timer="'+c.id+'">'+timeLeft(seconds)+'</strong></div>'+
+ '<div class="thin"><i data-trip="'+c.id+'" style="width:'+Math.max(0,Math.min(100,100*(1-(trip.end-Date.now())/trip.duration)))+'%"></i></div>'+
+ '<div class="row trip-bottom"><span class="dim">예상요금</span><strong class="num">'+money(trip.fare)+'</strong></div>'+
+ '</div>'
+ :!paid&&last?
+ '<div class="row subrow"><span class="dim">최근 '+last.km.toFixed(1)+'km'+(last.delayMinutes?' · 지연 +'+last.delayMinutes+'분':'')+'</span><strong class="num green">+'+money(last.received)+'</strong></div>'
+ :!paid?'<div class="row subrow"><span class="dim">운행 대기</span></div>':'')+
+ (!paid?
+ '<div class="actions"><button type="button" class="btn mainbtn" data-act="run" data-id="'+c.id+'" '+(trip?'disabled':'')+'>'+(trip?'운행 중':'수동운행')+'</button><button type="button" class="btn" data-act="expand" data-id="'+c.id+'" aria-label="상환 상세">'+(opened===c.id?'⌃':'···')+'</button></div>'
+ :'')+
  '</div>'+
  (!paid&&opened===c.id?
  '<div class="panel"><div class="detailrow"><span>차량가격</span><strong>'+money(PRICE)+'</strong><span>시 납부율</span><strong>'+c.rate+'%</strong><span>미상환 지원금</span><strong>'+money(c.debt)+'</strong></div>'+
@@ -147,7 +164,7 @@ function draw(){
  '<input class="range" type="range" min="0" max="90" step="1" value="'+state.rate+'" id="rate-slider" aria-label="시 지원 비율">'+
  '<div class="detailrow"><span>차량가격</span><strong>'+money(PRICE)+'</strong><span>시 지원금</span><strong id="aid-label">'+money(aid)+'</strong><span>자기 부담금</span><strong id="own-label">'+money(own)+'</strong></div>'+
  '<button type="button" class="btn mainbtn full" data-act="purchase" id="purchase" '+(state.balance<own?'disabled':'')+'>구매 · '+money(own)+'</button></div>':'')+'</div>';
- if(preview)html+='<div class="test"><span class="dim">테스트 자금</span><div class="testbuttons"><button type="button" data-grant="3000000">+300만</button><button type="button" data-grant="30000000">+3,000만</button><button type="button" data-grant="reset">초기화</button></div></div>';
+ if(preview)html+='<div class="test"><span class="dim">테스트 기능</span><div class="testbuttons"><button type="button" data-grant="3000000">+300만</button><button type="button" data-grant="30000000">+3,000만</button><button type="button" data-grant="finish">운행 완료</button><button type="button" data-grant="reset">초기화</button></div></div>';
  html+='<div class="message" role="status">'+message+'</div>';
  content.innerHTML=html;
 }
@@ -168,6 +185,11 @@ document.addEventListener('click',e=>{
  const grant=e.target.closest('button[data-grant]');
  if(grant&&preview){
   if(grant.dataset.grant==='reset'){state=blank();opened=null;buyOpen=false;message='초기화 완료';}
+  else if(grant.dataset.grant==='finish'){
+   const active=state.cars.filter(c=>c.task);
+   for(const c of active)settle(c);
+   message=active.length?active.length+'대 운행 정산 완료':'진행 중인 운행이 없습니다.';
+  }
   else{state.balance+=Number(grant.dataset.grant);message='테스트 자금 추가';}
   changed();draw();return;
  }
@@ -205,7 +227,7 @@ setInterval(()=>{
   if(!c.task){if(c.debt===0){newTrip(c);finished=true;}continue;}
   if(now>=c.task.end){settle(c);finished=true;}
   else if(page==='taxi'){
-   const timer=document.querySelector('[data-timer="'+c.id+'"]');if(timer)timer.textContent=Math.ceil((c.task.end-now)/1000)+'초';
+   const timer=document.querySelector('[data-timer="'+c.id+'"]');if(timer)timer.textContent=timeLeft((c.task.end-now)/1000);
    const bar=document.querySelector('[data-trip="'+c.id+'"]');if(bar)bar.style.width=Math.max(0,Math.min(100,100*(1-(c.task.end-now)/c.task.duration)))+'%';
   }
  }
