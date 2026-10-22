@@ -1,10 +1,23 @@
 <script setup>
 import ObservationView from './ObservationView.vue'
-// v0.01 관전 화면을 계승하며, v0.02 진행 상태에 따라
-// 회사 생성과 메뉴 개방 화면을 같은 진입점에서 표시합니다.
-// 기존 게임 화면은 LegacyApp.vue에 별도로 보존합니다.
+
+// v0.04 승인된 임무판을 기본 화면으로 사용하고, 기존 v0.03 기능은 별도 경로로 보존합니다.
+const legacy = new URLSearchParams(window.location.search).get('mode') === 'legacy'
+const boardUrl = `${import.meta.env.BASE_URL}mission-board.html`
 </script>
 
 <template>
-  <ObservationView />
+  <ObservationView v-if="legacy" />
+  <iframe v-else class="mission-board-frame" :src="boardUrl" title="MYON 임무판" />
 </template>
+
+<style scoped>
+.mission-board-frame {
+  display: block;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  border: 0;
+  background: #0a0f15;
+}
+</style>
