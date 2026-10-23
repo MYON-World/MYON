@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0f15">
-<title>MYON · 택시</title>
+<title>MYON · 회사 운영</title>
 <style>
 :root{color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;min-height:100%;scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}body{background:#0a0f15;color:#e7edea;font:13px Inter,Pretendard,'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{opacity:.45;cursor:default}
 .shell{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
@@ -38,10 +38,46 @@
 .taxi-card .panel{margin-top:7px;border:1px solid #29433d;border-radius:8px}
 @media(max-width:380px){.meter-head{font-size:15px}.meter-price{font-size:32px}.meter{padding:7px 10px 8px}}
 @media(max-width:380px){.top{height:76px}.brand{font-size:15px}.clock strong{font-size:26px}.money strong{font-size:19px}.inner{padding:11px}.pill{font-size:10px}}
+
+/* v0.07: 모바일 첫 접속 메신저 */
+.intro-root{position:fixed;inset:0;z-index:30;display:flex;justify-content:center;background:#080f14}
+.intro-root[hidden]{display:none}
+.intro-screen{display:flex;flex-direction:column;width:100%;max-width:520px;min-height:100vh;height:100dvh;background:#0d181f;border-inline:1px solid #253a38}
+.intro-top{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;background:#11221f;border-bottom:1px solid #29423a}
+.intro-brand{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:850;letter-spacing:.09em}
+.intro-mark{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;background:#b7e8cc;color:#193225;letter-spacing:0}
+.intro-sub{font-size:11px;color:#a5bfb0}
+.intro-contact{display:flex;align-items:center;gap:11px;padding:13px 16px;background:#172829;border-bottom:1px solid #2d4240}
+.intro-avatar{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#315747;color:#d0f4db;font-size:19px}
+.intro-person{font-size:14px;font-weight:800}
+.intro-conversation{flex:1;overflow-y:auto;min-height:0;padding:20px 14px;display:flex;flex-direction:column;gap:12px;scrollbar-width:none}
+.intro-conversation::-webkit-scrollbar{display:none}
+.intro-divider{text-align:center;color:#91a99d;font-size:11px}
+.intro-bubble{max-width:86%;align-self:flex-start;background:#26393c;border:1px solid #314c4b;border-radius:5px 15px 15px 15px;padding:12px 13px;line-height:1.7;font-size:13px;white-space:pre-line;overflow-wrap:anywhere}
+.intro-bubble.mine{align-self:flex-end;background:#21523c;border-color:#376f51;border-radius:15px 5px 15px 15px}
+.intro-actions{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;padding:13px 14px max(16px,env(safe-area-inset-bottom));border-top:1px solid #2b4940;background:#14231f}
+.intro-actions .intro-label{font-size:11px;color:#9eb8ab}
+.intro-actions button{width:100%;min-height:46px;border:1px solid #4c8060;background:#1e3a30;border-radius:9px;color:#e1f9eb;text-align:center;font-weight:750;padding:12px 10px}
+.intro-actions button:active{background:#2b6748}
+.intro-actions button:last-child{background:#b1e8c5;color:#142c20;border-color:#b1e8c5}
+.home-overview{padding:14px;display:flex;flex-direction:column;gap:12px}
+.home-overview h2{font-size:13px;color:#b1e9c7;margin:0}
+.home-overview p{font-size:12px;color:#b0c6b7;margin:0;line-height:1.55}
+.home-overview .home-actions{display:grid;grid-template-columns:1fr;gap:7px}
+.home-overview .home-actions button{min-height:44px;border:1px solid #496e57;border-radius:8px;background:#1b382b;color:#d6f1e2;font-weight:800}
 </style>
 </head>
 <body>
-<div class="shell">
+
+<section class="intro-root" id="intro-root" aria-label="첫 접속 메시지" role="dialog" aria-modal="true" hidden>
+ <div class="intro-screen">
+  <header class="intro-top"><div class="intro-brand"><span class="intro-mark">M</span>MYON</div><span class="intro-sub">첫 접속 · 메시지</span></header>
+  <div class="intro-contact"><div class="intro-avatar" aria-hidden="true">✉</div><div><div class="intro-person">운영 지원팀</div><div class="intro-sub">새 메시지가 도착했습니다</div></div></div>
+  <div class="intro-conversation" id="intro-conversation" aria-live="polite" aria-relevant="additions text"></div>
+  <div class="intro-actions" id="intro-actions"></div>
+ </div>
+</section>
+<div class="shell" id="game-shell" style="visibility:hidden">
 <header class="top"><div class="brand"><span class="mark">M</span>MYON</div><div class="clock"><small id="myon-date">----.--.--</small><strong id="myon-clock">--:--</strong></div></header>
 <div class="money"><span>현재 자금</span><strong id="balance">0 M</strong></div>
 <main class="main" id="main"><div class="stack" id="content"></div></main>
@@ -51,13 +87,14 @@
 (()=>{
 'use strict';
 const PRICE=30000000,MAX_TAXIS=20;
-const DB='myon-taxi-v006',STORE='game',KEY='main';
+// v0.07 신규 시작: v0.06 DB를 읽거나 삭제하지 않습니다.
+const DB='myon-taxi-v007',STORE='game',KEY='main';
 const $=sel=>document.querySelector(sel);
 const money=n=>Math.round(n).toLocaleString('ko-KR')+' M';
 const names={home:'홈',fields:'분야',transport:'교통',taxi:'택시'};
 const parents={fields:'home',transport:'fields',taxi:'transport'};
 const first=()=>({id:1,rate:90,initial:27000000,debt:27000000,task:null,last:null,count:0});
-const blank=()=>({balance:0,rate:90,seq:2,cars:[first()]});
+const blank=()=>({balance:0,rate:90,seq:2,cars:[first()],introDone:false});
 let state=blank(),page='home',opened=null,buyOpen=false,message='',db=null,ready=false,dirty=false;
 function clock(){
  const p=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).map(x=>[x.type,x.value]));
@@ -107,7 +144,7 @@ function validate(s){
   count:Number.isSafeInteger(c.count)&&c.count>=0?c.count:0
  }));
  if(!cars.length||new Set(cars.map(c=>c.id)).size!==cars.length)return blank();
- return {balance:Number.isSafeInteger(s.balance)&&s.balance>=0?s.balance:0,rate:Number.isInteger(s.rate)?Math.max(0,Math.min(90,s.rate)):90,seq:Math.max(...cars.map(c=>c.id))+1,cars};
+ return {balance:Number.isSafeInteger(s.balance)&&s.balance>=0?s.balance:0,rate:Number.isInteger(s.rate)?Math.max(0,Math.min(90,s.rate)):90,seq:Math.max(...cars.map(c=>c.id))+1,cars,introDone:s.introDone===true};
 }
 function fareFor(km){return 4800+Math.floor(Math.max(0,Math.round(km*1000)-1600)/131)*100;}
 function timeLeft(seconds){
@@ -163,13 +200,80 @@ function carHTML(c){
 }
 
 
+
+/* 첫 접속 메시지는 첫 게임 시작 때만 표시하고, 완료 여부는 v0.07 저장 데이터에 보존합니다. */
+let introStep=0,introAnswer='';
+const introBubble=(body,fromMe=false)=>'<div class="intro-bubble'+(fromMe?' mine':'')+'">'+body+'</div>';
+function renderIntro(){
+ const box=$('#intro-conversation'),actions=$('#intro-actions');
+ let html='<div class="intro-divider">첫 번째 연락</div>'+
+  introBubble('안녕하세요. 갑작스럽게 연락드려 죄송합니다.\n\n현재 도시의 교통 운영이 불안정한 상황입니다.\n\n잠깐 도와주실 수 있을까요?');
+ if(introStep>=1){
+  html+=introBubble(introAnswer,true)+
+   introBubble('여러 분야의 도움이 필요하지만, 지금은 택시 분야부터 관리해 주셔야 합니다.\n\n시에서 지원하는 택시 한 대가 준비되어 있습니다. 차량은 자동으로 운행하고, 운행이 끝나면 수익이 정산됩니다.');
+ }
+ if(introStep>=2){
+  html+=introBubble('알겠어요. 택시 운영을 시작하겠습니다.',true)+
+   introBubble('감사합니다. MYON에서 첫 운행을 확인해 주세요.');
+ }
+ box.innerHTML=html;
+ if(introStep===0){
+  actions.innerHTML='<span class="intro-label">답변을 선택하세요</span>'+
+   '<button type="button" data-intro="question">무슨 일이 생긴 건가요?</button>'+
+   '<button type="button" data-intro="help">제가 어떻게 도와드리면 될까요?</button>';
+ }else if(introStep===1){
+  actions.innerHTML='<span class="intro-label">답변을 선택하세요</span>'+
+   '<button type="button" data-intro="agree">알겠어요. 택시 운영을 시작하겠습니다.</button>';
+ }else{
+  actions.innerHTML='<button type="button" data-intro="finish">MYON 운영 화면으로 이동 →</button>';
+ }
+ box.scrollTop=box.scrollHeight;
+}
+function updateIntro(){
+ const show=!state.introDone;
+ $('#intro-root').hidden=!show;
+ $('#game-shell').style.visibility='visible';
+ $('#game-shell').inert=show;
+ document.body.style.overflow=show?'hidden':'';
+ if(show)renderIntro();
+}
+$('#intro-root').addEventListener('click',event=>{
+ const btn=event.target.closest('button[data-intro]');
+ if(!btn||!ready)return;
+ const a=btn.dataset.intro;
+ if(introStep===0&&(a==='question'||a==='help')){
+  introAnswer=a==='question'?'무슨 일이 생긴 건가요?':'제가 어떻게 도와드리면 될까요?';
+  introStep=1;renderIntro();
+ }else if(introStep===1&&a==='agree'){
+  introStep=2;renderIntro();
+ }else if(introStep===2&&a==='finish'){
+  state.introDone=true;
+  changed();
+  updateIntro();
+  go('home');
+ }
+});
+
 function draw(){
  $('#balance').textContent=money(state.balance);
  $('#current').textContent=names[page];
  $('#back').disabled=page==='home';
  const content=$('#content');
+ if(page==='home'){
+  const rides=state.cars.reduce((sum,c)=>sum+c.count,0);
+  content.innerHTML='<section class="card home-overview">'+
+   '<h2>현재 목표</h2>'+
+   '<strong>'+(rides===0?'택시 첫 운행 확인':'택시 자동 운행 관찰')+'</strong>'+
+   '<p>'+(rides===0?'첫 차량이 자동 운행 중입니다. 운행 종료 후 첫 수익이 정산됩니다.':'첫 운행을 완료했습니다. 택시 사업은 계속 자동으로 운영됩니다.')+'</p>'+
+   '<div class="row"><span class="dim">운영 중인 사업</span><strong>교통 · 택시</strong></div>'+
+   '<div class="row"><span class="dim">동시 관찰 가능</span><strong>1대</strong></div>'+
+   '<div class="home-actions"><button type="button" data-act="nav" data-next="taxi">택시 운행 보기 ›</button>'+
+   '<button type="button" data-act="nav" data-next="fields">분야 보기 ›</button></div>'+
+   '</section>';
+  return;
+ }
  if(page!=='taxi'){
-  const next=page==='home'?'fields':page==='fields'?'transport':'taxi';
+  const next=page==='fields'?'transport':'taxi';
   content.innerHTML='<button type="button" class="menu '+(page==='home'?'primary':'')+'" data-act="nav" data-next="'+next+'"><span>'+names[next]+'</span><span class="chevron">›</span></button>';
   return;
  }
@@ -243,12 +347,13 @@ setInterval(()=>{
 
 clock();setInterval(clock,15000);
 (async()=>{
- try{db=await openDB();const saved=await load();if(saved)state=validate(saved);}
+ let saved=null;
+ try{db=await openDB();saved=await load();if(saved)state=validate(saved);}
  catch(e){message='자동 저장을 사용할 수 없습니다.';}
  ready=true;
  advance(Date.now());
- if(saved)changed(); // 이전 저장 형식의 운행을 신규 방식으로 이관합니다.
  draw();
+ updateIntro();
 })();
 })();
 </script>
