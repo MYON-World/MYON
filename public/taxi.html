@@ -23,6 +23,20 @@
 .buyhead{border:0;background:transparent;color:#e6eee9;width:100%;text-align:left;padding:14px 12px;display:flex;align-items:center;justify-content:space-between;font-weight:750}.range{width:100%;accent-color:#a9e4be}
 .footer{position:sticky;bottom:0;flex:0 0 auto;background:#0d151a;border-top:1px solid #2a4139;min-height:68px;padding:10px clamp(9px,2vw,25px) max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);align-items:center;gap:7px}.footer button{min-height:42px;border:1px solid #2c4540;border-radius:8px;background:#152321;color:#d5eade;padding:9px 5px;font-size:12px;font-weight:680;white-space:nowrap}.footer .current{text-align:center;font-weight:750}
 .test{margin-top:10px;border-top:1px solid #273b3d;padding:12px 3px 2px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.testbuttons{display:flex;gap:5px;flex-wrap:wrap}.testbuttons button{background:#182820;border:1px solid #334c40;border-radius:5px;color:#bcd6c5;padding:7px 8px;font-size:11px}.message{margin-top:8px;color:#b7e6c6;font-size:11px;min-height:14px}
+
+/* 0.06.02: 실시간 초압축 택시 미터기 */
+.taxi-card{background:#101b20;border-color:#2e4a4a;padding:6px;border-radius:14px}
+.meter{background:linear-gradient(160deg,#09171b,#081216);border:2px solid #2e5758;box-shadow:inset 0 0 0 2px rgba(104,184,173,.08),0 0 12px rgba(59,140,125,.1);border-radius:13px;overflow:hidden;padding:7px 12px 9px;min-width:0}
+.meter-head{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#bffce8;font-size:17px;font-weight:850;font-variant-numeric:tabular-nums;line-height:1.2}
+.meter-head span{white-space:nowrap}
+.meter-price{text-align:center;color:#88f6b5;text-shadow:0 0 9px rgba(79,234,149,.18);font-size:clamp(28px,7.7vw,39px);line-height:1.07;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.025em;margin:0 0 7px}
+.meter-bar{margin:0;height:4px;background:#264947;border-radius:20px}
+.meter-bar i{background:#66f4a4;transition:width .2s}
+.support{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:8px 6px 1px;font-size:11px;color:#9fb9ad;font-variant-numeric:tabular-nums}
+.support strong{color:#d8e9de;white-space:nowrap}
+.support button{background:#203b31;border:1px solid #3e6254;color:#d0eee0;padding:5px 9px;border-radius:6px;font-weight:750}
+.taxi-card .panel{margin-top:7px;border:1px solid #29433d;border-radius:8px}
+@media(max-width:380px){.meter-head{font-size:15px}.meter-price{font-size:32px}.meter{padding:7px 10px 8px}}
 @media(max-width:380px){.top{height:76px}.brand{font-size:15px}.clock strong{font-size:26px}.money strong{font-size:19px}.inner{padding:11px}.pill{font-size:10px}}
 </style>
 </head>
@@ -36,9 +50,8 @@
 <script>
 (()=>{
 'use strict';
-const PRICE=30000000;
+const PRICE=30000000,MAX_TAXIS=20;
 const DB='myon-taxi-v006',STORE='game',KEY='main';
-const preview=new URLSearchParams(location.search).get('preview')==='1';
 const $=sel=>document.querySelector(sel);
 const money=n=>Math.round(n).toLocaleString('ko-KR')+' M';
 const names={home:'홈',fields:'분야',transport:'교통',taxi:'택시'};
@@ -73,80 +86,83 @@ function store(){
  }catch(error){dirty=true;}
 }
 function changed(){dirty=true;store();}
+
+function sanitizeTask(t,now){
+ if(!t||!Number.isFinite(t.km)||t.km<1||t.km>10||!Number.isFinite(t.end)||!Number.isFinite(t.duration)||t.duration<=0)return null;
+ const km=Math.round(t.km*10)/10,duration=Math.round(km*3*60000);
+ if(Number.isFinite(t.startedAt)&&t.startedAt>=0&&Math.abs(t.end-t.startedAt-t.duration)<1000&&Math.abs(t.duration-duration)<1000)
+  return {km,startedAt:t.startedAt,duration,end:t.end};
+ // 이전 v0.06.1 지연 시간을 폐기하되 운행 중 진행률은 보존합니다.
+ const ratio=Math.max(0,Math.min(1,(now-(t.end-t.duration))/t.duration));
+ const startedAt=now-ratio*duration;
+ return {km,startedAt,duration,end:startedAt+duration};
+}
 function validate(s){
  if(!s||typeof s!=='object'||!Array.isArray(s.cars)||!s.cars.length)return blank();
+ const now=Date.now();
  const cars=s.cars.slice(0,500).filter(c=>c&&Number.isSafeInteger(c.id)&&c.id>0&&Number.isFinite(c.debt)&&c.debt>=0&&c.debt<=PRICE&&Number.isInteger(c.rate)&&c.rate>=0&&c.rate<=90&&Number.isFinite(c.initial)&&c.initial>=0&&c.initial<=PRICE).map(c=>({
   id:c.id,rate:c.rate,initial:c.initial,debt:Math.min(c.debt,c.initial),
-  task:c.task&&Number.isFinite(c.task.end)&&Number.isFinite(c.task.duration)&&c.task.duration>0&&Number.isFinite(c.task.fare)&&Number.isFinite(c.task.km)?c.task:null,
+  task:sanitizeTask(c.task,now),
   last:c.last&&Number.isFinite(c.last.received)?c.last:null,
   count:Number.isSafeInteger(c.count)&&c.count>=0?c.count:0
  }));
- if(!cars.length)return blank();
- const ids=new Set(cars.map(c=>c.id));
- if(ids.size!==cars.length)return blank();
- return {balance:Number.isSafeInteger(s.balance)&&s.balance>=0?s.balance:0,rate:Number.isInteger(s.rate)?Math.max(0,Math.min(90,s.rate)):90,seq:Math.max(...ids)+1,cars};
+ if(!cars.length||new Set(cars.map(c=>c.id)).size!==cars.length)return blank();
+ return {balance:Number.isSafeInteger(s.balance)&&s.balance>=0?s.balance:0,rate:Number.isInteger(s.rate)?Math.max(0,Math.min(90,s.rate)):90,seq:Math.max(...cars.map(c=>c.id))+1,cars};
 }
 function fareFor(km){return 4800+Math.floor(Math.max(0,Math.round(km*1000)-1600)/131)*100;}
 function timeLeft(seconds){
- const s=Math.max(0,Math.ceil(seconds));
- const hours=Math.floor(s/3600),minutes=Math.floor((s%3600)/60),secs=s%60;
+ const s=Math.max(0,Math.ceil(seconds)),hours=Math.floor(s/3600),minutes=Math.floor(s%3600/60),secs=s%60;
  return (hours?hours+':':'')+String(minutes).padStart(2,'0')+':'+String(secs).padStart(2,'0');
 }
-function newTrip(c){
+function newTrip(c,at=Date.now()){
  if(c.task)return;
- const km=Math.round((1+Math.random()*9)*10)/10;
- // 교통정체 발생 확률은 현재 50%로 임시 적용합니다.
- const delayMinutes=Math.random()<0.5?10+Math.floor(Math.random()*51):0;
- const duration=(km*3+delayMinutes)*60*1000;
- const fare=fareFor(km)+delayMinutes*200;
- c.task={km,delayMinutes,fare,duration,end:Date.now()+duration};
- changed();
+ const km=Math.round((1+Math.random()*9)*10)/10,duration=Math.round(km*3*60000);
+ c.task={km,startedAt:at,duration,end:at+duration};
 }
 function settle(c){
  if(!c.task)return;
- const gross=c.task.fare;
- const paid=Math.min(c.debt,Math.round(gross*c.rate/100));
+ const gross=fareFor(c.task.km),paid=Math.min(c.debt,Math.round(gross*c.rate/100));
  c.debt-=paid;
  const received=gross-paid;
- state.balance+=received;
- c.last={fare:gross,received,city:paid,km:c.task.km,delayMinutes:c.task.delayMinutes||0};
- c.count++;
- c.task=null;
- if(c.debt===0)newTrip(c);
- changed();
+ state.balance=Math.min(Number.MAX_SAFE_INTEGER,state.balance+received);
+ c.last={fare:gross,received,city:paid,km:c.task.km,delayMinutes:0};
+ c.count++;c.task=null;
 }
-function progress(c){return c.initial===0?100:(c.initial-c.debt)/c.initial*100;}
+function advance(now=Date.now()){
+ let modified=false;
+ for(const c of state.cars){
+  if(!c.task){newTrip(c,now);modified=true;}
+  // 모든 차량이 시 지원금 완납 여부와 상관없이 상시 자동 운행합니다.
+  // 장기간 미접속 운행도 순차 정산하며, 프레임별 과부하를 방지합니다.
+  let count=0;
+  while(c.task&&c.task.end<=now&&count<5000){
+   const nextAt=c.task.end;
+   settle(c);newTrip(c,nextAt);modified=true;count++;
+  }
+ }
+ if(modified)changed();
+ return modified;
+}
+function meterMetrics(t,now=Date.now()){
+ if(!t)return {distance:'0.0',time:'00:00',fare:4800,percent:0};
+ const fraction=Math.max(0,Math.min(1,(now-t.startedAt)/t.duration));
+ const remaining=Math.max(0,Math.ceil(t.km*(1-fraction)*10-1e-8)/10);
+ return {distance:remaining.toFixed(1),time:timeLeft((t.end-now)/1000),fare:fareFor(t.km*fraction),percent:fraction*100};
+}
 function carHTML(c){
- const paid=c.debt===0,pct=progress(c);
- const trip=c.task,last=c.last;
- const seconds=trip?(trip.end-Date.now())/1000:0;
- const delay=trip&&trip.delayMinutes?'<span class="delay"> · 지연 +'+trip.delayMinutes+'분</span>':'';
- return '<article class="card"><div class="inner">'+
- '<div class="row"><strong class="name">택시 '+c.id+'호차</strong><span class="pill '+(paid?'paid':'')+'">'+(paid?'자동운행':'수동 · 시 납부 '+c.rate+'%')+'</span></div>'+
- (paid?
- '<div class="row subrow"><span class="dim">누적 운행 '+c.count+'회</span><strong class="num green">'+(last?'최근 +'+money(last.received):'운행 중')+'</strong></div>'
- :
- '<div class="row subrow"><span class="dim">남은 지원금</span><strong class="num">'+money(c.debt)+'</strong></div>'+
- '<div class="thin"><i style="width:'+pct+'%"></i></div>'
- )+
- (trip?
- '<div class="trip">'+
- '<div class="row"><span class="trip-label">운행 '+trip.km.toFixed(1)+'km'+delay+'</span><strong class="num green" data-timer="'+c.id+'">'+timeLeft(seconds)+'</strong></div>'+
- '<div class="thin"><i data-trip="'+c.id+'" style="width:'+Math.max(0,Math.min(100,100*(1-(trip.end-Date.now())/trip.duration)))+'%"></i></div>'+
- '<div class="row trip-bottom"><span class="dim">예상요금</span><strong class="num">'+money(trip.fare)+'</strong></div>'+
- '</div>'
- :!paid&&last?
- '<div class="row subrow"><span class="dim">최근 '+last.km.toFixed(1)+'km'+(last.delayMinutes?' · 지연 +'+last.delayMinutes+'분':'')+'</span><strong class="num green">+'+money(last.received)+'</strong></div>'
- :!paid?'<div class="row subrow"><span class="dim">운행 대기</span></div>':'')+
- (!paid?
- '<div class="actions"><button type="button" class="btn mainbtn" data-act="run" data-id="'+c.id+'" '+(trip?'disabled':'')+'>'+(trip?'운행 중':'수동운행')+'</button><button type="button" class="btn" data-act="expand" data-id="'+c.id+'" aria-label="상환 상세">'+(opened===c.id?'⌃':'···')+'</button></div>'
- :'')+
- '</div>'+
- (!paid&&opened===c.id?
+ const v=meterMetrics(c.task);
+ return '<article class="card taxi-card" aria-label="택시 '+c.id+'호차">'+
+ '<div class="meter"><div class="meter-head"><span data-distance="'+c.id+'">'+v.distance+' km</span><span data-timer="'+c.id+'">'+v.time+'</span></div>'+
+ '<div class="meter-price" data-fare="'+c.id+'">'+money(v.fare)+'</div>'+
+ '<div class="thin meter-bar"><i data-trip="'+c.id+'" style="width:'+v.percent+'%"></i></div></div>'+
+ (c.debt>0?'<div class="support"><span>시 지원금 잔액</span><strong>'+money(c.debt)+'</strong><button type="button" data-act="expand" data-id="'+c.id+'" aria-label="택시 '+c.id+'호차 상환">'+(opened===c.id?'닫기':'상환')+'</button></div>':'')+
+ (c.debt>0&&opened===c.id?
  '<div class="panel"><div class="detailrow"><span>차량가격</span><strong>'+money(PRICE)+'</strong><span>시 납부율</span><strong>'+c.rate+'%</strong><span>미상환 지원금</span><strong>'+money(c.debt)+'</strong></div>'+
  '<div class="entry"><input type="number" min="1" step="1" placeholder="중도 상환금 (M)" data-pay="'+c.id+'" aria-label="택시 '+c.id+'호차 중도 상환금"><button type="button" data-act="repay" data-id="'+c.id+'">상환</button></div>'+
  '<button type="button" class="btn full" data-act="all" data-id="'+c.id+'" '+(state.balance<c.debt?'disabled':'')+'>전액 상환 · '+money(c.debt)+'</button></div>':'')+'</article>';
 }
+
+
 function draw(){
  $('#balance').textContent=money(state.balance);
  $('#current').textContent=names[page];
@@ -158,16 +174,19 @@ function draw(){
   return;
  }
  let html=state.cars.map(carHTML).join('');
- const aid=Math.round(PRICE*state.rate/100),own=PRICE-aid;
- html+='<div class="card"><button type="button" class="buyhead" data-act="buyopen"><span>＋ 택시 추가 구매</span><span class="dim">'+(buyOpen?'⌃':'›')+'</span></button>'+
+ const aid=Math.round(PRICE*state.rate/100),own=PRICE-aid,atLimit=state.cars.length>=MAX_TAXIS;
+ html+='<div class="card">'+(atLimit?
+ '<div class="buyhead"><span>택시 보유 한도</span><strong>'+state.cars.length+' / '+MAX_TAXIS+'대</strong></div>':
+ '<button type="button" class="buyhead" data-act="buyopen"><span>＋ 택시 추가 구매 ('+state.cars.length+'/'+MAX_TAXIS+')</span><span class="dim">'+(buyOpen?'⌃':'›')+'</span></button>'+
  (buyOpen?'<div class="panel"><div class="row"><span class="dim">시 지원 비율</span><strong class="green" id="rate-label">'+state.rate+'%</strong></div>'+
  '<input class="range" type="range" min="0" max="90" step="1" value="'+state.rate+'" id="rate-slider" aria-label="시 지원 비율">'+
  '<div class="detailrow"><span>차량가격</span><strong>'+money(PRICE)+'</strong><span>시 지원금</span><strong id="aid-label">'+money(aid)+'</strong><span>자기 부담금</span><strong id="own-label">'+money(own)+'</strong></div>'+
- '<button type="button" class="btn mainbtn full" data-act="purchase" id="purchase" '+(state.balance<own?'disabled':'')+'>구매 · '+money(own)+'</button></div>':'')+'</div>';
- if(preview)html+='<div class="test"><span class="dim">테스트 기능</span><div class="testbuttons"><button type="button" data-grant="3000000">+300만</button><button type="button" data-grant="30000000">+3,000만</button><button type="button" data-grant="finish">운행 완료</button><button type="button" data-grant="reset">초기화</button></div></div>';
+ '<button type="button" class="btn mainbtn full" data-act="purchase" id="purchase" '+(state.balance<own?'disabled':'')+'>구매 · '+money(own)+'</button></div>':'')
+ )+'</div>';
  html+='<div class="message" role="status">'+message+'</div>';
  content.innerHTML=html;
 }
+
 function go(target){if(!names[target])return;page=target;message='';draw();$('#main').scrollTop=0;}
 $('#back').addEventListener('click',()=>go(parents[page]||'home'));
 $('#home').addEventListener('click',()=>go('home'));
@@ -181,64 +200,54 @@ document.addEventListener('input',e=>{
  const buy=$('#purchase');buy.disabled=state.balance<own;buy.textContent='구매 · '+money(own);
  changed();
 });
+
 document.addEventListener('click',e=>{
- const grant=e.target.closest('button[data-grant]');
- if(grant&&preview){
-  if(grant.dataset.grant==='reset'){state=blank();opened=null;buyOpen=false;message='초기화 완료';}
-  else if(grant.dataset.grant==='finish'){
-   const active=state.cars.filter(c=>c.task);
-   for(const c of active)settle(c);
-   message=active.length?active.length+'대 운행 정산 완료':'진행 중인 운행이 없습니다.';
-  }
-  else{state.balance+=Number(grant.dataset.grant);message='테스트 자금 추가';}
-  changed();draw();return;
- }
  const btn=e.target.closest('button[data-act]');if(!btn||!ready)return;
  const act=btn.dataset.act,id=Number(btn.dataset.id),c=state.cars.find(v=>v.id===id);
  if(act==='nav'){go(btn.dataset.next);return;}
  if(act==='expand'){opened=opened===id?null:id;draw();return;}
- if(act==='buyopen'){buyOpen=!buyOpen;draw();return;}
- if(act==='run'&&c&&c.debt>0&&!c.task){newTrip(c);message='';draw();return;}
+ if(act==='buyopen'){if(state.cars.length>=MAX_TAXIS)return;buyOpen=!buyOpen;draw();return;}
  if((act==='repay'||act==='all')&&c&&c.debt>0){
   const amount=act==='all'?c.debt:Number(document.querySelector('[data-pay="'+id+'"]')?.value);
   if(!Number.isSafeInteger(amount)||amount<=0){message='상환금액을 확인해주세요.';draw();return;}
-  if(amount>state.balance){message='공용 자금이 부족합니다.';draw();return;}
   const applied=Math.min(amount,c.debt);
+  if(applied>state.balance){message='공용 자금이 부족합니다.';draw();return;}
   state.balance-=applied;c.debt-=applied;
-  if(c.debt===0){opened=null;if(!c.task)newTrip(c);message='택시 '+id+'호차 완납 · 자동운행 시작';}
+  if(c.debt===0){opened=null;message='택시 '+id+'호차 지원금 완납';}
   else message=money(applied)+' 상환 완료';
   changed();draw();return;
  }
  if(act==='purchase'){
+  if(state.cars.length>=MAX_TAXIS){message='택시는 최대 '+MAX_TAXIS+'대까지 보유할 수 있습니다.';draw();return;}
   const aid=Math.round(PRICE*state.rate/100),own=PRICE-aid;
   if(state.balance<own)return;
   state.balance-=own;
   const v={id:state.seq++,rate:state.rate,initial:aid,debt:aid,task:null,last:null,count:0};
-  state.cars.push(v);
-  if(aid===0)newTrip(v);
-  buyOpen=false;message='택시 '+v.id+'호차 구매 완료'+(aid===0?' · 자동운행 시작':'');
+  state.cars.push(v);newTrip(v);
+  buyOpen=false;message='택시 '+v.id+'호차 구매 완료';
   changed();draw();
  }
 });
 setInterval(()=>{
  if(!ready)return;
- const now=Date.now();let finished=false;
- for(const c of state.cars){
-  if(!c.task){if(c.debt===0){newTrip(c);finished=true;}continue;}
-  if(now>=c.task.end){settle(c);finished=true;}
-  else if(page==='taxi'){
-   const timer=document.querySelector('[data-timer="'+c.id+'"]');if(timer)timer.textContent=timeLeft((c.task.end-now)/1000);
-   const bar=document.querySelector('[data-trip="'+c.id+'"]');if(bar)bar.style.width=Math.max(0,Math.min(100,100*(1-(c.task.end-now)/c.task.duration)))+'%';
-  }
+ const now=Date.now(),finished=advance(now);
+ if(finished){draw();return;}
+ if(page==='taxi')for(const c of state.cars){
+  const v=meterMetrics(c.task,now);
+  const distance=document.querySelector('[data-distance="'+c.id+'"]');if(distance)distance.textContent=v.distance+' km';
+  const timer=document.querySelector('[data-timer="'+c.id+'"]');if(timer)timer.textContent=v.time;
+  const fare=document.querySelector('[data-fare="'+c.id+'"]');if(fare)fare.textContent=money(v.fare);
+  const bar=document.querySelector('[data-trip="'+c.id+'"]');if(bar)bar.style.width=v.percent+'%';
  }
- if(finished)draw();
 },200);
+
 clock();setInterval(clock,15000);
 (async()=>{
  try{db=await openDB();const saved=await load();if(saved)state=validate(saved);}
  catch(e){message='자동 저장을 사용할 수 없습니다.';}
  ready=true;
- for(const c of state.cars){if(c.task&&Date.now()>=c.task.end)settle(c);if(c.debt===0&&!c.task)newTrip(c);}
+ advance(Date.now());
+ if(saved)changed(); // 이전 저장 형식의 운행을 신규 방식으로 이관합니다.
  draw();
 })();
 })();
