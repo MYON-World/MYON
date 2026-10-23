@@ -1,12 +1,13 @@
 <script setup>
 import ObservationView from './ObservationView.vue'
 
-// v0.06.02 택시 분야가 기본 화면입니다. 이전 버전은 별도 경로로 보존합니다.
+// 정적 HTML 화면은 배포마다 다른 주소를 사용해 이전 버전 캐시를 피합니다.
+// 빌드 식별자는 GitHub Actions의 커밋 SHA입니다. 새 배포 때마다 변경됩니다.
 const mode = new URLSearchParams(window.location.search).get('mode')
 const legacy = mode === 'legacy'
-const frameUrl = mode === 'missions'
-  ? String(import.meta.env.BASE_URL) + 'mission-board.html'
-  : String(import.meta.env.BASE_URL) + 'taxi.html'
+const buildId = __MYON_BUILD_ID__
+const pageName = mode === 'missions' ? 'mission-board.html' : 'taxi.html'
+const frameUrl = String(import.meta.env.BASE_URL) + pageName + '?build=' + encodeURIComponent(buildId)
 </script>
 
 <template>
