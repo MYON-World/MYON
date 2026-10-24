@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <meta name="theme-color" content="#101a1e"/>
-<title>MYON v0.07.03</title>
+<title>MYON v0.07.04</title>
 <style>
 :root{color-scheme:dark;--bg:#0e171b;--surface:#142328;--surface-2:#192c30;--edge:#2b4240;--muted:#91aaa3;--text:#e7f1ec;--green:#ade8c0;--accent:#1f4b35}
 *{box-sizing:border-box}
@@ -42,6 +42,7 @@ button{font:inherit;color:inherit;cursor:pointer}button:focus-visible{outline:2p
 .repay-button:disabled{opacity:.5}.repay-controls{margin-top:14px;border-top:1px solid #2b4240;padding-top:14px}
 .repay-input{width:100%;height:44px;border-radius:9px;border:1px solid #3b5751;background:#0f1e22;color:#e7f1ec;padding:0 12px;font:inherit;font-size:14px;outline:none}.repay-input:focus{border-color:#8bd4ad}.repay-input::placeholder{color:#728f83}
 .repay-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}.repay-actions button{border-radius:9px;min-height:42px;background:#244a36;border:1px solid #407857;font-size:12px;font-weight:800}.repay-actions button:first-child{background:#b0e6c3;border-color:#b0e6c3;color:#163223}.repay-actions button:disabled{opacity:.45}
+.sell-button{width:100%;text-align:center}.sell-confirm{margin-top:10px;padding:12px;border:1px solid #3d6751;border-radius:10px;background:#102621}.sell-confirm-title{font-size:13px;font-weight:800}.sell-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}.sell-actions button{border:1px solid #407857;border-radius:9px;padding:10px;background:#244a36;font-size:12px;font-weight:800}.sell-actions button:first-child{background:#b0e6c3;color:#163223;border-color:#b0e6c3}
 
 </style>
 </head>
@@ -50,13 +51,18 @@ button{font:inherit;color:inherit;cursor:pointer}button:focus-visible{outline:2p
 <script>
 (()=>{
 'use strict';
-// v0.07.03: 기존 운행·요금 규칙과 v0.07 택시 저장 데이터를 이어서 사용합니다.
+// v0.07.04: 기존 운행·요금 규칙과 v0.07 택시 저장 데이터를 이어서 사용합니다.
 const DB='myon-taxi-v007',OLD_DB='myon-taxi-v006';
-const STORE='game',KEY='main',MAX_TAXIS=20,PRICE=30000000;
+const STORE='game',KEY='main',MAX_VEHICLES=50,PRICE=30000000,SALE_PRICE=PRICE/2;
 const blank=()=>({balance:0,rate:90,seq:2,cars:[]});
 const firstCar=id=>({id,rate:90,initial:27000000,debt:27000000,task:null,last:null,count:0});
 let state=blank(),tab='home',page='',db=null,ready=false,writeFailed=false;
-let repayOpen=null,repayDraft={},notice='';
+let repayOpen=null,repayDraft={},notice='',saleConfirmId=null;
+// 전체 분야 공통 차량 한도. 새로운 차량 분야 도입 시 이 목록에 연결합니다.
+function vehicleCollections(){return [state.cars]}
+function totalVehicleCount(){return vehicleCollections().reduce((n,cars)=>n+cars.length,0)}
+function hasVehicleSlot(){return totalVehicleCount()<MAX_VEHICLES}
+function firstClaimed(){return state.firstCarClaimed===true||state.cars.length>0||state.seq>2}
 const $=id=>document.getElementById(id);
 const svg=name=>{const icons={
  house:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
@@ -85,7 +91,7 @@ function sanitizeTask(t,now){
  const startedAt=now-ratio*duration;return {km,startedAt,duration,end:startedAt+duration};
 }
 function validate(s){
- if(!s||typeof s!=='object'||!Array.isArray(s.cars)||s.cars.length>MAX_TAXIS)return null;
+ if(!s||typeof s!=='object'||!Array.isArray(s.cars))return null;
  const now=Date.now();
  const cars=s.cars.map(c=>{
   if(!c||!Number.isSafeInteger(c.id)||c.id<1||!Number.isInteger(c.rate)||c.rate<0||c.rate>90||!Number.isFinite(c.initial)||c.initial<0||c.initial>PRICE||!Number.isFinite(c.debt)||c.debt<0||c.debt>c.initial)return null;
@@ -94,7 +100,7 @@ function validate(s){
  if(cars.some(c=>!c)||new Set(cars.map(c=>c.id)).size!==cars.length||!Number.isSafeInteger(s.balance)||s.balance<0)return null;
  const nextId=Math.max(2,...cars.map(c=>c.id+1));
  // 기존의 확장 필드는 변경하지 않고, 게임 진행에 필요한 수치만 검증합니다.
- return {...s,balance:s.balance,rate:Number.isInteger(s.rate)?Math.max(0,Math.min(90,s.rate)):90,seq:Number.isSafeInteger(s.seq)&&s.seq>=nextId?s.seq:nextId,cars};
+ return {...s,balance:s.balance,rate:Number.isInteger(s.rate)?Math.max(0,Math.min(90,s.rate)):90,seq:Number.isSafeInteger(s.seq)&&s.seq>=nextId?s.seq:nextId,cars,firstCarClaimed:s.firstCarClaimed===true||cars.length>0||s.seq>2};
 }
 function readKey(database){return new Promise((resolve,reject)=>{
  const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(KEY);
@@ -150,21 +156,21 @@ function home(){
  (state.cars.length?'<div class="section-title">운영 현황</div>'+state.cars.map(liveCard).join(''):'');
 }
 function operations(){
- const taxiContent=!state.cars.length?
+ const taxiContent=!state.cars.length&&!firstClaimed()?
   `<div class="section-title" style="margin-top:0">택시</div><div class="card claim"><div class="taxi-symbol">${svg('car')}</div><div class="status-title">택시 차량 지원</div><div class="status-sub">첫 차량은 시 지원금 90%를 지원받을 수 있습니다.</div><div class="claim-info"><span>차량 가격</span><strong>${money(PRICE)}</strong></div><div class="claim-info"><span>시 지원금</span><strong>${money(27000000)}</strong></div><button class="claim-btn" data-action="claim-first-car">택시 차량 지원받기</button></div>`:
-  `<div class="section-title" style="margin-top:0">택시 · ${state.cars.length}대 운행 중</div>`+state.cars.map(liveCard).join('');
+  state.cars.length?`<div class="section-title" style="margin-top:0">택시 · ${state.cars.length}대 운행 중</div>`+state.cars.map(liveCard).join(''):`<div class="section-title" style="margin-top:0">택시 · 0대</div>`;
  return taxiContent+`<div class="operation-menus">
-  <button class="action-item" data-action="open-purchase"><span class="action-icon">${svg('plus')}</span><span class="action-copy"><strong>차량 구입</strong><small>택시 추가 구매</small></span><span class="next-icon">${svg('right')}</span></button>
-  <button class="action-item" data-action="open-repayment"><span class="action-icon">${svg('wallet')}</span><span class="action-copy"><strong>시 지원 상환</strong><small>차량별 시 지원금 관리</small></span><span class="next-icon">${svg('right')}</span></button>
+  <button class="action-item" data-action="open-purchase"><span class="action-icon">${svg('plus')}</span><span class="action-copy"><strong>차량 구입</strong></span><span class="next-icon">${svg('right')}</span></button>
+  <button class="action-item" data-action="open-repayment"><span class="action-icon">${svg('wallet')}</span><span class="action-copy"><strong>시 지원 상환</strong></span><span class="next-icon">${svg('right')}</span></button>
  </div>`;
 }
 function innerHeader(title){return `<div class="subnav"><button class="back-btn" data-action="back-operations" aria-label="운영으로 돌아가기">${svg('left')}</button><div class="subheading">${title}</div></div>`}
 function noticeText(){return notice?`<div role="status" class="${notice.startsWith('완료')?'inline-success':'inline-error'}">${notice}</div>`:''}
 function purchase(){
- const aid=Math.round(PRICE*state.rate/100),own=PRICE-aid,cap=state.cars.length>=MAX_TAXIS;
- const canBuy=state.cars.length>0&&!cap&&state.balance>=own;
+ const aid=Math.round(PRICE*state.rate/100),own=PRICE-aid,cap=!hasVehicleSlot();
+ const canBuy=firstClaimed()&&!cap&&state.balance>=own;
  return innerHeader('차량 구입')+`<div class="detail-card">
-  <div class="detail-head"><span>택시</span><span class="muted">${state.cars.length} / ${MAX_TAXIS}대</span></div>
+  <div class="detail-head"><span>택시 구입</span><span class="muted">전체 차량 ${totalVehicleCount()} / ${MAX_VEHICLES}대</span></div>
   <div class="data-line"><span>현재 자금</span><strong class="green-text" data-live="balance">${money(state.balance)}</strong></div>
   <div class="data-line"><span>차량 가격</span><strong>${money(PRICE)}</strong></div>
   <div class="divider-line"></div>
@@ -173,7 +179,7 @@ function purchase(){
   <div class="data-line"><span>시 지원금</span><strong id="aid-label">${money(aid)}</strong></div>
   <div class="data-line"><span>자기 부담금</span><strong id="own-label" class="green-text">${money(own)}</strong></div>
   <button class="primary-action" data-action="purchase" id="purchase-btn" ${canBuy?'':'disabled'}>구입 · <span id="purchase-label">${money(own)}</span></button>
-  ${!state.cars.length?'<div class="empty-note" style="margin-top:12px">첫 차량을 지원받으면 추가 차량을 구입할 수 있습니다.</div>':cap?'<div class="empty-note" style="margin-top:12px">택시는 최대 20대까지 보유할 수 있습니다.</div>':state.balance<own?'<div class="empty-note" style="margin-top:12px">차량 구입에 필요한 자금이 부족합니다.</div>':''}
+  ${!firstClaimed()?'<div class="empty-note" style="margin-top:12px">첫차 지원 필요</div>':cap?'<div class="empty-note" style="margin-top:12px">전체 차량 50대 한도</div>':state.balance<own?'<div class="empty-note" style="margin-top:12px">차량 구입에 필요한 자금이 부족합니다.</div>':''}
   ${noticeText()}
  </div>`;
 }
@@ -183,45 +189,61 @@ function repayment(){
   <div class="data-line" style="margin-top:0"><span>현재 자금</span><strong class="green-text" data-live="balance">${money(state.balance)}</strong></div>
   <div class="data-line"><span>남은 시 지원금</span><strong>${money(debtTotal)}</strong></div>
  </div>`;
- if(!state.cars.length)return pageHtml+`<div class="detail-card empty-note">지원받은 차량이 없습니다.<div style="margin-top:10px">운영에서 첫 택시 차량을 지원받아 운행을 시작할 수 있습니다.</div></div>`;
+ if(!state.cars.length)return pageHtml+`<div class="detail-card empty-note">보유 차량 없음</div>`;
  for(const c of state.cars){
   const open=repayOpen===c.id;
   pageHtml+=`<div class="repay-card"><div class="repay-title"><strong>택시 ${c.id}호차</strong><span>시 납부율 ${c.rate}%</span></div>
    <div class="data-line"><span>남은 지원금</span><strong class="green-text">${money(c.debt)}</strong></div>`;
   if(c.debt>0){pageHtml+=`<button class="repay-button" data-action="toggle-repay" data-id="${c.id}">${open?'접기':'상환하기'}</button>`;
    if(open)pageHtml+=`<div class="repay-controls"><input class="repay-input" type="number" inputmode="numeric" step="1" min="1" max="${c.debt}" data-repay-input="${c.id}" placeholder="상환 금액 (M)" aria-label="택시 ${c.id}호차 상환 금액" value="${repayDraft[c.id]??''}"><div class="repay-actions"><button data-action="partial-repay" data-id="${c.id}">금액 상환</button><button data-action="full-repay" data-id="${c.id}" ${state.balance>=c.debt?'':'disabled'}>전액 상환</button></div>${noticeText()}</div>`;
-  }else pageHtml+='<div class="inline-success">완납</div>';
+  }else{
+   pageHtml+=`<div class="inline-success">완납</div><button class="repay-button sell-button" data-action="sell-car" data-id="${c.id}">판매 · ${money(SALE_PRICE)}</button>`;
+   if(saleConfirmId===c.id)pageHtml+=`<div class="sell-confirm"><div class="sell-confirm-title">택시 ${c.id}호차 판매</div><div class="sell-actions"><button data-action="confirm-sell" data-id="${c.id}">판매 · ${money(SALE_PRICE)}</button><button data-action="cancel-sell" data-id="${c.id}">취소</button></div></div>`;
+  }
   pageHtml+='</div>';
  }
  if(notice&&repayOpen===null)pageHtml+=`<div class="detail-card">${noticeText()}</div>`;
  return pageHtml;
 }
-function settings(){return `<div class="card game-settings"><div class="status-title">MYON</div><div class="status-sub">게임 버전 v0.07.03</div></div>`}
+function settings(){return `<div class="card game-settings"><div class="status-title">MYON</div><div class="status-sub">게임 버전 v0.07.04</div></div>`}
 function nav(){return [['home','house','홈'],['operations','briefcase','운영'],['settings','settings','설정']].map(([id,icon,label])=>`<button class="navbtn ${tab===id?'active':''}" data-tab="${id}" aria-current="${tab===id?'page':'false'}"><span class="navicon">${svg(icon)}</span>${label}</button>`).join('')}
 function render(){
  $('screen').innerHTML=tab==='home'?home():tab==='settings'?settings():page==='purchase'?purchase():page==='repayment'?repayment():operations();
  $('bottom').innerHTML=nav();
  $('topTitle').textContent=tab==='home'?'홈':tab==='settings'?'설정':page==='purchase'?'차량 구입':page==='repayment'?'시 지원 상환':'운영';
 }
-function switchTab(next){if(!['home','operations','settings'].includes(next))return;tab=next;page='';notice='';repayOpen=null;render();updateLive();$('screen').scrollTop=0}
-function showPage(next){tab='operations';page=next;notice='';repayOpen=null;render();updateLive();$('screen').scrollTop=0}
+function switchTab(next){if(!['home','operations','settings'].includes(next))return;tab=next;page='';notice='';repayOpen=null;saleConfirmId=null;render();updateLive();$('screen').scrollTop=0}
+function showPage(next){tab='operations';page=next;notice='';repayOpen=null;saleConfirmId=null;render();updateLive();$('screen').scrollTop=0}
 function action(act,id){
  if(!ready)return;
  if(act==='open-purchase'){showPage('purchase');return}
  if(act==='open-repayment'){showPage('repayment');return}
  if(act==='back-operations'){showPage('');return}
- if(act==='claim-first-car'&&!state.cars.length){
+ if(act==='claim-first-car'&&!firstClaimed()&&hasVehicleSlot()){
   const nextId=state.seq>2?state.seq:1;
-  const c=firstCar(nextId);newTrip(c);state.cars.push(c);state.seq=Math.max(state.seq,nextId+1);save();render();updateLive();return;
+  const c=firstCar(nextId);newTrip(c);state.cars.push(c);state.seq=Math.max(state.seq,nextId+1);state.firstCarClaimed=true;save();render();updateLive();return;
  }
  if(act==='purchase'&&page==='purchase'){
-  if(!state.cars.length){notice='먼저 첫 택시 차량을 지원받아 주세요.';render();return}
-  if(state.cars.length>=MAX_TAXIS){notice='택시는 최대 20대까지 보유할 수 있습니다.';render();return}
+  if(!firstClaimed()){notice='첫차 지원 필요';render();return}
+  if(!hasVehicleSlot()){notice='전체 차량 50대 한도';render();return}
   const aid=Math.round(PRICE*state.rate/100),own=PRICE-aid;
   if(state.balance<own){notice='차량 구입에 필요한 자금이 부족합니다.';render();return}
   state.balance-=own;
   const c={id:state.seq++,rate:state.rate,initial:aid,debt:aid,task:null,last:null,count:0};
   newTrip(c);state.cars.push(c);save();notice='완료 · 택시 '+c.id+'호차를 구입했습니다.';render();updateLive();return;
+ }
+ if(act==='sell-car'&&page==='repayment'){
+  const c=state.cars.find(v=>v.id===id);if(!c||c.debt!==0)return;
+  saleConfirmId=saleConfirmId===id?null:id;notice='';render();return;
+ }
+ if(act==='cancel-sell'&&page==='repayment'){saleConfirmId=null;render();return}
+ if(act==='confirm-sell'&&page==='repayment'&&saleConfirmId===id){
+  const index=state.cars.findIndex(c=>c.id===id);
+  if(index<0||state.cars[index].debt!==0){saleConfirmId=null;render();return}
+  if(state.balance>Number.MAX_SAFE_INTEGER-SALE_PRICE){notice='자금 한도 초과';render();return}
+  state.cars.splice(index,1);state.balance+=SALE_PRICE;state.firstCarClaimed=true;
+  saleConfirmId=null;repayOpen=null;delete repayDraft[id];
+  notice='완료 · '+money(SALE_PRICE)+' 판매';save();render();updateLive();return;
  }
  if(act==='toggle-repay'&&page==='repayment'){
   const c=state.cars.find(v=>v.id===id);if(!c||c.debt<=0)return;
@@ -259,7 +281,7 @@ document.addEventListener('input',event=>{
   const aid=Math.round(PRICE*rate/100),own=PRICE-aid;
   $('rate-label').textContent=rate+'%';$('aid-label').textContent=money(aid);$('own-label').textContent=money(own);
   $('purchase-label').textContent=money(own);
-  $('purchase-btn').disabled=state.balance<own||state.cars.length===0||state.cars.length>=MAX_TAXIS;
+  $('purchase-btn').disabled=state.balance<own||!firstClaimed()||!hasVehicleSlot();
   save();
  }
  if(event.target.matches('[data-repay-input]'))repayDraft[Number(event.target.dataset.repayInput)]=event.target.value;
