@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="theme-color" content="#101a1e"/>
+<title>MYON</title>
+<style>
+:root{color-scheme:dark;--bg:#0e171b;--surface:#142328;--surface-2:#192c30;--edge:#2b4240;--muted:#91aaa3;--text:#e7f1ec;--green:#ade8c0;--accent:#1f4b35;--signal:#ef9271}
+*{box-sizing:border-box}html,body{margin:0;width:100%;min-height:100%;background:#0b1217;color:var(--text);font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Pretendard,'Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}button:focus-visible{outline:2px solid var(--green);outline-offset:2px}button:disabled{cursor:default;opacity:.5}
+.viewport{min-height:100dvh;display:flex;justify-content:center;align-items:stretch}.app{width:100%;max-width:450px;min-height:100dvh;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 0 40px #0005}
+@media(min-width:600px){.viewport{padding:22px 0}.app{min-height:calc(100dvh - 44px);max-height:calc(100dvh - 44px);border:1px solid var(--edge);border-radius:19px}}
+.topbar{height:61px;min-height:61px;padding:0 21px;border-bottom:1px solid var(--edge);background:#102025;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:850;letter-spacing:.095em}.logo{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;background:#b2e7c3;color:#153522;font-size:19px;font-weight:950;letter-spacing:0}.top-right{font-size:11px;color:#8fb4a0;letter-spacing:.06em}
+.content{flex:1;min-height:0;overflow:auto;padding:18px 17px 26px;scrollbar-width:none}.content::-webkit-scrollbar{display:none}.page-head{margin:0 0 21px}.eyebrow{font-size:11px;color:var(--muted);letter-spacing:.03em;margin:0 0 6px}.page-title{font-size:23px;letter-spacing:-.05em;font-weight:800;margin:0;line-height:1.3}.section-title{margin:21px 0 10px;font-size:12px;font-weight:800;color:#a1bbae}
+.card{border:1px solid var(--edge);border-radius:13px;background:var(--surface);padding:17px 16px}.money-label{font-size:12px;color:#a5bcb0}.money-value{font-size:31px;letter-spacing:-.03em;font-weight:850;color:#b5eac7;margin:0;font-variant-numeric:tabular-nums}.status{display:flex;align-items:center;justify-content:space-between;gap:10px}.status-title{font-size:14px;font-weight:750}.status-sub{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}.small-pill{font-size:10px;border-radius:7px;background:#203632;color:#aac8b4;border:1px solid #355047;padding:6px 8px;white-space:nowrap}.notice{width:100%;background:#1a2d2d;border:1px solid #3b554c;border-radius:12px;display:flex;align-items:center;gap:12px;padding:14px 13px;text-align:left;margin-top:13px}.notice span{flex:1;font-size:12px;color:#d1e8db;line-height:1.45}.icon-square{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:#244236;color:#b5eac7;flex:0 0 auto}.notice .chev{font-size:21px;color:#92b5a0}
+.menu-group{display:flex;flex-direction:column;gap:9px}.item{display:flex;align-items:center;gap:14px;width:100%;border:1px solid var(--edge);border-radius:13px;background:var(--surface);padding:15px 13px;text-align:left;min-height:75px}.item:active,.notice:active{background:#203535}.item-copy{flex:1;min-width:0}.item-title{display:block;font-size:14px;font-weight:790}.item-desc{display:block;font-size:11px;color:var(--muted);margin-top:5px}.chev{font-size:22px;color:#708e81}.count{border-radius:10px;background:var(--signal);color:#311f19;font-size:10px;font-weight:900;min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px}
+.bottom{height:71px;min-height:71px;border-top:1px solid var(--edge);background:#112024;display:grid;grid-template-columns:repeat(3,1fr);padding:4px 10px max(9px,env(safe-area-inset-bottom));gap:8px;align-items:stretch}.navbtn{background:transparent;border:0;display:flex;align-items:center;flex-direction:column;justify-content:center;gap:4px;border-radius:10px;color:#90a89e;position:relative;font-size:11px;font-weight:700}.navbtn.active{color:#baedd0;background:#1c342e}.navicon{width:23px;height:23px;display:grid;place-items:center}.navicon svg,.icon-square svg,.back svg{width:21px;height:21px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none}.tab-unread{position:absolute;top:8px;left:calc(50% + 8px);width:9px;height:9px;background:var(--signal);border-radius:50%;box-shadow:0 0 0 3px #112024}.navbtn.active .tab-unread{box-shadow:0 0 0 3px #1c342e}
+.subtop{display:flex;align-items:center;gap:12px;margin-bottom:19px}.back{display:grid;place-items:center;flex:0 0 auto;background:#192f2d;border:1px solid #315048;width:37px;height:37px;border-radius:10px}.subname{font-size:16px;font-weight:800}.subsmall{font-size:11px;color:var(--muted);margin-top:4px}
+.conversation{display:flex;flex-direction:column;gap:12px;margin:4px 0 19px}.chat-hint{text-align:center;font-size:10px;color:#7f9b8d;margin:4px 0 4px}.bubble{max-width:88%;font-size:13px;line-height:1.65;white-space:pre-line;background:#24383b;border:1px solid #304a48;padding:13px 14px;border-radius:5px 14px 14px 14px;align-self:flex-start}.bubble.me{align-self:flex-end;background:#21523d;border-color:#31674d;border-radius:14px 5px 14px 14px}
+.typing-line{display:flex;align-items:center;gap:8px;align-self:flex-start;color:#9fbcb0;font-size:11px;min-height:37px;animation:fadein .25s ease-out}.typing-dots{display:flex;align-items:center;gap:4px;background:#24383b;border:1px solid #304a48;border-radius:5px 13px 13px 13px;padding:11px 12px;height:34px}.typing-dots span{width:5px;height:5px;border-radius:50%;background:#a3cbb5;animation:typing 1.05s infinite ease-in-out}.typing-dots span:nth-child(2){animation-delay:.18s}.typing-dots span:nth-child(3){animation-delay:.36s}@keyframes typing{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-4px);opacity:1}}@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}.bubble{animation:fadein .22s ease-out}.reply:disabled{opacity:.5}@media(prefers-reduced-motion:reduce){.typing-dots span,.bubble,.typing-line{animation:none}}
+.chat-field{margin-top:2px}.chat-field .item{border-color:#3a6751;background:#1a352a;min-height:70px}.quick{border-top:1px solid #2a4640;padding-top:13px;display:flex;flex-direction:column;gap:8px}.quick-caption{font-size:11px;color:var(--muted);margin-bottom:2px}.reply{width:100%;border:1px solid #3b6452;background:#1a342c;border-radius:9px;min-height:43px;padding:10px 12px;font-size:12px;font-weight:730}.reply.strong{background:#aee5c1;color:#173423;border-color:#aee5c1}.reply:active{filter:brightness(1.13)}
+.switchrow{border:1px solid var(--edge);border-radius:12px;background:var(--surface);padding:15px;display:flex;align-items:center;justify-content:space-between;gap:15px}.toggle{border:0;background:#426355;border-radius:99px;width:42px;height:25px;padding:3px;display:flex;justify-content:flex-end}.toggle:after{content:"";width:19px;height:19px;border-radius:50%;background:#c8f6d8}.toggle.off{justify-content:flex-start;background:#3b4847}.toggle.off:after{background:#879992}
+.taxi-symbol svg{width:27px;height:27px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.footnote{font-size:11px;color:#8fa79d;line-height:1.6}.taxi-symbol{display:grid;place-items:center;width:50px;height:50px;border:1px solid #3a614c;border-radius:13px;color:var(--green);background:#21402e;font-size:26px;margin-bottom:14px}
+
+/* v0.07.01: 초압축 실시간 택시 미터기 — 홈/택시 화면 공용 */
+.taxi-dash{padding:8px 9px 10px;background:#111e23;border-color:#2b4842;border-radius:14px}
+.taxi-meter{background:linear-gradient(165deg,#09171b,#0b181d);border:1px solid #3a6660;border-radius:11px;padding:12px 13px 12px;box-shadow:inset 0 0 0 1px #1b3633}
+.taxi-metrics{display:flex;align-items:center;justify-content:space-between;gap:9px;color:#c3f9e4;font-size:17px;font-weight:850;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap}
+.taxi-price{font-size:clamp(31px,8.4vw,41px);font-weight:900;color:#83edb1;letter-spacing:-.045em;text-align:center;line-height:1.15;margin:9px 0 12px;text-shadow:0 0 9px #2edb7c18;font-variant-numeric:tabular-nums;white-space:nowrap}
+.taxi-progress{height:4px;overflow:hidden;border-radius:50px;background:#274743}
+.taxi-progress i{display:block;height:100%;width:0;background:#75e9a8;border-radius:50px;transition:width .5s linear}
+@media(max-width:350px){.taxi-metrics{font-size:15px}.taxi-price{font-size:30px}.taxi-meter{padding:11px 10px}}
+.claim{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:23px 17px}
+.claim .taxi-symbol{margin:0}
+.claim .status-title{font-size:16px}
+.claim-info{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 5px;border-block:1px solid #2c4540;font-size:12px}
+.claim-info span{color:#a0bbae}
+.claim-info strong{color:#bcefcf}
+.claim-btn{background:#b0e6c3;color:#163223;border:0;border-radius:10px;width:100%;min-height:49px;font-size:13px;font-weight:800}
+.claim-btn:active{filter:brightness(.93)}
+
+</style>
+</head>
+<body>
+<div class="viewport"><div class="app"><header class="topbar"><div class="brand"><span class="logo">M</span>MYON</div><span class="top-right" id="topTitle">홈</span></header><main class="content" id="screen" aria-live="polite"></main><nav class="bottom" id="bottom" aria-label="주 메뉴"></nav></div></div>
+<script>
+(()=>{
+'use strict';
+// v0.07.01: 기존 택시 자료를 승계하고 화면 진행 상태를 추가합니다.
+const DB='myon-taxi-v007',OLD_DB='myon-taxi-v006',STORE='game',KEY='main',MAX_TAXIS=20,PRICE=30000000;
+const firstCar=()=>({id:1,rate:90,initial:27000000,debt:27000000,task:null,last:null,count:0});
+const blank=()=>({balance:0,rate:90,seq:2,cars:[],introDone:false,messageRead:false,firstReply:'',taxiSelected:false,showNotifications:true});
+let state=blank(),tab='home',page='',pendingStage=0,typing=false,db=null,ready=false,writeFailed=false;
+
+const $=id=>document.getElementById(id);
+const svg=(name)=>{
+ const icons={
+ house:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
+ briefcase:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/>',
+ settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a2 2 0 0 0 .4 2.2l-1.6 1.6a2 2 0 0 0-2.2-.4l-1.1.5-.4 2.1h-2.3l-.4-2.1-1.1-.5a2 2 0 0 0-2.2.4l-1.6-1.6a2 2 0 0 0 .4-2.2l-.5-1.1L4 13.5v-2.3l2.1-.4.5-1.1a2 2 0 0 0-.4-2.2L7.8 5.9a2 2 0 0 0 2.2.4l1.1-.5.4-2.1h2.3l.4 2.1 1.1.5a2 2 0 0 0 2.2-.4l1.6 1.6a2 2 0 0 0-.4 2.2l.5 1.1 2.1.4v2.3l-2.1.4z"/>',
+ message:'<path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 21l1.9-5.5a8.5 8.5 0 1 1 16.1-4z"/>',
+ car:'<path d="m5 16 1-7c.2-1 1-2 2-2h8c1 0 1.8 1 2 2l1 7H5zM7 7l1-3h8l1 3M5 16v3m14-3v3M5 12h14"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/>',
+ left:'<path d="m15 18-6-6 6-6"/>',
+ right:'<path d="m9 18 6-6-6-6"/>'};return '<svg viewBox="0 0 24 24" aria-hidden="true">'+icons[name]+'</svg>';
+};
+const iconBox=name=>'<div class="icon-square">'+svg(name)+'</div>';
+// 원래 택시 게임의 운행/운임/지원금 규칙을 보존합니다.
+const money=n=>Math.round(n).toLocaleString('ko-KR')+' M';
+function fareFor(km){return 4800+Math.floor(Math.max(0,Math.round(km*1000)-1600)/131)*100}
+function timeLeft(ms){const sec=Math.max(0,Math.ceil(ms/1000)),h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return (h?h+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
+function newTrip(c,at=Date.now()){
+ if(c.task)return;
+ const km=Math.round((1+Math.random()*9)*10)/10,duration=Math.round(km*3*60000);
+ c.task={km,startedAt:at,duration,end:at+duration};
+}
+function sanitizeTask(t,now){
+ if(!t||!Number.isFinite(t.km)||t.km<1||t.km>10||!Number.isFinite(t.end)||!Number.isFinite(t.duration)||t.duration<=0)return null;
+ const km=Math.round(t.km*10)/10,duration=Math.round(km*3*60000);
+ if(Number.isFinite(t.startedAt)&&t.startedAt>=0&&Math.abs(t.end-t.startedAt-t.duration)<1000&&Math.abs(t.duration-duration)<1000)return {km,startedAt:t.startedAt,duration,end:t.end};
+ const ratio=Math.max(0,Math.min(1,(now-(t.end-t.duration))/t.duration));
+ const startedAt=now-ratio*duration;return {km,startedAt,duration,end:startedAt+duration};
+}
+function validate(s){
+ if(!s||typeof s!=='object'||!Array.isArray(s.cars)||s.cars.length>MAX_TAXIS)return null;
+ const now=Date.now();
+ const cars=s.cars.map(c=>{
+  if(!c||!Number.isSafeInteger(c.id)||c.id<1||!Number.isInteger(c.rate)||c.rate<0||c.rate>90||!Number.isFinite(c.initial)||c.initial<0||c.initial>PRICE||!Number.isFinite(c.debt)||c.debt<0||c.debt>c.initial)return null;
+  return {id:c.id,rate:c.rate,initial:c.initial,debt:c.debt,task:sanitizeTask(c.task,now),last:c.last&&Number.isFinite(c.last.received)?c.last:null,count:Number.isSafeInteger(c.count)&&c.count>=0?c.count:0};
+ });
+ if(cars.some(c=>!c)||new Set(cars.map(c=>c.id)).size!==cars.length||!Number.isSafeInteger(s.balance)||s.balance<0)return null;
+ const introDone=s.introDone===true||s.chatStep>=1;
+ return {balance:s.balance,rate:Number.isInteger(s.rate)?Math.max(0,Math.min(90,s.rate)):90,seq:Number.isSafeInteger(s.seq)&&s.seq>=Math.max(2,...cars.map(c=>c.id+1))?s.seq:Math.max(2,...cars.map(c=>c.id+1)),cars,introDone,
+  messageRead:s.messageRead===true||introDone,firstReply:typeof s.firstReply==='string'?s.firstReply:'',
+  taxiSelected:cars.length>0||s.taxiSelected===true,showNotifications:s.showNotifications!==false};
+}
+function readKey(database){return new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(KEY);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+function openPrimary(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(STORE))req.result.createObjectStore(STORE)};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+function readOld(){return new Promise(resolve=>{
+ let req;try{req=indexedDB.open(OLD_DB,1)}catch{return resolve(null)}
+ req.onupgradeneeded=()=>req.transaction.abort(); // 이전 DB가 없으면 생성하지 않습니다.
+ req.onerror=()=>resolve(null);
+ req.onsuccess=async()=>{const legacy=req.result;try{resolve(legacy.objectStoreNames.contains(STORE)?await readKey(legacy):null)}catch{resolve(null)}finally{legacy.close()}};
+})}
+function save(){if(!ready||!db)return;try{
+ const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(JSON.parse(JSON.stringify(state)),KEY);
+ tx.onerror=()=>{writeFailed=true};
+}catch{writeFailed=true}}
+function settle(c){
+ if(!c.task)return;
+ const gross=fareFor(c.task.km),paid=Math.min(c.debt,Math.round(gross*c.rate/100));
+ c.debt-=paid;const received=gross-paid;
+ state.balance=Math.min(Number.MAX_SAFE_INTEGER,state.balance+received);
+ c.last={fare:gross,received,city:paid,km:c.task.km,delayMinutes:0};c.count++;c.task=null;
+}
+function advance(now=Date.now()){
+ if(!state.cars.length)return false;
+ let modified=false;
+ for(const c of state.cars){
+  if(!c.task){newTrip(c,now);modified=true}
+  let count=0;
+  while(c.task&&c.task.end<=now&&count<5000){const next=c.task.end;settle(c);newTrip(c,next);modified=true;count++}
+ }
+ if(modified)save();return modified;
+}
+function liveMetrics(c,now=Date.now()){
+ const t=c.task;
+ if(!t)return {distance:'0.0 km',time:'00:00',fare:money(4800),progress:0};
+ const progress=Math.max(0,Math.min(1,(now-t.startedAt)/t.duration));
+ const remain=Math.max(0,Math.ceil(t.km*(1-progress)*10-1e-8)/10);
+ return {distance:remain.toFixed(1)+' km',time:timeLeft(t.end-now),fare:money(fareFor(t.km*progress)),progress:progress*100};
+}
+function updateLive(){
+ if(!ready)return;
+ const settled=advance(Date.now());if(settled){render();return}
+ for(const c of state.cars){
+  const m=liveMetrics(c);
+  for(const key of ['distance','time','fare'])for(const el of document.querySelectorAll('[data-live="'+key+'"][data-car="'+c.id+'"]'))if(el.textContent!==m[key])el.textContent=m[key];
+  for(const el of document.querySelectorAll('[data-live-bar][data-car="'+c.id+'"]'))el.style.width=m.progress.toFixed(2)+'%';
+ }
+ for(const el of document.querySelectorAll('[data-live="balance"]'))if(el.textContent!==money(state.balance))el.textContent=money(state.balance);
+}
+
+function liveCard(c){
+ const m=liveMetrics(c);
+ return `<section class="card taxi-dash" aria-label="택시 ${c.id}호차 미터기">
+  <div class="taxi-meter"><div class="taxi-metrics"><span data-live="distance" data-car="${c.id}" aria-label="남은 거리">${m.distance}</span><span data-live="time" data-car="${c.id}" aria-label="남은 시간">${m.time}</span></div>
+  <div class="taxi-price" data-live="fare" data-car="${c.id}" aria-label="현재 요금">${m.fare}</div>
+  <div class="taxi-progress" aria-label="운행 진행률"><i data-live-bar data-car="${c.id}" style="width:${m.progress}%"></i></div></div></section>`;
+}
+function home(){return `<div class="card"><div class="money-value" data-live="balance">${money(state.balance)}</div></div>${state.cars.length?'<div class="section-title">운영 현황</div>'+state.cars.map(liveCard).join(''):''}${!state.messageRead&&state.showNotifications?'<button class="notice" data-action="open-messenger">'+iconBox('message')+'<span>새 메세지가 도착했어요</span><span class="chev">›</span></button>':''}`}
+
+function operations(){
+ const messenger=`<button class="item" data-action="open-messenger">${iconBox('message')}<span class="item-copy"><span class="item-title">메신저</span><span class="item-desc">${state.messageRead?'운영 지원팀':'새로운 운영 요청'}</span></span>${!state.messageRead&&state.showNotifications?'<span class="count">1</span>':''}<span class="chev">›</span></button>`;
+ const taxiItem=state.taxiSelected?`<button class="item" data-action="open-taxi">${iconBox('car')}<span class="item-copy"><span class="item-title">택시</span><span class="item-desc">${state.cars.length?state.cars.length+'대 운행 중':'첫차 지원 대기'}</span></span><span class="chev">›</span></button>`:'';
+ return `<div class="menu-group">${messenger}${taxiItem}</div>`;
+}
+
+function bubble(text,me=false){const d=document.createElement('div');d.className='bubble'+(me?' me':'');d.textContent=text;return d.outerHTML}
+const replyChoices={help:'도와드릴게요.'};
+function replyOption(id){const label=replyChoices[id];return `<button class="reply" data-action="send-reply" data-choice="${id}">${label}</button>`}
+function messenger(){
+ let conversation=bubble('안녕하세요.\n지금 도시의 교통 운영에 도움이 필요합니다.\n잠시 도와주실 수 있을까요?');
+ if(state.firstReply)conversation+=bubble(state.firstReply,true);
+ if(state.introDone){
+  conversation+=bubble('감사합니다.\n선택가능한 분야를 선택해주세요.');
+  if(!state.taxiSelected)conversation+='<div class="chat-field"><button class="item" data-action="choose-taxi">'+iconBox('car')+'<span class="item-copy"><span class="item-title">택시</span></span><span class="chev">›</span></button></div>';
+ }
+ if(pendingStage&&typing)conversation+='<div class="typing-line" role="status" aria-label="운영 지원팀이 답장을 입력 중입니다"><div class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></div><span>운영 지원팀 입력 중…</span></div>';
+ const actions=pendingStage||state.introDone?'':replyOption('help');
+ return `<div class="subtop"><button class="back" aria-label="운영 메뉴로" data-action="back-operations">${svg('left')}</button><div><div class="subname">운영 지원팀</div></div></div><div class="conversation">${conversation}</div>${actions?`<div class="quick">${actions}</div>`:''}`;
+}
+function redrawChat(){render();if(tab==='operations'&&page==='messenger')$('screen').scrollTop=$('screen').scrollHeight}
+function sendMessage(choice){
+ const answer=replyChoices[choice];if(pendingStage||state.introDone||!answer)return;
+ state.firstReply=answer;pendingStage=1;typing=false;save();redrawChat();
+ window.setTimeout(()=>{if(pendingStage!==1)return;typing=true;redrawChat()},480);
+ window.setTimeout(()=>{
+  if(pendingStage!==1)return;
+  state.introDone=true;pendingStage=0;typing=false;save();redrawChat();
+ },2500);
+}
+
+function taxi(){
+ const head=`<div class="subtop"><button class="back" aria-label="운영 메뉴로" data-action="back-operations">${svg('left')}</button></div>`;
+ if(!state.cars.length){return head+`<div class="card claim"><div class="taxi-symbol">${svg('car')}</div><div class="status-title">첫 택시</div>
+ <div class="status-sub">시 지원 90% · 차량 1대</div><div class="claim-info"><span>시 지원금</span><strong>27,000,000 M</strong></div>
+ <button class="claim-btn" data-action="claim-first-car">첫차 지원받기</button></div>`;}
+ return head+state.cars.map(liveCard).join('');
+}
+
+function settings(){return `<div class="switchrow"><div><div class="status-title">알림 표시</div><div class="status-sub">운영 메뉴의 새 소식 표시</div></div><button class="toggle ${state.showNotifications?'':'off'}" data-action="toggle-notifications" role="switch" aria-checked="${state.showNotifications}" aria-label="알림 표시"></button></div>`}
+function nav(){return [['home','house','홈'],['operations','briefcase','운영'],['settings','settings','설정']].map(([id,icon,label])=>`<button class="navbtn ${tab===id?'active':''}" data-tab="${id}" aria-current="${tab===id?'page':'false'}"><span class="navicon">${svg(icon)}</span>${label}${id==='operations'&&!state.messageRead&&state.showNotifications?'<i class="tab-unread" aria-label="새 알림"></i>':''}</button>`).join('')}
+function render(){const view=tab==='home'?home():tab==='settings'?settings():page==='messenger'?messenger():page==='taxi'?taxi():operations();$('screen').innerHTML=view;$('bottom').innerHTML=nav();$('topTitle').textContent=tab==='home'?'홈':tab==='settings'?'설정':page==='messenger'?'메신저':page==='taxi'?'택시':'운영';}
+function switchTab(next){tab=next;page='';render();$('screen').scrollTop=0}
+function action(act,choice){
+ if(!ready)return;
+ if(act==='send-reply'){sendMessage(choice);return}
+ if(act==='open-messenger'){tab='operations';page='messenger';if(!state.messageRead){state.messageRead=true;save()}}
+ else if(act==='choose-taxi'&&state.introDone&&!state.taxiSelected){state.taxiSelected=true;tab='operations';page='taxi';save()}
+ else if(act==='claim-first-car'&&state.taxiSelected&&!state.cars.length){const c=firstCar();newTrip(c);state.cars.push(c);state.seq=2;save()}
+ else if(act==='open-taxi'&&state.taxiSelected){tab='operations';page='taxi'}
+ else if(act==='back-operations'){tab='operations';page=''}
+ else if(act==='toggle-notifications'){state.showNotifications=!state.showNotifications;save()}
+ render();updateLive();$('screen').scrollTop=page==='messenger'?$('screen').scrollHeight:0;
+}
+async function boot(){
+ try{
+  db=await openPrimary();const saved=await readKey(db);
+  if(saved!==undefined&&saved!==null){const normalized=validate(saved);if(!normalized)throw new Error('저장 데이터 형식을 확인할 수 없습니다');state=normalized}
+  else{const old=await readOld();if(old){const normalized=validate(old);if(!normalized)throw new Error('이전 저장 데이터 형식을 확인할 수 없습니다');state=normalized}}
+  ready=true;
+  // 답변 직후 새로고침해도 중복 전송 버튼이 나타나지 않게 완료 상태로 복원합니다.
+  if(state.firstReply&&!state.introDone){state.introDone=true;save()}
+  const changed=advance(Date.now());if(!saved&&!changed)save();
+  render();updateLive();
+ }catch(err){console.error('MYON 저장 불러오기 오류',err);$('screen').textContent='저장 데이터를 불러올 수 없습니다. 새로고침해서 다시 시도해 주세요.';}
+}
+
+document.addEventListener('click',event=>{const btn=event.target.closest('button[data-action],button[data-tab]');if(!btn||!ready)return;if(btn.dataset.tab){switchTab(btn.dataset.tab)}else{action(btn.dataset.action,btn.dataset.choice)}});
+boot();
+setInterval(updateLive,500); // 홈·운영·설정 이동 중에도 모든 운행 진행
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateLive()});
+})();
+</script>
+</body>
+</html>
