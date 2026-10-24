@@ -6,7 +6,7 @@ import ObservationView from './ObservationView.vue'
 const mode = new URLSearchParams(window.location.search).get('mode')
 const legacy = mode === 'legacy'
 const buildId = __MYON_BUILD_ID__
-const pageName = mode === 'missions' ? 'mission-board.html' : 'taxi.html'
+const pageName = mode === 'missions' ? 'mission-board.html' : mode === 'taxi' ? 'taxi.html' : 'myon.html'
 const frameUrl = String(import.meta.env.BASE_URL) + pageName + '?build=' + encodeURIComponent(buildId)
 </script>
 
