@@ -1,293 +1,148 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<meta name="theme-color" content="#101a1e"/>
-<title>MYON v0.07.04</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e171b">
+<title>MYON v0.08.01</title>
 <style>
-:root{color-scheme:dark;--bg:#0e171b;--surface:#142328;--surface-2:#192c30;--edge:#2b4240;--muted:#91aaa3;--text:#e7f1ec;--green:#ade8c0;--accent:#1f4b35}
+:root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
-html,body{margin:0;width:100%;min-height:100%;background:#0b1217;color:var(--text);font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Pretendard,'Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent}
-button{font:inherit;color:inherit;cursor:pointer}button:focus-visible{outline:2px solid var(--green);outline-offset:2px}button:disabled{cursor:default;opacity:.5}
-.viewport{min-height:100dvh;display:flex;justify-content:center;align-items:stretch}.app{width:100%;max-width:450px;min-height:100dvh;background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 0 40px #0005}
-@media(min-width:600px){.viewport{padding:22px 0}.app{min-height:calc(100dvh - 44px);max-height:calc(100dvh - 44px);border:1px solid var(--edge);border-radius:19px}}
-.topbar{height:61px;min-height:61px;padding:0 21px;border-bottom:1px solid var(--edge);background:#102025;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:850;letter-spacing:.095em}.logo{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;background:#b2e7c3;color:#153522;font-size:19px;font-weight:950;letter-spacing:0}.top-right{font-size:11px;color:#8fb4a0;letter-spacing:.06em}
-.content{flex:1;min-height:0;overflow:auto;padding:18px 17px 26px;scrollbar-width:none}.content::-webkit-scrollbar{display:none}.section-title{margin:21px 0 10px;font-size:12px;font-weight:800;color:#a1bbae}
-.card{border:1px solid var(--edge);border-radius:13px;background:var(--surface);padding:17px 16px}.money-label{font-size:12px;color:#a5bcb0}.money-value{font-size:31px;letter-spacing:-.03em;font-weight:850;color:#b5eac7;margin:0;font-variant-numeric:tabular-nums}
-.status-title{font-size:14px;font-weight:750}.status-sub{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
-.bottom{height:71px;min-height:71px;border-top:1px solid var(--edge);background:#112024;display:grid;grid-template-columns:repeat(3,1fr);padding:4px 10px max(9px,env(safe-area-inset-bottom));gap:8px;align-items:stretch}.navbtn{background:transparent;border:0;display:flex;align-items:center;flex-direction:column;justify-content:center;gap:4px;border-radius:10px;color:#90a89e;position:relative;font-size:11px;font-weight:700}.navbtn.active{color:#baedd0;background:#1c342e}.navicon{width:23px;height:23px;display:grid;place-items:center}.navicon svg{width:21px;height:21px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none}
-.taxi-dash{padding:8px 9px 10px;background:#111e23;border-color:#2b4842;border-radius:14px;margin-bottom:9px}.taxi-meter{background:linear-gradient(165deg,#09171b,#0b181d);border:1px solid #3a6660;border-radius:11px;padding:12px 13px 12px;box-shadow:inset 0 0 0 1px #1b3633}.taxi-metrics{display:flex;align-items:center;justify-content:space-between;gap:9px;color:#c3f9e4;font-size:17px;font-weight:850;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap}.taxi-price{font-size:clamp(31px,8.4vw,41px);font-weight:900;color:#83edb1;letter-spacing:-.045em;text-align:center;line-height:1.15;margin:9px 0 12px;text-shadow:0 0 9px #2edb7c18;font-variant-numeric:tabular-nums;white-space:nowrap}.taxi-progress{height:4px;overflow:hidden;border-radius:50px;background:#274743}.taxi-progress i{display:block;height:100%;width:0;background:#75e9a8;border-radius:50px;transition:width .5s linear}
-@media(max-width:350px){.taxi-metrics{font-size:15px}.taxi-price{font-size:30px}.taxi-meter{padding:11px 10px}}
-.claim{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:23px 17px}.taxi-symbol{display:grid;place-items:center;width:50px;height:50px;border:1px solid #3a614c;border-radius:13px;color:var(--green);background:#21402e;margin-bottom:3px}.taxi-symbol svg{width:27px;height:27px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.claim .status-title{font-size:16px}.claim-info{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 5px;border-block:1px solid #2c4540;font-size:12px}.claim-info span{color:#a0bbae}.claim-info strong{color:#bcefcf}.claim-btn{background:#b0e6c3;color:#163223;border:0;border-radius:10px;width:100%;min-height:49px;font-size:13px;font-weight:800}.claim-btn:active{filter:brightness(.93)}
-.game-settings{display:flex;flex-direction:column;gap:7px}.game-settings .status-title{font-size:14px}.game-settings .status-sub{font-size:12px}
-/* 운영: 차량 구입 및 시 지원 상환 상세 화면 */
-.operation-menus{display:flex;flex-direction:column;gap:9px;margin-top:16px}
-.action-item{width:100%;display:flex;align-items:center;gap:13px;text-align:left;min-height:76px;background:#142328;border:1px solid #2b4240;border-radius:13px;padding:13px 14px}
-.action-item:active{background:#1d3332}.action-icon{width:42px;height:42px;flex:none;display:grid;place-items:center;border:1px solid #355746;border-radius:11px;background:#224032;color:#b5eac7}
-.action-icon svg,.back-btn svg,.next-icon svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.action-copy{flex:1;min-width:0}.action-copy strong{display:block;font-size:14px;font-weight:800}.action-copy small{display:block;margin-top:5px;font-size:11px;line-height:1.4;color:#91aaa3}.next-icon{color:#789c8b;display:grid;place-items:center}
-.subnav{display:flex;align-items:center;gap:11px;margin:0 0 19px}.back-btn{height:38px;width:38px;flex:none;background:#192f2d;border:1px solid #315048;border-radius:10px;display:grid;place-items:center}.subheading{font-size:16px;font-weight:800;letter-spacing:-.03em}
-.detail-card{border:1px solid #2b4240;border-radius:13px;background:#142328;padding:17px 16px;margin-bottom:12px}
-.detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px;font-weight:800;margin-bottom:15px}
-.muted{color:#91aaa3;font-size:12px;line-height:1.5}.data-line{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;font-size:12px}.data-line span{color:#91aaa3}.data-line strong{font-size:13px;text-align:right;font-variant-numeric:tabular-nums}.green-text{color:#b5eac7}.divider-line{height:1px;background:#2b4240;margin:15px 0}
-.range-caption{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#b0c7b9;margin:0 0 14px}.range-caption strong{color:#b5eac7;font-size:16px}
-.rate-range{width:100%;accent-color:#b0e6c3;cursor:pointer;margin:4px 0 10px;height:18px}
-.primary-action{width:100%;height:46px;border:0;border-radius:10px;background:#b0e6c3;color:#163223;font-size:13px;font-weight:850;margin-top:16px}
-.primary-action:disabled{background:#365348;color:#a0b3ab;opacity:1}
-.inline-error{font-size:12px;color:#efb49b;line-height:1.6;margin-top:12px}.inline-success{font-size:12px;color:#aee8c0;line-height:1.6;margin-top:12px}.empty-note{font-size:12px;color:#99b4a7;line-height:1.75}
-.repay-card{border:1px solid #2b4240;border-radius:13px;background:#142328;padding:16px;margin:0 0 10px}
-.repay-title{display:flex;justify-content:space-between;align-items:center;gap:8px}.repay-title strong{font-size:14px}.repay-title span{font-size:11px;color:#9cb9a8}
-.repay-button{padding:9px 13px;background:#1c3d30;border:1px solid #3d6751;border-radius:8px;font-weight:750;font-size:12px;color:#caedda;margin-top:14px;min-height:38px}
-.repay-button:disabled{opacity:.5}.repay-controls{margin-top:14px;border-top:1px solid #2b4240;padding-top:14px}
-.repay-input{width:100%;height:44px;border-radius:9px;border:1px solid #3b5751;background:#0f1e22;color:#e7f1ec;padding:0 12px;font:inherit;font-size:14px;outline:none}.repay-input:focus{border-color:#8bd4ad}.repay-input::placeholder{color:#728f83}
-.repay-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}.repay-actions button{border-radius:9px;min-height:42px;background:#244a36;border:1px solid #407857;font-size:12px;font-weight:800}.repay-actions button:first-child{background:#b0e6c3;border-color:#b0e6c3;color:#163223}.repay-actions button:disabled{opacity:.45}
-.sell-button{width:100%;text-align:center}.sell-confirm{margin-top:10px;padding:12px;border:1px solid #3d6751;border-radius:10px;background:#102621}.sell-confirm-title{font-size:13px;font-weight:800}.sell-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}.sell-actions button{border:1px solid #407857;border-radius:9px;padding:10px;background:#244a36;font-size:12px;font-weight:800}.sell-actions button:first-child{background:#b0e6c3;color:#163223;border-color:#b0e6c3}
-
+html,body{margin:0;width:100%;height:100%;background:#0b1217}
+button{font:inherit}
+button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
+.viewport{min-height:100dvh;display:flex;justify-content:center}
+.app{background:#0e171b;width:100%;max-width:450px;height:100dvh;height:100svh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+@media(min-width:600px){.viewport{padding:20px 0}.app{height:calc(100dvh - 40px);border:1px solid #304448;border-radius:16px;box-shadow:0 0 35px #0005}}
+.topbar{background:#14242a;border-bottom:1px solid #2c4346;height:54px;flex:none;display:flex;align-items:center;padding:0 17px}
+.brand{font-size:19px;font-weight:800;letter-spacing:.015em}
+.missions{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;-ms-overflow-style:none;padding:12px;display:flex;flex-direction:column;gap:8px}
+.missions::-webkit-scrollbar{display:none;width:0;height:0}
+.mission-card{background:#19292e;border:1px solid #30484a;border-radius:11px;padding:12px;min-height:66px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.mission-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.mission-name{font-size:14px;font-weight:600;line-height:1.45;overflow-wrap:anywhere}
+.mission-status{font-size:12px;color:#a5c9b2}
+.mission-warning{font-size:12px;color:#edaa98}
+.mission-start{flex:none;background:#b1e5c2;color:#183626;border:0;border-radius:9px;padding:9px 15px;font-size:13px;font-weight:750;cursor:pointer;min-width:56px}
+.mission-start:active{background:#88d3a7}
+.nav{flex:none;border-top:1px solid #2c4346;background:#14242a;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
+.nav button{border:0;border-radius:8px;height:40px;background:none;font-size:14px;font-weight:550;color:#738e8c}
+.nav button[aria-current="page"]{background:#294a3b;color:#c2ebd0;font-weight:700}
+.nav button:disabled{cursor:not-allowed;opacity:.75}
+.lock{font-size:11px;margin-right:4px;filter:grayscale(1);opacity:.65}
 </style>
 </head>
 <body>
-<div class="viewport"><div class="app"><header class="topbar"><div class="brand"><span class="logo">M</span>MYON</div><span class="top-right" id="topTitle">홈</span></header><main class="content" id="screen" aria-live="polite"></main><nav class="bottom" id="bottom" aria-label="주 메뉴"></nav></div></div>
+<div class="viewport"><div class="app">
+<header class="topbar"><strong class="brand">MYON</strong></header>
+<main class="missions" id="missions" aria-label="임무 목록"></main>
+<nav class="nav" aria-label="메뉴">
+<button type="button" aria-current="page">홈</button>
+<button type="button" disabled aria-label="회사 잠김"><span class="lock" aria-hidden="true">🔒</span>회사</button>
+<button type="button" disabled aria-label="설정 잠김"><span class="lock" aria-hidden="true">🔒</span>설정</button>
+</nav>
+</div></div>
 <script>
-(()=>{
+(function(){
 'use strict';
-// v0.07.04: 기존 운행·요금 규칙과 v0.07 택시 저장 데이터를 이어서 사용합니다.
-const DB='myon-taxi-v007',OLD_DB='myon-taxi-v006';
-const STORE='game',KEY='main',MAX_VEHICLES=50,PRICE=30000000,SALE_PRICE=PRICE/2;
-const blank=()=>({balance:0,rate:90,seq:2,cars:[]});
-const firstCar=id=>({id,rate:90,initial:27000000,debt:27000000,task:null,last:null,count:0});
-let state=blank(),tab='home',page='',db=null,ready=false,writeFailed=false;
-let repayOpen=null,repayDraft={},notice='',saleConfirmId=null;
-// 전체 분야 공통 차량 한도. 새로운 차량 분야 도입 시 이 목록에 연결합니다.
-function vehicleCollections(){return [state.cars]}
-function totalVehicleCount(){return vehicleCollections().reduce((n,cars)=>n+cars.length,0)}
-function hasVehicleSlot(){return totalVehicleCount()<MAX_VEHICLES}
-function firstClaimed(){return state.firstCarClaimed===true||state.cars.length>0||state.seq>2}
-const $=id=>document.getElementById(id);
-const svg=name=>{const icons={
- house:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
- briefcase:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/>',
- settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a2 2 0 0 0 .4 2.2l-1.6 1.6a2 2 0 0 0-2.2-.4l-1.1.5-.4 2.1h-2.3l-.4-2.1-1.1-.5a2 2 0 0 0-2.2.4l-1.6-1.6a2 2 0 0 0 .4-2.2l-.5-1.1L4 13.5v-2.3l2.1-.4.5-1.1a2 2 0 0 0-.4-2.2L7.8 5.9a2 2 0 0 0 2.2.4l1.1-.5.4-2.1h2.3l.4 2.1 1.1.5a2 2 0 0 0 2.2-.4l1.6-1.6a2 2 0 0 0-.4-2.2l.5-1.1 2.1-.4v-2.3l-2.1-.4z"/>',
- car:'<path d="m5 16 1-7c.2-1 1-2 2-2h8c1 0 1.8 1 2 2l1 7H5zM7 7l1-3h8l1 3M5 16v3m14-3v3M5 12h14"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/>',
- plus:'<path d="M12 4v16M4 12h16"/>',
- wallet:'<path d="M20 7H5a2 2 0 0 1-2-2v14a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM3 5a2 2 0 0 1 2-2h14v4M22 12h-5a2 2 0 0 0 0 4h5"/>',
- left:'<path d="m15 18-6-6 6-6"/>',
- right:'<path d="m9 18 6-6-6-6"/>'};
- return '<svg viewBox="0 0 24 24" aria-hidden="true">'+icons[name]+'</svg>';
-};
-const money=n=>Math.round(n).toLocaleString('ko-KR')+' M';
-function fareFor(km){return 4800+Math.floor(Math.max(0,Math.round(km*1000)-1600)/131)*100}
-function timeLeft(ms){const sec=Math.max(0,Math.ceil(ms/1000)),h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return (h?h+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
-function newTrip(c,at=Date.now()){
- if(c.task)return;
- const km=Math.round((1+Math.random()*9)*10)/10,duration=Math.round(km*3*60000);
- c.task={km,startedAt:at,duration,end:at+duration};
+// v0.08.01 새 게임: 현재 임무는 메모리에서만 관리하고 저장소에는 접근하지 않습니다.
+// 화면에는 임무 완료시각, 등장/폐기시각, 제한 수, 자금, 시계를 표시하지 않습니다.
+const MAX_RUNNING=10;
+const ARRIVAL_MIN=4000,ARRIVAL_MAX=8500;
+const EXPIRY_MIN=17000,EXPIRY_MAX=33000;
+const FINISH_MIN=120000,FINISH_MAX=360000;
+const NAMES=[
+'지역 전력 공급','생활 물자 운송','노후 시설 보수','공공시설 점검',
+'상가 물품 공급','생활용수 확보','산업 설비 정비','도로 안전 점검',
+'지역 환경 정비','긴급 물자 확보','주거시설 보수','공장 자재 운송',
+'노후 배관 교체','지역 의료 물품 확보','통신 시설 점검','산업단지 설비 보수',
+'배수시설 정비','지역 식료품 확보','학교 시설 보수','정수시설 점검',
+'물류 창고 정비','주거지역 전기 점검','하천 시설 복구','상업시설 안전 점검',
+'복지시설 물품 공급','공원 시설 정비','가로등 정비','정류장 시설 보수',
+'폐기물 처리 지원','지역 통신망 보수','공공 급식 공급','산업 폐수 정비'
+];
+const list=document.getElementById('missions');
+const missions=new Map();
+let nextId=1;
+const randomBetween=(min,max)=>min+Math.floor(Math.random()*(max-min+1));
+let nextArrival=Date.now()+randomBetween(ARRIVAL_MIN,ARRIVAL_MAX);
+function runningCount(){
+ let total=0;
+ for(const mission of missions.values()) if(mission.startedAt!==null) total++;
+ return total;
 }
-function sanitizeTask(t,now){
- if(!t||!Number.isFinite(t.km)||t.km<1||t.km>10||!Number.isFinite(t.end)||!Number.isFinite(t.duration)||t.duration<=0)return null;
- const km=Math.round(t.km*10)/10,duration=Math.round(km*3*60000);
- if(Number.isFinite(t.startedAt)&&t.startedAt>=0&&Math.abs(t.end-t.startedAt-t.duration)<1000&&Math.abs(t.duration-duration)<1000)return {km,startedAt:t.startedAt,duration,end:t.end};
- const ratio=Math.max(0,Math.min(1,(now-(t.end-t.duration))/t.duration));
- const startedAt=now-ratio*duration;return {km,startedAt,duration,end:startedAt+duration};
+function removeMission(id){
+ const mission=missions.get(id);
+ if(!mission)return;
+ missions.delete(id);
+ mission.card.remove();
 }
-function validate(s){
- if(!s||typeof s!=='object'||!Array.isArray(s.cars))return null;
- const now=Date.now();
- const cars=s.cars.map(c=>{
-  if(!c||!Number.isSafeInteger(c.id)||c.id<1||!Number.isInteger(c.rate)||c.rate<0||c.rate>90||!Number.isFinite(c.initial)||c.initial<0||c.initial>PRICE||!Number.isFinite(c.debt)||c.debt<0||c.debt>c.initial)return null;
-  return {...c,id:c.id,rate:c.rate,initial:c.initial,debt:c.debt,task:sanitizeTask(c.task,now),last:c.last&&Number.isFinite(c.last.received)?c.last:null,count:Number.isSafeInteger(c.count)&&c.count>=0?c.count:0};
+function newMission(now){
+ const taken=new Set(Array.from(missions.values(),m=>m.name));
+ const available=NAMES.filter(name=>!taken.has(name));
+ if(!available.length)return;
+ const name=available[randomBetween(0,available.length-1)];
+ const mission={id:nextId++,name,expiresAt:now+randomBetween(EXPIRY_MIN,EXPIRY_MAX),
+   startedAt:null,finishesAt:null,card:null};
+ const card=document.createElement('article');
+ card.className='mission-card';
+ const info=document.createElement('div');
+ info.className='mission-info';
+ const title=document.createElement('span');
+ title.className='mission-name';
+ title.textContent=name;
+ info.appendChild(title);
+ const button=document.createElement('button');
+ button.type='button';
+ button.className='mission-start';
+ button.textContent='시작';
+ button.addEventListener('click',()=>{
+   if(!missions.has(mission.id)||mission.startedAt!==null)return;
+   if(Date.now()>=mission.expiresAt){removeMission(mission.id);return;}
+   if(runningCount()>=MAX_RUNNING){
+     let warning=info.querySelector('.mission-warning');
+     if(!warning){
+       warning=document.createElement('span');
+       warning.className='mission-warning';
+       warning.textContent='임무를 시작할 수 없습니다.';
+       info.appendChild(warning);
+       window.setTimeout(()=>warning.remove(),2500);
+     }
+     return;
+   }
+   mission.startedAt=Date.now();
+   mission.finishesAt=mission.startedAt+randomBetween(FINISH_MIN,FINISH_MAX);
+   const status=document.createElement('span');
+   status.className='mission-status';
+   status.textContent='임무 진행중';
+   info.appendChild(status);
+   button.remove();
  });
- if(cars.some(c=>!c)||new Set(cars.map(c=>c.id)).size!==cars.length||!Number.isSafeInteger(s.balance)||s.balance<0)return null;
- const nextId=Math.max(2,...cars.map(c=>c.id+1));
- // 기존의 확장 필드는 변경하지 않고, 게임 진행에 필요한 수치만 검증합니다.
- return {...s,balance:s.balance,rate:Number.isInteger(s.rate)?Math.max(0,Math.min(90,s.rate)):90,seq:Number.isSafeInteger(s.seq)&&s.seq>=nextId?s.seq:nextId,cars,firstCarClaimed:s.firstCarClaimed===true||cars.length>0||s.seq>2};
+ card.append(info,button);
+ mission.card=card;
+ missions.set(mission.id,mission);
+ list.appendChild(card);
 }
-function readKey(database){return new Promise((resolve,reject)=>{
- const tx=database.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(KEY);
- req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
-})}
-function openDB(name,create=true){return new Promise((resolve,reject)=>{
- const req=indexedDB.open(name,1);
- req.onupgradeneeded=()=>{if(!create){req.transaction.abort();return}if(!req.result.objectStoreNames.contains(STORE))req.result.createObjectStore(STORE)};
- req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
-})}
-async function readExisting(name){let d=null;try{d=await openDB(name,false);return d.objectStoreNames.contains(STORE)?await readKey(d):null}catch{return null}finally{if(d)d.close()}}
-function save(){if(!ready||!db)return;try{
- const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(JSON.parse(JSON.stringify(state)),KEY);
- tx.onerror=()=>{writeFailed=true;console.error('MYON 저장 오류',tx.error)};
-}catch(err){writeFailed=true;console.error('MYON 저장 오류',err)}}
-function settle(c){
- if(!c.task)return;
- const gross=fareFor(c.task.km),paid=Math.min(c.debt,Math.round(gross*c.rate/100));
- c.debt-=paid;const received=gross-paid;
- state.balance=Math.min(Number.MAX_SAFE_INTEGER,state.balance+received);
- c.last={fare:gross,received,city:paid,km:c.task.km,delayMinutes:0};c.count++;c.task=null;
-}
-function advance(now=Date.now()){
- if(!state.cars.length)return false;
- let modified=false;
- for(const c of state.cars){
-  if(!c.task){newTrip(c,now);modified=true}
-  let count=0;
-  while(c.task&&c.task.end<=now&&count<5000){const next=c.task.end;settle(c);newTrip(c,next);modified=true;count++}
+function tick(){
+ const now=Date.now();
+ for(const mission of missions.values()){
+   if(mission.startedAt===null&&now>=mission.expiresAt){
+     // 시작하지 않은 일은 다른 도시 주체가 해결한 것으로 간주합니다.
+     removeMission(mission.id);
+   }else if(mission.startedAt!==null&&now>=mission.finishesAt){
+     // 숨겨진 완료시각에 종료하며 다음 임무를 받을 수 있게 됩니다.
+     removeMission(mission.id);
+   }
  }
- if(modified)save();return modified;
-}
-function liveMetrics(c,now=Date.now()){
- const t=c.task;
- if(!t)return {distance:'0.0 km',time:'00:00',fare:money(4800),progress:0};
- const progress=Math.max(0,Math.min(1,(now-t.startedAt)/t.duration));
- const remain=Math.max(0,Math.ceil(t.km*(1-progress)*10-1e-8)/10);
- return {distance:remain.toFixed(1)+' km',time:timeLeft(t.end-now),fare:money(fareFor(t.km*progress)),progress:progress*100};
-}
-function liveCard(c){const m=liveMetrics(c);return `<section class="card taxi-dash" aria-label="택시 ${c.id}호차 미터기"><div class="taxi-meter"><div class="taxi-metrics"><span data-live="distance" data-car="${c.id}" aria-label="남은 거리">${m.distance}</span><span data-live="time" data-car="${c.id}" aria-label="남은 시간">${m.time}</span></div><div class="taxi-price" data-live="fare" data-car="${c.id}" aria-label="현재 요금">${m.fare}</div><div class="taxi-progress" aria-label="운행 진행률"><i data-live-bar data-car="${c.id}" style="width:${m.progress}%"></i></div></div></section>`}
-function updateLive(){
- if(!ready)return;
- const settled=advance(Date.now());if(settled){render();return}
- for(const c of state.cars){
-  const m=liveMetrics(c);
-  for(const key of ['distance','time','fare'])for(const el of document.querySelectorAll('[data-live="'+key+'"][data-car="'+c.id+'"]'))if(el.textContent!==m[key])el.textContent=m[key];
-  for(const el of document.querySelectorAll('[data-live-bar][data-car="'+c.id+'"]'))el.style.width=m.progress.toFixed(2)+'%';
- }
- for(const el of document.querySelectorAll('[data-live="balance"]'))if(el.textContent!==money(state.balance))el.textContent=money(state.balance);
-}
-function home(){
- return `<div class="card"><div class="money-value" data-live="balance">${money(state.balance)}</div></div>`+
- (state.cars.length?'<div class="section-title">운영 현황</div>'+state.cars.map(liveCard).join(''):'');
-}
-function operations(){
- const taxiContent=!state.cars.length&&!firstClaimed()?
-  `<div class="section-title" style="margin-top:0">택시</div><div class="card claim"><div class="taxi-symbol">${svg('car')}</div><div class="status-title">택시 차량 지원</div><div class="status-sub">첫 차량은 시 지원금 90%를 지원받을 수 있습니다.</div><div class="claim-info"><span>차량 가격</span><strong>${money(PRICE)}</strong></div><div class="claim-info"><span>시 지원금</span><strong>${money(27000000)}</strong></div><button class="claim-btn" data-action="claim-first-car">택시 차량 지원받기</button></div>`:
-  state.cars.length?`<div class="section-title" style="margin-top:0">택시 · ${state.cars.length}대 운행 중</div>`+state.cars.map(liveCard).join(''):`<div class="section-title" style="margin-top:0">택시 · 0대</div>`;
- return taxiContent+`<div class="operation-menus">
-  <button class="action-item" data-action="open-purchase"><span class="action-icon">${svg('plus')}</span><span class="action-copy"><strong>차량 구입</strong></span><span class="next-icon">${svg('right')}</span></button>
-  <button class="action-item" data-action="open-repayment"><span class="action-icon">${svg('wallet')}</span><span class="action-copy"><strong>시 지원 상환</strong></span><span class="next-icon">${svg('right')}</span></button>
- </div>`;
-}
-function innerHeader(title){return `<div class="subnav"><button class="back-btn" data-action="back-operations" aria-label="운영으로 돌아가기">${svg('left')}</button><div class="subheading">${title}</div></div>`}
-function noticeText(){return notice?`<div role="status" class="${notice.startsWith('완료')?'inline-success':'inline-error'}">${notice}</div>`:''}
-function purchase(){
- const aid=Math.round(PRICE*state.rate/100),own=PRICE-aid,cap=!hasVehicleSlot();
- const canBuy=firstClaimed()&&!cap&&state.balance>=own;
- return innerHeader('차량 구입')+`<div class="detail-card">
-  <div class="detail-head"><span>택시 구입</span><span class="muted">전체 차량 ${totalVehicleCount()} / ${MAX_VEHICLES}대</span></div>
-  <div class="data-line"><span>현재 자금</span><strong class="green-text" data-live="balance">${money(state.balance)}</strong></div>
-  <div class="data-line"><span>차량 가격</span><strong>${money(PRICE)}</strong></div>
-  <div class="divider-line"></div>
-  <div class="range-caption"><span>시 지원 비율</span><strong id="rate-label">${state.rate}%</strong></div>
-  <input class="rate-range" type="range" min="0" max="90" step="1" value="${state.rate}" id="rate-slider" aria-label="시 지원 비율" ${cap?'disabled':''}>
-  <div class="data-line"><span>시 지원금</span><strong id="aid-label">${money(aid)}</strong></div>
-  <div class="data-line"><span>자기 부담금</span><strong id="own-label" class="green-text">${money(own)}</strong></div>
-  <button class="primary-action" data-action="purchase" id="purchase-btn" ${canBuy?'':'disabled'}>구입 · <span id="purchase-label">${money(own)}</span></button>
-  ${!firstClaimed()?'<div class="empty-note" style="margin-top:12px">첫차 지원 필요</div>':cap?'<div class="empty-note" style="margin-top:12px">전체 차량 50대 한도</div>':state.balance<own?'<div class="empty-note" style="margin-top:12px">차량 구입에 필요한 자금이 부족합니다.</div>':''}
-  ${noticeText()}
- </div>`;
-}
-function repayment(){
- const debtTotal=state.cars.reduce((sum,c)=>sum+c.debt,0);
- let pageHtml=innerHeader('시 지원 상환')+`<div class="detail-card">
-  <div class="data-line" style="margin-top:0"><span>현재 자금</span><strong class="green-text" data-live="balance">${money(state.balance)}</strong></div>
-  <div class="data-line"><span>남은 시 지원금</span><strong>${money(debtTotal)}</strong></div>
- </div>`;
- if(!state.cars.length)return pageHtml+`<div class="detail-card empty-note">보유 차량 없음</div>`;
- for(const c of state.cars){
-  const open=repayOpen===c.id;
-  pageHtml+=`<div class="repay-card"><div class="repay-title"><strong>택시 ${c.id}호차</strong><span>시 납부율 ${c.rate}%</span></div>
-   <div class="data-line"><span>남은 지원금</span><strong class="green-text">${money(c.debt)}</strong></div>`;
-  if(c.debt>0){pageHtml+=`<button class="repay-button" data-action="toggle-repay" data-id="${c.id}">${open?'접기':'상환하기'}</button>`;
-   if(open)pageHtml+=`<div class="repay-controls"><input class="repay-input" type="number" inputmode="numeric" step="1" min="1" max="${c.debt}" data-repay-input="${c.id}" placeholder="상환 금액 (M)" aria-label="택시 ${c.id}호차 상환 금액" value="${repayDraft[c.id]??''}"><div class="repay-actions"><button data-action="partial-repay" data-id="${c.id}">금액 상환</button><button data-action="full-repay" data-id="${c.id}" ${state.balance>=c.debt?'':'disabled'}>전액 상환</button></div>${noticeText()}</div>`;
-  }else{
-   pageHtml+=`<div class="inline-success">완납</div><button class="repay-button sell-button" data-action="sell-car" data-id="${c.id}">판매 · ${money(SALE_PRICE)}</button>`;
-   if(saleConfirmId===c.id)pageHtml+=`<div class="sell-confirm"><div class="sell-confirm-title">택시 ${c.id}호차 판매</div><div class="sell-actions"><button data-action="confirm-sell" data-id="${c.id}">판매 · ${money(SALE_PRICE)}</button><button data-action="cancel-sell" data-id="${c.id}">취소</button></div></div>`;
-  }
-  pageHtml+='</div>';
- }
- if(notice&&repayOpen===null)pageHtml+=`<div class="detail-card">${noticeText()}</div>`;
- return pageHtml;
-}
-function settings(){return `<div class="card game-settings"><div class="status-title">MYON</div><div class="status-sub">게임 버전 v0.07.04</div></div>`}
-function nav(){return [['home','house','홈'],['operations','briefcase','운영'],['settings','settings','설정']].map(([id,icon,label])=>`<button class="navbtn ${tab===id?'active':''}" data-tab="${id}" aria-current="${tab===id?'page':'false'}"><span class="navicon">${svg(icon)}</span>${label}</button>`).join('')}
-function render(){
- $('screen').innerHTML=tab==='home'?home():tab==='settings'?settings():page==='purchase'?purchase():page==='repayment'?repayment():operations();
- $('bottom').innerHTML=nav();
- $('topTitle').textContent=tab==='home'?'홈':tab==='settings'?'설정':page==='purchase'?'차량 구입':page==='repayment'?'시 지원 상환':'운영';
-}
-function switchTab(next){if(!['home','operations','settings'].includes(next))return;tab=next;page='';notice='';repayOpen=null;saleConfirmId=null;render();updateLive();$('screen').scrollTop=0}
-function showPage(next){tab='operations';page=next;notice='';repayOpen=null;saleConfirmId=null;render();updateLive();$('screen').scrollTop=0}
-function action(act,id){
- if(!ready)return;
- if(act==='open-purchase'){showPage('purchase');return}
- if(act==='open-repayment'){showPage('repayment');return}
- if(act==='back-operations'){showPage('');return}
- if(act==='claim-first-car'&&!firstClaimed()&&hasVehicleSlot()){
-  const nextId=state.seq>2?state.seq:1;
-  const c=firstCar(nextId);newTrip(c);state.cars.push(c);state.seq=Math.max(state.seq,nextId+1);state.firstCarClaimed=true;save();render();updateLive();return;
- }
- if(act==='purchase'&&page==='purchase'){
-  if(!firstClaimed()){notice='첫차 지원 필요';render();return}
-  if(!hasVehicleSlot()){notice='전체 차량 50대 한도';render();return}
-  const aid=Math.round(PRICE*state.rate/100),own=PRICE-aid;
-  if(state.balance<own){notice='차량 구입에 필요한 자금이 부족합니다.';render();return}
-  state.balance-=own;
-  const c={id:state.seq++,rate:state.rate,initial:aid,debt:aid,task:null,last:null,count:0};
-  newTrip(c);state.cars.push(c);save();notice='완료 · 택시 '+c.id+'호차를 구입했습니다.';render();updateLive();return;
- }
- if(act==='sell-car'&&page==='repayment'){
-  const c=state.cars.find(v=>v.id===id);if(!c||c.debt!==0)return;
-  saleConfirmId=saleConfirmId===id?null:id;notice='';render();return;
- }
- if(act==='cancel-sell'&&page==='repayment'){saleConfirmId=null;render();return}
- if(act==='confirm-sell'&&page==='repayment'&&saleConfirmId===id){
-  const index=state.cars.findIndex(c=>c.id===id);
-  if(index<0||state.cars[index].debt!==0){saleConfirmId=null;render();return}
-  if(state.balance>Number.MAX_SAFE_INTEGER-SALE_PRICE){notice='자금 한도 초과';render();return}
-  state.cars.splice(index,1);state.balance+=SALE_PRICE;state.firstCarClaimed=true;
-  saleConfirmId=null;repayOpen=null;delete repayDraft[id];
-  notice='완료 · '+money(SALE_PRICE)+' 판매';save();render();updateLive();return;
- }
- if(act==='toggle-repay'&&page==='repayment'){
-  const c=state.cars.find(v=>v.id===id);if(!c||c.debt<=0)return;
-  repayOpen=repayOpen===id?null:id;notice='';render();return;
- }
- if((act==='partial-repay'||act==='full-repay')&&page==='repayment'){
-  const c=state.cars.find(v=>v.id===id);if(!c||c.debt<=0)return;
-  const raw=repayDraft[id];
-  const amount=act==='full-repay'?c.debt:Number(raw);
-  if(!Number.isSafeInteger(amount)||amount<=0||act==='partial-repay'&&(raw===undefined||String(raw).trim()==='')){notice='상환 금액을 확인해 주세요.';render();return}
-  const applied=Math.min(amount,c.debt);
-  if(applied>state.balance){notice='상환에 필요한 자금이 부족합니다.';render();return}
-  state.balance-=applied;c.debt-=applied;
-  delete repayDraft[id];repayOpen=c.debt>0?id:null;
-  notice=c.debt===0?'완료 · 택시 '+c.id+'호차의 시 지원금을 모두 상환했습니다.':'완료 · '+money(applied)+' 상환했습니다.';
-  save();render();updateLive();return;
+ if(now>=nextArrival){
+   newMission(now);
+   nextArrival=now+randomBetween(ARRIVAL_MIN,ARRIVAL_MAX);
  }
 }
-async function boot(){try{
- db=await openDB(DB,true);let saved=await readKey(db);
- if(saved===undefined||saved===null)saved=await readExisting(OLD_DB);
- if(saved!==undefined&&saved!==null){const normalized=validate(saved);if(!normalized)throw new Error('저장 데이터 형식을 확인할 수 없습니다');state=normalized}
- ready=true;const changed=advance(Date.now());if(!changed)save();render();updateLive();
-}catch(err){console.error('MYON 데이터 불러오기 오류',err);$('screen').textContent='저장 데이터를 불러올 수 없습니다. 새로고침해서 다시 시도해 주세요.';}}
-document.addEventListener('click',event=>{
- const btn=event.target.closest('button[data-action],button[data-tab]');if(!btn||!ready)return;
- if(btn.dataset.tab)switchTab(btn.dataset.tab);else action(btn.dataset.action,Number(btn.dataset.id));
-});
-document.addEventListener('input',event=>{
- if(!ready)return;
- if(event.target.id==='rate-slider'){
-  const rate=Number(event.target.value);
-  if(!Number.isInteger(rate)||rate<0||rate>90)return;
-  state.rate=rate;
-  const aid=Math.round(PRICE*rate/100),own=PRICE-aid;
-  $('rate-label').textContent=rate+'%';$('aid-label').textContent=money(aid);$('own-label').textContent=money(own);
-  $('purchase-label').textContent=money(own);
-  $('purchase-btn').disabled=state.balance<own||!firstClaimed()||!hasVehicleSlot();
-  save();
- }
- if(event.target.matches('[data-repay-input]'))repayDraft[Number(event.target.dataset.repayInput)]=event.target.value;
-});
-boot();setInterval(updateLive,500);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateLive()});
+for(let i=0;i<3;i++)newMission(Date.now());
+window.setInterval(tick,700);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
+window.addEventListener('pageshow',tick);
 })();
 </script>
 </body>
