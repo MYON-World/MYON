@@ -1,12 +1,14 @@
 (function(){
 'use strict';
-// v0.08.05: clock, IndexedDB autosave, and offline elapsed time are core systems.
-const MAX_RUNNING=10;
+// v0.08.06: 24-hour auto-accept unlock, expiry-priority acceptance, sorted missions, 10 total cards.
+const MAX_RUNNING=10,MAX_CARDS=10;
+const AUTO_MISSION='자동 임무 수락';
+const AUTO_DURATION=86400000,AUTO_INTERVAL=600000,AUTO_COOLDOWN=60000;
 const ARRIVAL_MIN=4000,ARRIVAL_MAX=8500;
 const EXPIRY_MIN=17000,EXPIRY_MAX=33000;
 const FINISH_MIN=120000,FINISH_MAX=360000;
 const DB_NAME='myon-v00804-progress';
-const STORE_NAME='game',SAVE_KEY='v00805-main',LEGACY_KEY='main';
+const STORE_NAME='game',SAVE_KEY='v00806-main',PRIOR_KEY='v00805-main',LEGACY_KEY='main';
 const NAMES=[
 '지역 전력 공급','생활 물자 운송','노후 시설 보수','공공시설 점검',
 '상가 물품 공급','생활용수 확보','산업 설비 정비','도로 안전 점검',
@@ -24,7 +26,8 @@ const missions=new Map();
 const random=(min,max)=>min+Math.floor(Math.random()*(max-min+1));
 const pad=n=>String(n).padStart(2,'0');
 const timeValue=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
-let nextId=1,nextArrival=0,dbPromise=null,saveChain=Promise.resolve(),storageWarned=false;
+let nextId=1,nextArrival=0,autoUnlocked=false,nextAutoAt=0,cooldownUntil=0;
+let dbPromise=null,saveChain=Promise.resolve(),storageWarned=false;
 
 function updateClock(now){
  const kst=new Date(now+9*3600000);
@@ -76,9 +79,9 @@ function storageWarning(){
 }
 function snapshot(){
  return {
-   schema:2,kind:'game',savedAt:Date.now(),nextId,nextArrival,
+   schema:3,kind:'game',savedAt:Date.now(),nextId,nextArrival,autoUnlocked,nextAutoAt,cooldownUntil,
    missions:Array.from(missions.values(),m=>({
-     id:m.id,name:m.name,expiresAt:m.expiresAt,startedAt:m.startedAt,finishesAt:m.finishesAt
+     id:m.id,name:m.name,kind:m.kind,expiresAt:m.expiresAt,startedAt:m.startedAt,finishesAt:m.finishesAt
    }))
  };
 }
@@ -93,6 +96,41 @@ function countRunning(){
  let count=0;
  for(const m of missions.values())if(m.startedAt!==null)count++;
  return count;
+}
+function sortCards(){
+ const sorted=Array.from(missions.values()).sort((a,b)=>{
+   const aw=a.startedAt===null,bw=b.startedAt===null;
+   if(aw!==bw)return aw?-1:1;
+   const at=aw?a.expiresAt:a.finishesAt;
+   const bt=bw?b.expiresAt:b.finishesAt;
+   return at-bt||a.id-b.id;
+ });
+ const nodes=sorted.map(m=>m.ui.el);
+ if(nodes.some((node,i)=>list.children[i]!==node))list.append(...nodes);
+}
+function enableAuto(at){
+ if(autoUnlocked)return false;
+ autoUnlocked=true;
+ cooldownUntil=at+AUTO_COOLDOWN;
+ nextAutoAt=cooldownUntil;
+ return true;
+}
+function startMission(m,at){
+ if(!missions.has(m.id)||m.startedAt!==null||at>=m.expiresAt||countRunning()>=MAX_RUNNING)return false;
+ m.startedAt=at;
+ m.finishesAt=at+(m.kind==='auto-unlock'?AUTO_DURATION:random(FINISH_MIN,FINISH_MAX));
+ render(m,at);sortCards();
+ return true;
+}
+function automaticAccept(now){
+ if(!autoUnlocked||now<nextAutoAt||now<cooldownUntil||countRunning()>=MAX_RUNNING)return false;
+ const candidate=Array.from(missions.values())
+  .filter(m=>m.startedAt===null&&m.expiresAt>now&&m.kind!=='auto-unlock')
+  .sort((a,b)=>a.expiresAt-b.expiresAt||a.id-b.id)[0];
+ if(!candidate||!startMission(candidate,now))return false;
+ nextAutoAt=now+AUTO_INTERVAL;
+ cooldownUntil=now+AUTO_COOLDOWN;
+ return true;
 }
 function createCard(name){
  const el=document.createElement('article');
@@ -138,42 +176,61 @@ function mount(data,now){
    if(!missions.has(m.id)||m.startedAt!==null)return;
    const at=Date.now();
    if(at>=m.expiresAt){remove(m);void persist();return;}
-   if(countRunning()>=MAX_RUNNING){startWarning(m.ui);return;}
-   m.startedAt=at;
-   m.finishesAt=at+random(FINISH_MIN,FINISH_MAX);
-   render(m,at);
+   if(!startMission(m,at)){startWarning(m.ui);return;}
    void persist();
  });
  render(m,now);
 }
 function spawn(now){
+ if(missions.size>=MAX_CARDS)return false;
  const taken=new Set(Array.from(missions.values(),m=>m.name));
  const names=NAMES.filter(name=>!taken.has(name));
- if(!names.length)return false;
- const name=names[random(0,names.length-1)];
- mount({id:nextId++,name,expiresAt:now+random(EXPIRY_MIN,EXPIRY_MAX),startedAt:null,finishesAt:null},now);
+ const eligibleAuto=!autoUnlocked&&!taken.has(AUTO_MISSION);
+ if(!names.length&&!eligibleAuto)return false;
+ const special=eligibleAuto&&(!names.length||Math.random()<0.25);
+ const name=special?AUTO_MISSION:names[random(0,names.length-1)];
+ mount({id:nextId++,name,kind:special?'auto-unlock':'normal',
+   expiresAt:now+random(EXPIRY_MIN,EXPIRY_MAX),startedAt:null,finishesAt:null},now);
+ sortCards();
  return true;
 }
 function restoreJobs(raw,now){
  if(!Array.isArray(raw))return;
  const taken=new Set();
  for(const data of raw.slice(0,100)){
-   if(!data||!Number.isSafeInteger(data.id)||data.id<1||!NAMES.includes(data.name)||taken.has(data.name)||!timeValue(data.expiresAt))continue;
+   if(!data||!Number.isSafeInteger(data.id)||data.id<1||!timeValue(data.expiresAt))continue;
+   const special=data.kind==='auto-unlock'&&data.name===AUTO_MISSION;
+   if(!special&&!NAMES.includes(data.name))continue;
+   if(taken.has(data.name)||missions.size>=MAX_CARDS)continue;
    const startedAt=timeValue(data.startedAt)?data.startedAt:null;
    const finishesAt=timeValue(data.finishesAt)?data.finishesAt:null;
    if(startedAt!==null&&!timeValue(finishesAt))continue;
-   // Real-world elapsed time counts while the browser was closed.
+   nextId=Math.max(nextId,data.id+1);
+   // Completing the unlock mission offline must permanently grant the feature.
+   if(special&&startedAt!==null&&finishesAt<=now){enableAuto(finishesAt);continue;}
+   if(special&&autoUnlocked)continue;
    if(startedAt===null&&data.expiresAt<=now)continue;
    if(startedAt!==null&&finishesAt<=now)continue;
    taken.add(data.name);
-   nextId=Math.max(nextId,data.id+1);
-   mount({id:data.id,name:data.name,expiresAt:data.expiresAt,startedAt,finishesAt},now);
+   mount({id:data.id,name:data.name,kind:special?'auto-unlock':'normal',
+     expiresAt:data.expiresAt,startedAt,finishesAt},now);
  }
+ sortCards();
 }
 function restoreCurrent(saved,now){
  nextId=Number.isSafeInteger(saved.nextId)&&saved.nextId>0?saved.nextId:1;
  nextArrival=timeValue(saved.nextArrival)?saved.nextArrival:now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+ autoUnlocked=saved.autoUnlocked===true;
+ nextAutoAt=timeValue(saved.nextAutoAt)?saved.nextAutoAt:0;
+ cooldownUntil=timeValue(saved.cooldownUntil)?saved.cooldownUntil:0;
  restoreJobs(saved.missions,now);
+}
+function restorePrior(saved,now){
+ if(!saved||saved.schema!==2||saved.kind!=='game')return false;
+ nextId=Number.isSafeInteger(saved.nextId)&&saved.nextId>0?saved.nextId:1;
+ nextArrival=timeValue(saved.nextArrival)?saved.nextArrival:now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+ restoreJobs(saved.missions,now);
+ return true;
 }
 function restoreLegacy(saved,now){
  // v0.08.04 had two research unlocks. These are now built in from the first launch.
@@ -195,30 +252,35 @@ function tick(){
  let changed=false;
  for(const m of missions.values()){
    if(m.startedAt===null&&now>=m.expiresAt||m.startedAt!==null&&now>=m.finishesAt){
+     if(m.kind==='auto-unlock'&&m.startedAt!==null)changed=enableAuto(m.finishesAt)||changed;
      changed=remove(m)||changed;
    }else render(m,now);
  }
- if(now>=nextArrival){
+ changed=automaticAccept(now)||changed;
+ if(missions.size<MAX_CARDS&&now>=nextArrival){
    changed=spawn(now)||changed;
    // Skip backlogged random arrivals while away: spawn at most one on return.
    nextArrival=now+random(ARRIVAL_MIN,ARRIVAL_MAX);
    changed=true;
  }
- if(changed)void persist();
+ if(changed){sortCards();void persist();}
 }
 async function initialize(){
  updateClock(Date.now());
  const now=Date.now();
  nextArrival=now+random(ARRIVAL_MIN,ARRIVAL_MAX);
- let current=null,legacy=null,storageAvailable=true;
+ let current=null,prior=null,legacy=null,storageAvailable=true;
  try{
    current=await readRecord(SAVE_KEY);
-   if(!current)legacy=await readRecord(LEGACY_KEY);
+   if(!current||current.schema!==3){
+     prior=await readRecord(PRIOR_KEY);
+     if(!prior)legacy=await readRecord(LEGACY_KEY);
+   }
  }catch(e){storageAvailable=false;}
  const at=Date.now();
- if(current&&current.schema===2&&current.kind==='game'){
+ if(current&&current.schema===3&&current.kind==='game'){
    restoreCurrent(current,at);
- }else if(!restoreLegacy(legacy,at)){
+ }else if(!restorePrior(prior,at)&&!restoreLegacy(legacy,at)){
    for(let i=0;i<3;i++)spawn(at);
  }
  tick();
