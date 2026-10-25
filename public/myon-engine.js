@@ -1,352 +1,240 @@
 (function(){
 'use strict';
-const MAX_RUNNING=10,ARRIVAL_MIN=4000,ARRIVAL_MAX=8500,EXPIRY_MIN=17000,EXPIRY_MAX=33000;
-const FINISH_MIN=120000,FINISH_MAX=360000,RESEARCH_MIN=8000,RESEARCH_MAX=25000;
-const SAVE_DURATION=3600000,TIME_DURATION=86400000;
-// Fresh v0.08.04 save namespace: do not import or revive 0.08.03 progress.
-const PROGRESS_DB='myon-v00804-progress';
-const PREVIOUS_DB='myon-v008-progress';
-const RESET_MARKER='v00804-initialized';
-const NAMES=['지역 전력 공급','생활 물자 운송','노후 시설 보수','공공시설 점검',
+// v0.08.05: clock, IndexedDB autosave, and offline elapsed time are core systems.
+const MAX_RUNNING=10;
+const ARRIVAL_MIN=4000,ARRIVAL_MAX=8500;
+const EXPIRY_MIN=17000,EXPIRY_MAX=33000;
+const FINISH_MIN=120000,FINISH_MAX=360000;
+const DB_NAME='myon-v00804-progress';
+const STORE_NAME='game',SAVE_KEY='v00805-main',LEGACY_KEY='main';
+const NAMES=[
+'지역 전력 공급','생활 물자 운송','노후 시설 보수','공공시설 점검',
 '상가 물품 공급','생활용수 확보','산업 설비 정비','도로 안전 점검',
 '지역 환경 정비','긴급 물자 확보','주거시설 보수','공장 자재 운송',
 '노후 배관 교체','지역 의료 물품 확보','통신 시설 점검','산업단지 설비 보수',
 '배수시설 정비','지역 식료품 확보','학교 시설 보수','정수시설 점검',
 '물류 창고 정비','주거지역 전기 점검','하천 시설 복구','상업시설 안전 점검',
 '복지시설 물품 공급','공원 시설 정비','가로등 정비','정류장 시설 보수',
-'폐기물 처리 지원','지역 통신망 보수','공공 급식 공급','산업 폐수 정비'];
-const list=document.getElementById('missions'),clock=document.getElementById('clock');
-const jobs=new Map(),random=(a,b)=>a+Math.floor(Math.random()*(b-a+1)),pad=x=>String(x).padStart(2,'0');
-const remain=(ms,long)=>{
- const n=Math.max(0,Math.ceil(ms/1000));
- return long?pad(Math.floor(n/3600))+':'+pad(Math.floor(n%3600/60))+':'+pad(n%60):pad(Math.floor(n/60))+':'+pad(n%60);
-};
-const clockFormat=now=>{
- const d=new Date(now+32400000);
- return d.getUTCFullYear()+'.'+pad(d.getUTCMonth()+1)+'.'+pad(d.getUTCDate())+' '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes());
-};
-let id=1,clockUnlocked=false,saveUnlocked=false;
-let timeStudy=null,saveStudy=null,promoting=false;
-let nextJob=0,nextTimeStudy=0,nextSaveStudy=0,dbPromise=null,storageWarned=false,pausedAt=null;
+'폐기물 처리 지원','지역 통신망 보수','공공 급식 공급','산업 폐수 정비'
+];
+const list=document.getElementById('missions');
+const dateEl=document.getElementById('clock-date');
+const timeEl=document.getElementById('clock-time');
+const missions=new Map();
+const random=(min,max)=>min+Math.floor(Math.random()*(max-min+1));
+const pad=n=>String(n).padStart(2,'0');
+const timeValue=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
+let nextId=1,nextArrival=0,dbPromise=null,saveChain=Promise.resolve(),storageWarned=false;
+
+function updateClock(now){
+ const kst=new Date(now+9*3600000);
+ dateEl.textContent=kst.getUTCFullYear()+'.'+pad(kst.getUTCMonth()+1)+'.'+pad(kst.getUTCDate());
+ timeEl.textContent=pad(kst.getUTCHours())+':'+pad(kst.getUTCMinutes());
+ timeEl.dateTime=new Date(now).toISOString();
+}
+function countdown(ms,withHours){
+ const seconds=Math.max(0,Math.ceil(ms/1000));
+ if(withHours)return pad(Math.floor(seconds/3600))+':'+pad(Math.floor(seconds%3600/60))+':'+pad(seconds%60);
+ return pad(Math.floor(seconds/60))+':'+pad(seconds%60);
+}
 function openDb(){
  if(!dbPromise){
    dbPromise=new Promise((resolve,reject)=>{
      if(!window.indexedDB){reject(new Error('IndexedDB unavailable'));return;}
-     const req=window.indexedDB.open(PROGRESS_DB,1);
-     req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('game'))req.result.createObjectStore('game');};
+     const req=window.indexedDB.open(DB_NAME,1);
+     req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(STORE_NAME))req.result.createObjectStore(STORE_NAME);};
      req.onsuccess=()=>resolve(req.result);
-     req.onerror=()=>reject(req.error||new Error('Database error'));
+     req.onerror=()=>reject(req.error||new Error('IndexedDB open failed'));
    }).catch(err=>{dbPromise=null;throw err;});
  }
  return dbPromise;
 }
-async function load(key='main'){
+async function readRecord(key){
  const db=await openDb();
  return new Promise((resolve,reject)=>{
-   const tx=db.transaction('game','readonly'),req=tx.objectStore('game').get(key);
+   const tx=db.transaction(STORE_NAME,'readonly');
+   const req=tx.objectStore(STORE_NAME).get(key);
    req.onsuccess=()=>resolve(req.result||null);
-   req.onerror=()=>reject(req.error||new Error('Read failed'));
-   tx.onerror=()=>reject(tx.error||new Error('Read transaction failed'));
+   req.onerror=()=>reject(req.error||new Error('Save read failed'));
+   tx.onerror=()=>reject(tx.error||new Error('Save read transaction failed'));
  });
 }
-async function store(value,key='main'){
+async function writeRecord(data,key){
  const db=await openDb();
  return new Promise((resolve,reject)=>{
-   const tx=db.transaction('game','readwrite');
-   tx.objectStore('game').put(value,key);
+   const tx=db.transaction(STORE_NAME,'readwrite');
+   tx.objectStore(STORE_NAME).put(data,key);
    tx.oncomplete=()=>resolve();
    tx.onerror=()=>reject(tx.error||new Error('Save failed'));
    tx.onabort=()=>reject(tx.error||new Error('Save aborted'));
  });
 }
-async function resetPreviousProgressOnce(){
- // This targets only the earlier v0.08 progress DB; legacy v0.07 data is not touched.
- // A separate DB guarantees a clean start even if deletion is blocked by an old open tab.
- try{
-   if(await load(RESET_MARKER)===true)return;
-   await new Promise((resolve,reject)=>{
-     const req=window.indexedDB.deleteDatabase(PREVIOUS_DB);
-     req.onsuccess=()=>resolve();
-     req.onerror=()=>reject(req.error||new Error('Old DB deletion failed'));
-     req.onblocked=()=>reject(new Error('Old DB deletion blocked'));
-   });
-   await store(true,RESET_MARKER);
- }catch(_err){
-   // Ignore only old-database cleanup failures; new progress is safely isolated.
- }
-}
-function warn(){
+function storageWarning(){
  if(storageWarned)return;
  storageWarned=true;
- window.alert('브라우저 저장에 실패했습니다. 저장 설정과 용량을 확인해주세요.');
+ window.alert('자동저장에 실패했습니다. 브라우저 저장 설정을 확인해주세요.');
 }
 function snapshot(){
- return {schema:1,kind:'full',savedAt:pausedAt===null?Date.now():pausedAt,saveUnlocked:true,clockUnlocked,id,
-   nextJob,nextTimeStudy,
-   jobs:Array.from(jobs.values(),j=>({id:j.id,name:j.name,expires:j.expires,started:j.started,ends:j.ends})),
-   timeStudy:timeStudy?{expires:timeStudy.expires,started:timeStudy.started,ends:timeStudy.ends}:null};
+ return {
+   schema:2,kind:'game',savedAt:Date.now(),nextId,nextArrival,
+   missions:Array.from(missions.values(),m=>({
+     id:m.id,name:m.name,expiresAt:m.expiresAt,startedAt:m.startedAt,finishesAt:m.finishesAt
+   }))
+ };
 }
 function persist(){
- if(saveUnlocked)store(snapshot()).catch(warn);
- else if(saveStudy&&saveStudy.started!==null){
-   store({schema:1,kind:'research',started:saveStudy.started,ends:saveStudy.ends,
-     savedAt:pausedAt===null?Date.now():pausedAt}).catch(warn);
- }
+ const value=snapshot();
+ // Queue saves so an older async transaction cannot overwrite a newer state.
+ saveChain=saveChain.catch(()=>{}).then(()=>writeRecord(value,SAVE_KEY));
+ saveChain.catch(storageWarning);
+ return saveChain;
 }
-function card(title){
- const box=document.createElement('article');box.className='mission-card';
- const name=document.createElement('span');name.className='mission-name';name.textContent=title;name.title=title;
- const countdown=document.createElement('span');countdown.className='countdown';countdown.hidden=true;
- const status=document.createElement('span');status.className='mission-status';status.hidden=true;
- const start=document.createElement('button');start.type='button';start.className='mission-start';start.textContent='시작';
- box.append(name,countdown,status,start);
- list.append(box);
- return {box,countdown,status,start};
-}
-function note(ui,message){
- if(ui.box.querySelector('.warning'))return;
- const el=document.createElement('span');el.className='warning';el.textContent=message;ui.box.append(el);
- window.setTimeout(()=>el.remove(),2500);
-}
-function drawJob(j,now){
- const u=j.ui;
- if(j.started===null){
-   u.start.hidden=false;u.status.hidden=true;u.countdown.hidden=!clockUnlocked;
-   if(clockUnlocked){u.countdown.className='countdown expiry';u.countdown.textContent='폐기 '+remain(j.expires-now,false);}
- }else{
-   u.start.hidden=true;u.status.hidden=clockUnlocked;u.countdown.hidden=!clockUnlocked;
-   if(clockUnlocked){u.countdown.className='countdown';u.countdown.textContent=remain(j.ends-now,true);}
-   else u.status.textContent='임무 진행중';
- }
-}
-function active(){
+function countRunning(){
  let count=0;
- for(const j of jobs.values())if(j.started!==null)count++;
- if(timeStudy&&timeStudy.started!==null)count++;
- if(saveStudy&&(saveStudy.started!==null||saveStudy.pending))count++;
+ for(const m of missions.values())if(m.startedAt!==null)count++;
  return count;
 }
-function removeJob(j){jobs.delete(j.id);j.ui.box.remove();persist();}
-function putJob(data,now){
- const j={...data,ui:card(data.name)};
- jobs.set(j.id,j);
- j.ui.start.addEventListener('click',()=>{
-   if(!jobs.has(j.id)||j.started!==null)return;
-   const at=Date.now();
-   if(j.expires<=at){removeJob(j);return;}
-   if(active()>=MAX_RUNNING){note(j.ui,'시작 불가');return;}
-   j.started=at;j.ends=at+random(FINISH_MIN,FINISH_MAX);drawJob(j,at);persist();
- });
- drawJob(j,now);
+function createCard(name){
+ const el=document.createElement('article');
+ el.className='mission-card';
+ const title=document.createElement('span');
+ title.className='mission-name';title.textContent=name;title.title=name;
+ const countdownEl=document.createElement('span');
+ countdownEl.className='countdown';
+ const start=document.createElement('button');
+ start.type='button';start.className='mission-start';start.textContent='시작';
+ el.append(title,countdownEl,start);
+ list.append(el);
+ return {el,countdownEl,start};
 }
-function spawnJob(now){
- const taken=new Set(Array.from(jobs.values(),j=>j.name));
- const choices=NAMES.filter(n=>!taken.has(n));
- if(!choices.length)return;
- putJob({id:id++,name:choices[random(0,choices.length-1)],expires:now+random(EXPIRY_MIN,EXPIRY_MAX),started:null,ends:null},now);
- persist();
-}
-function study(kind){return kind==='save'?saveStudy:timeStudy;}
-function setStudy(kind,value){if(kind==='save')saveStudy=value;else timeStudy=value;}
-function drawStudy(s,now){
- if(s.started!==null){
-   s.ui.start.hidden=true;s.ui.countdown.hidden=true;s.ui.status.hidden=false;
-   s.ui.status.textContent='연구 진행중';
+function render(m,now){
+ const {start,countdownEl}=m.ui;
+ if(m.startedAt===null){
+   start.hidden=false;
+   countdownEl.className='countdown expiry';
+   countdownEl.textContent='폐기 '+countdown(m.expiresAt-now,false);
  }else{
-   s.ui.start.hidden=false;s.ui.status.hidden=true;s.ui.countdown.hidden=!clockUnlocked;
-   if(clockUnlocked){s.ui.countdown.className='countdown expiry';s.ui.countdown.textContent='폐기 '+remain(s.expires-now,false);}
+   start.hidden=true;
+   countdownEl.className='countdown';
+   countdownEl.textContent=countdown(m.finishesAt-now,true);
  }
 }
-function clearStudy(kind,now){
- const s=study(kind);if(s){s.ui.box.remove();setStudy(kind,null);}
- if(kind==='save')nextSaveStudy=now+random(RESEARCH_MIN,RESEARCH_MAX);
- else nextTimeStudy=now+random(RESEARCH_MIN,RESEARCH_MAX);
- persist();
+function remove(m){
+ if(!missions.has(m.id))return false;
+ missions.delete(m.id);m.ui.el.remove();
+ return true;
 }
-async function beginSave(s){
- if(saveStudy!==s||s.started!==null||s.pending)return;
- if(active()>=MAX_RUNNING){note(s.ui,'시작 불가');return;}
- const at=Date.now();
- if(at>=s.expires){clearStudy('save',at);return;}
- s.pending=true;s.ui.start.disabled=true;
- try{
-   await store({schema:1,kind:'research',started:at,ends:at+SAVE_DURATION,savedAt:at});
-   if(saveStudy!==s)return;
-   s.started=at;s.ends=at+SAVE_DURATION;drawStudy(s,Date.now());
- }catch(e){s.pending=false;s.ui.start.disabled=false;note(s.ui,'저장 불가');warn();}
+function startWarning(ui){
+ if(ui.el.querySelector('.warning'))return;
+ const warning=document.createElement('span');
+ warning.className='warning';warning.textContent='시작 불가';
+ ui.el.append(warning);
+ window.setTimeout(()=>warning.remove(),2500);
 }
-function beginTime(s){
- if(timeStudy!==s||s.started!==null)return;
- if(active()>=MAX_RUNNING){note(s.ui,'시작 불가');return;}
- const at=Date.now();
- if(at>=s.expires){clearStudy('time',at);return;}
- s.started=at;s.ends=at+TIME_DURATION;drawStudy(s,at);persist();
+function mount(data,now){
+ const m={...data,ui:createCard(data.name)};
+ missions.set(m.id,m);
+ m.ui.start.addEventListener('click',()=>{
+   if(!missions.has(m.id)||m.startedAt!==null)return;
+   const at=Date.now();
+   if(at>=m.expiresAt){remove(m);void persist();return;}
+   if(countRunning()>=MAX_RUNNING){startWarning(m.ui);return;}
+   m.startedAt=at;
+   m.finishesAt=at+random(FINISH_MIN,FINISH_MAX);
+   render(m,at);
+   void persist();
+ });
+ render(m,now);
 }
-function putStudy(kind,data,now){
- const s={...data,pending:false,ui:card(kind==='save'?'임시 저장 연구':'시간 연구')};
- setStudy(kind,s);
- s.ui.start.addEventListener('click',()=>kind==='save'?void beginSave(s):beginTime(s));
- drawStudy(s,now);
+function spawn(now){
+ const taken=new Set(Array.from(missions.values(),m=>m.name));
+ const names=NAMES.filter(name=>!taken.has(name));
+ if(!names.length)return false;
+ const name=names[random(0,names.length-1)];
+ mount({id:nextId++,name,expiresAt:now+random(EXPIRY_MIN,EXPIRY_MAX),startedAt:null,finishesAt:null},now);
+ return true;
 }
-function spawnStudy(kind,now){
- if(study(kind)||(kind==='save'?saveUnlocked:clockUnlocked))return;
- putStudy(kind,{expires:now+random(EXPIRY_MIN,EXPIRY_MAX),started:null,ends:null},now);
- persist();
+function restoreJobs(raw,now){
+ if(!Array.isArray(raw))return;
+ const taken=new Set();
+ for(const data of raw.slice(0,100)){
+   if(!data||!Number.isSafeInteger(data.id)||data.id<1||!NAMES.includes(data.name)||taken.has(data.name)||!timeValue(data.expiresAt))continue;
+   const startedAt=timeValue(data.startedAt)?data.startedAt:null;
+   const finishesAt=timeValue(data.finishesAt)?data.finishesAt:null;
+   if(startedAt!==null&&!timeValue(finishesAt))continue;
+   // Real-world elapsed time counts while the browser was closed.
+   if(startedAt===null&&data.expiresAt<=now)continue;
+   if(startedAt!==null&&finishesAt<=now)continue;
+   taken.add(data.name);
+   nextId=Math.max(nextId,data.id+1);
+   mount({id:data.id,name:data.name,expiresAt:data.expiresAt,startedAt,finishesAt},now);
+ }
 }
-function unlockClock(now){
- clockUnlocked=true;clock.hidden=false;
- if(timeStudy){timeStudy.ui.box.remove();timeStudy=null;}
- clock.textContent=clockFormat(now);
- for(const j of jobs.values())drawJob(j,now);
- persist();
+function restoreCurrent(saved,now){
+ nextId=Number.isSafeInteger(saved.nextId)&&saved.nextId>0?saved.nextId:1;
+ nextArrival=timeValue(saved.nextArrival)?saved.nextArrival:now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+ restoreJobs(saved.missions,now);
 }
-async function unlockSave(){
- if(saveUnlocked||promoting||!saveStudy||saveStudy.started===null)return;
- promoting=true;
- try{
-   await store(snapshot());
-   saveUnlocked=true;
-   if(saveStudy){saveStudy.ui.box.remove();saveStudy=null;}
-   persist();
- }catch(e){warn();}
- finally{promoting=false;}
+function restoreLegacy(saved,now){
+ // v0.08.04 had two research unlocks. These are now built in from the first launch.
+ // Only already-persisted missions are transferable; an old research-only save
+ // never contained its unsaved missions, and is therefore started with fresh jobs.
+ if(!saved||saved.schema!==1||saved.kind!=='full'||saved.saveUnlocked!==true)return false;
+ nextId=Number.isSafeInteger(saved.id)&&saved.id>0?saved.id:1;
+ nextArrival=timeValue(saved.nextJob)?saved.nextJob:now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+ const jobs=Array.isArray(saved.jobs)?saved.jobs.map(j=>({
+   id:j.id,name:j.name,expiresAt:j.expires,startedAt:j.started,finishesAt:j.ends
+ })):[];
+ restoreJobs(jobs,now);
+ return true;
 }
 function tick(){
- if(pausedAt!==null||document.hidden)return;
+ if(document.hidden)return;
  const now=Date.now();
- if(saveStudy){
-   if(saveStudy.started===null&&!saveStudy.pending&&now>=saveStudy.expires)clearStudy('save',now);
-   else if(saveStudy.started!==null&&now>=saveStudy.ends)void unlockSave();
- }else if(!saveUnlocked&&now>=nextSaveStudy)spawnStudy('save',now);
- if(timeStudy){
-   if(timeStudy.started===null&&now>=timeStudy.expires)clearStudy('time',now);
-   else if(timeStudy.started!==null&&now>=timeStudy.ends)unlockClock(now);
-   else if(clockUnlocked)drawStudy(timeStudy,now);
- }else if(!clockUnlocked&&now>=nextTimeStudy)spawnStudy('time',now);
- for(const j of jobs.values()){
-   if(j.started===null&&now>=j.expires)removeJob(j);
-   else if(j.started!==null&&now>=j.ends)removeJob(j);
-   else if(clockUnlocked)drawJob(j,now);
+ updateClock(now);
+ let changed=false;
+ for(const m of missions.values()){
+   if(m.startedAt===null&&now>=m.expiresAt||m.startedAt!==null&&now>=m.finishesAt){
+     changed=remove(m)||changed;
+   }else render(m,now);
  }
- if(now>=nextJob){
-   spawnJob(now);nextJob=now+random(ARRIVAL_MIN,ARRIVAL_MAX);persist();
+ if(now>=nextArrival){
+   changed=spawn(now)||changed;
+   // Skip backlogged random arrivals while away: spawn at most one on return.
+   nextArrival=now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+   changed=true;
  }
- if(clockUnlocked)clock.textContent=clockFormat(now);
+ if(changed)void persist();
 }
-
-// Both formats preserve time remaining; elapsed offline wall time is never credited.
-// This also migrates existing v0.08.03 snapshots that lack savedAt metadata.
-function timestamp(value){return typeof value==='number'&&Number.isFinite(value)&&value>=0;}
-function shiftTimerFields(obj,fields,offset){
- if(!obj||offset<=0)return;
- for(const field of fields)if(timestamp(obj[field]))obj[field]+=offset;
-}
-function shiftState(offset){
- if(offset<=0)return;
- nextJob+=offset;
- nextSaveStudy+=offset;
- nextTimeStudy+=offset;
- for(const j of jobs.values())shiftTimerFields(j,['expires','started','ends'],offset);
- for(const s of [saveStudy,timeStudy])shiftTimerFields(s,['expires','started','ends'],offset);
-}
-function rebaseLoaded(save,now){
- const result={...save};
- let savedAt;
- if(timestamp(save.savedAt))savedAt=save.savedAt;
- else if(save.kind==='research'){
-   // Older research records only contained their original start/finish time.
-   // Without a last-seen timestamp, preserve the full initial study duration.
-   savedAt=timestamp(save.started)?save.started:now;
- }else{
-   // Older full records lack savedAt; nextJob was normally scheduled 4-8.5s ahead.
-   savedAt=timestamp(save.nextJob)?Math.max(0,save.nextJob-ARRIVAL_MIN):now;
- }
- const offset=Math.max(0,now-savedAt);
- if(save.kind==='research'){
-   shiftTimerFields(result,['started','ends'],offset);
- }else if(save.kind==='full'){
-   shiftTimerFields(result,['nextJob','nextTimeStudy'],offset);
-   if(Array.isArray(save.jobs)){
-     result.jobs=save.jobs.map(j=>{
-       const copy={...j};shiftTimerFields(copy,['expires','started','ends'],offset);return copy;
-     });
-   }
-   if(save.timeStudy){
-     result.timeStudy={...save.timeStudy};
-     shiftTimerFields(result.timeStudy,['expires','started','ends'],offset);
-   }
- }
- result.savedAt=now;
- return result;
-}
-function pause(){
- if(pausedAt!==null)return;
- pausedAt=Date.now();
- persist();
-}
-function resume(){
- if(pausedAt===null)return;
- const elapsed=Math.max(0,Date.now()-pausedAt);
- shiftState(elapsed);
- pausedAt=null;
- tick();
- persist();
-}
-
-const timeValue=timestamp;
-function recoverFull(s,now){
- saveUnlocked=true;clockUnlocked=s.clockUnlocked===true;clock.hidden=!clockUnlocked;
- id=Number.isSafeInteger(s.id)&&s.id>0?s.id:1;
- nextJob=timeValue(s.nextJob)?s.nextJob:now+random(ARRIVAL_MIN,ARRIVAL_MAX);
- nextTimeStudy=timeValue(s.nextTimeStudy)?s.nextTimeStudy:now+random(RESEARCH_MIN,RESEARCH_MAX);
- const names=new Set();
- if(Array.isArray(s.jobs)){
-   for(const j of s.jobs.slice(0,100)){
-     if(!j||!Number.isSafeInteger(j.id)||j.id<=0||!NAMES.includes(j.name)||names.has(j.name)||!timeValue(j.expires))continue;
-     const started=timeValue(j.started)?j.started:null,ends=timeValue(j.ends)?j.ends:null;
-     if(started!==null&&ends===null)continue;
-     if(started===null&&j.expires<=now||started!==null&&ends<=now)continue;
-     id=Math.max(id,j.id+1);names.add(j.name);
-     putJob({id:j.id,name:j.name,expires:j.expires,started,ends},now);
-   }
- }
- const r=s.timeStudy;
- if(!clockUnlocked&&r&&timeValue(r.expires)){
-   const started=timeValue(r.started)?r.started:null,ends=timeValue(r.ends)?r.ends:null;
-   if(started===null&&r.expires>now||started!==null&&ends!==null)putStudy('time',{expires:r.expires,started,ends},now);
- }
- if(clockUnlocked)clock.textContent=clockFormat(now);
-}
-async function init(){
- let now=Date.now();
- nextJob=now+random(ARRIVAL_MIN,ARRIVAL_MAX);
- nextTimeStudy=now+random(RESEARCH_MIN,RESEARCH_MAX);
- nextSaveStudy=now+random(RESEARCH_MIN,RESEARCH_MAX);
- let data=null;try{data=await load();}catch(e){/* Start without a save; explain error when attempting research. */}
- // Run once per browser, outside the UI flow; never reset the v0.08.04 DB on re-entry.
- void resetPreviousProgressOnce();
- now=Date.now();
- if(data&&data.schema===1&&data.kind==='full'&&data.saveUnlocked===true){
-   recoverFull(rebaseLoaded(data,now),now);
- }else{
-   for(let i=0;i<3;i++)spawnJob(now);
-   if(data&&data.schema===1&&data.kind==='research'&&timeValue(data.started)&&timeValue(data.ends)&&data.ends>data.started){
-     const restored=rebaseLoaded(data,now);
-     putStudy('save',{expires:restored.ends,started:restored.started,ends:restored.ends},now);
-   }
+async function initialize(){
+ updateClock(Date.now());
+ const now=Date.now();
+ nextArrival=now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+ let current=null,legacy=null,storageAvailable=true;
+ try{
+   current=await readRecord(SAVE_KEY);
+   if(!current)legacy=await readRecord(LEGACY_KEY);
+ }catch(e){storageAvailable=false;}
+ const at=Date.now();
+ if(current&&current.schema===2&&current.kind==='game'){
+   restoreCurrent(current,at);
+ }else if(!restoreLegacy(legacy,at)){
+   for(let i=0;i<3;i++)spawn(at);
  }
  tick();
- let lastPeriodicSave=Date.now();
+ if(storageAvailable)void persist();
+ else storageWarning();
+ let lastBackup=at;
  window.setInterval(()=>{
    tick();
-   if(pausedAt===null&&!document.hidden&&Date.now()-lastPeriodicSave>=5000){
-     lastPeriodicSave=Date.now();
-     persist();
+   if(!document.hidden&&Date.now()-lastBackup>=15000){
+     lastBackup=Date.now();
+     void persist();
    }
  },1000);
- document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else resume();});
- window.addEventListener('pagehide',pause);
- window.addEventListener('pageshow',resume);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();void persist();});
+ window.addEventListener('pagehide',()=>{void persist();});
+ window.addEventListener('pageshow',tick);
 }
-void init();
+void initialize();
 })();

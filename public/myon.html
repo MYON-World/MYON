@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.08.04</title>
+<title>MYON v0.08.05</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -14,8 +14,8 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 .viewport{min-height:100dvh;display:flex;justify-content:center}
 .app{background:#0e171b;width:100%;max-width:450px;height:100dvh;height:100svh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 @media(min-width:600px){.viewport{padding:20px 0}.app{height:calc(100dvh - 40px);border:1px solid #304448;border-radius:16px;box-shadow:0 0 35px #0005}}
-.topbar{background:#14242a;border-bottom:1px solid #2c4346;height:54px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px}
-.brand{font-size:19px;font-weight:800;letter-spacing:.015em}
+.topbar{background:#14242a;border-bottom:1px solid #2c4346;height:77px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 17px}
+.brand{font-size:20px;font-weight:800;letter-spacing:.01em}
 .missions{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;-ms-overflow-style:none;padding:12px;display:flex;flex-direction:column;gap:8px}
 .missions::-webkit-scrollbar{display:none;width:0;height:0}
 .mission-card{background:#19292e;border:1px solid #30484a;border-radius:11px;padding:10px;min-height:59px;display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -25,13 +25,16 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 .mission-warning{font-size:12px;color:#edaa98}
 .mission-start{flex:none;background:#b1e5c2;color:#183626;border:0;border-radius:8px;padding:8px 11px;font-size:12px;font-weight:750;cursor:pointer;min-width:52px}
 .mission-start:active{background:#88d3a7}
-.clock{font:500 12px ui-monospace,SFMono-Regular,Consolas,monospace;color:#c6edd3;white-space:nowrap;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
-.clock[hidden],.countdown[hidden],.mission-status[hidden],.mission-start[hidden]{display:none!important}
+.clock{display:flex;flex-direction:column;align-items:flex-end;gap:0;font-variant-numeric:tabular-nums;white-space:nowrap}
+.clock-date{color:#9bb9af;font:400 11px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.055em}
+.clock-time{font:700 31px/1.12 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.015em;color:#c2ebd0;font-variant-numeric:tabular-nums}
+@media(max-width:360px){.clock-time{font-size:27px}.brand{font-size:18px}}
+.countdown[hidden],.mission-status[hidden],.mission-start[hidden]{display:none!important}
 .countdown{flex:none;white-space:nowrap;font:600 12px ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums;color:#b8e5c9}
 .countdown.expiry{font-weight:500;color:#d4b6a0}
 .warning{color:#edaa98;font-size:12px;white-space:nowrap}
-.nav{flex:none;border-top:1px solid #2c4346;background:#14242a;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
-.nav button{border:0;border-radius:8px;height:40px;background:none;font-size:14px;font-weight:550;color:#738e8c}
+.nav{flex:none;border-top:1px solid #2c4346;background:#14242a;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
+.nav button{border:0;border-radius:8px;height:40px;background:none;font-size:12px;font-weight:550;color:#738e8c}
 .nav button[aria-current="page"]{background:#294a3b;color:#c2ebd0;font-weight:700}
 .nav button:disabled{cursor:not-allowed;opacity:.75}
 .lock{font-size:11px;margin-right:4px;filter:grayscale(1);opacity:.65}
@@ -39,14 +42,15 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><strong class="brand">MYON</strong><time id="clock" class="clock" hidden></time></header>
+<header class="topbar"><strong class="brand">MYON</strong><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div></header>
 <main class="missions" id="missions" aria-label="임무 목록"></main>
 <nav class="nav" aria-label="메뉴">
 <button type="button" aria-current="page">홈</button>
-<button type="button" disabled aria-label="회사 잠김"><span class="lock" aria-hidden="true">🔒</span>회사</button>
+<button type="button" disabled aria-label="메뉴 1 잠김"><span class="lock" aria-hidden="true">🔒</span>메뉴 1</button>
+<button type="button" disabled aria-label="메뉴 2 잠김"><span class="lock" aria-hidden="true">🔒</span>메뉴 2</button>
 <button type="button" disabled aria-label="설정 잠김"><span class="lock" aria-hidden="true">🔒</span>설정</button>
 </nav>
 </div></div>
-<script src="myon-engine.js?v=0.08.04"></script>
+<script src="myon-engine.js?v=0.08.05"></script>
 </body>
 </html>
