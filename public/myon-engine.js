@@ -23,7 +23,7 @@ const clockFormat=now=>{
 };
 let id=1,clockUnlocked=false,saveUnlocked=false;
 let timeStudy=null,saveStudy=null,promoting=false;
-let nextJob=0,nextTimeStudy=0,nextSaveStudy=0,dbPromise=null,storageWarned=false;
+let nextJob=0,nextTimeStudy=0,nextSaveStudy=0,dbPromise=null,storageWarned=false,pausedAt=null;
 function openDb(){
  if(!dbPromise){
    dbPromise=new Promise((resolve,reject)=>{
@@ -61,12 +61,18 @@ function warn(){
  window.alert('브라우저 저장에 실패했습니다. 저장 설정과 용량을 확인해주세요.');
 }
 function snapshot(){
- return {schema:1,kind:'full',saveUnlocked:true,clockUnlocked,id,
+ return {schema:1,kind:'full',savedAt:pausedAt===null?Date.now():pausedAt,saveUnlocked:true,clockUnlocked,id,
    nextJob,nextTimeStudy,
    jobs:Array.from(jobs.values(),j=>({id:j.id,name:j.name,expires:j.expires,started:j.started,ends:j.ends})),
    timeStudy:timeStudy?{expires:timeStudy.expires,started:timeStudy.started,ends:timeStudy.ends}:null};
 }
-function persist(){if(saveUnlocked)store(snapshot()).catch(warn);}
+function persist(){
+ if(saveUnlocked)store(snapshot()).catch(warn);
+ else if(saveStudy&&saveStudy.started!==null){
+   store({schema:1,kind:'research',started:saveStudy.started,ends:saveStudy.ends,
+     savedAt:pausedAt===null?Date.now():pausedAt}).catch(warn);
+ }
+}
 function card(title){
  const box=document.createElement('article');box.className='mission-card';
  const name=document.createElement('span');name.className='mission-name';name.textContent=title;name.title=title;
@@ -93,7 +99,13 @@ function drawJob(j,now){
    else u.status.textContent='임무 진행중';
  }
 }
-function active(){let count=0;for(const j of jobs.values())if(j.started!==null)count++;return count;}
+function active(){
+ let count=0;
+ for(const j of jobs.values())if(j.started!==null)count++;
+ if(timeStudy&&timeStudy.started!==null)count++;
+ if(saveStudy&&(saveStudy.started!==null||saveStudy.pending))count++;
+ return count;
+}
 function removeJob(j){jobs.delete(j.id);j.ui.box.remove();persist();}
 function putJob(data,now){
  const j={...data,ui:card(data.name)};
@@ -133,17 +145,19 @@ function clearStudy(kind,now){
 }
 async function beginSave(s){
  if(saveStudy!==s||s.started!==null||s.pending)return;
+ if(active()>=MAX_RUNNING){note(s.ui,'시작 불가');return;}
  const at=Date.now();
  if(at>=s.expires){clearStudy('save',at);return;}
  s.pending=true;s.ui.start.disabled=true;
  try{
-   await store({schema:1,kind:'research',started:at,ends:at+SAVE_DURATION});
+   await store({schema:1,kind:'research',started:at,ends:at+SAVE_DURATION,savedAt:at});
    if(saveStudy!==s)return;
    s.started=at;s.ends=at+SAVE_DURATION;drawStudy(s,Date.now());
  }catch(e){s.pending=false;s.ui.start.disabled=false;note(s.ui,'저장 불가');warn();}
 }
 function beginTime(s){
  if(timeStudy!==s||s.started!==null)return;
+ if(active()>=MAX_RUNNING){note(s.ui,'시작 불가');return;}
  const at=Date.now();
  if(at>=s.expires){clearStudy('time',at);return;}
  s.started=at;s.ends=at+TIME_DURATION;drawStudy(s,at);persist();
@@ -178,6 +192,7 @@ async function unlockSave(){
  finally{promoting=false;}
 }
 function tick(){
+ if(pausedAt!==null||document.hidden)return;
  const now=Date.now();
  if(saveStudy){
    if(saveStudy.started===null&&!saveStudy.pending&&now>=saveStudy.expires)clearStudy('save',now);
@@ -198,7 +213,67 @@ function tick(){
  }
  if(clockUnlocked)clock.textContent=clockFormat(now);
 }
-const timeValue=x=>typeof x==='number'&&Number.isFinite(x)&&x>=0;
+
+// Both formats preserve time remaining; elapsed offline wall time is never credited.
+// This also migrates existing v0.08.03 snapshots that lack savedAt metadata.
+function timestamp(value){return typeof value==='number'&&Number.isFinite(value)&&value>=0;}
+function shiftTimerFields(obj,fields,offset){
+ if(!obj||offset<=0)return;
+ for(const field of fields)if(timestamp(obj[field]))obj[field]+=offset;
+}
+function shiftState(offset){
+ if(offset<=0)return;
+ nextJob+=offset;
+ nextSaveStudy+=offset;
+ nextTimeStudy+=offset;
+ for(const j of jobs.values())shiftTimerFields(j,['expires','started','ends'],offset);
+ for(const s of [saveStudy,timeStudy])shiftTimerFields(s,['expires','started','ends'],offset);
+}
+function rebaseLoaded(save,now){
+ const result={...save};
+ let savedAt;
+ if(timestamp(save.savedAt))savedAt=save.savedAt;
+ else if(save.kind==='research'){
+   // Older research records only contained their original start/finish time.
+   // Without a last-seen timestamp, preserve the full initial study duration.
+   savedAt=timestamp(save.started)?save.started:now;
+ }else{
+   // Older full records lack savedAt; nextJob was normally scheduled 4-8.5s ahead.
+   savedAt=timestamp(save.nextJob)?Math.max(0,save.nextJob-ARRIVAL_MIN):now;
+ }
+ const offset=Math.max(0,now-savedAt);
+ if(save.kind==='research'){
+   shiftTimerFields(result,['started','ends'],offset);
+ }else if(save.kind==='full'){
+   shiftTimerFields(result,['nextJob','nextTimeStudy'],offset);
+   if(Array.isArray(save.jobs)){
+     result.jobs=save.jobs.map(j=>{
+       const copy={...j};shiftTimerFields(copy,['expires','started','ends'],offset);return copy;
+     });
+   }
+   if(save.timeStudy){
+     result.timeStudy={...save.timeStudy};
+     shiftTimerFields(result.timeStudy,['expires','started','ends'],offset);
+   }
+ }
+ result.savedAt=now;
+ return result;
+}
+function pause(){
+ if(pausedAt!==null)return;
+ pausedAt=Date.now();
+ persist();
+}
+function resume(){
+ if(pausedAt===null)return;
+ const elapsed=Math.max(0,Date.now()-pausedAt);
+ shiftState(elapsed);
+ pausedAt=null;
+ tick();
+ persist();
+}
+
+const timeValue=timestamp;
 function recoverFull(s,now){
  saveUnlocked=true;clockUnlocked=s.clockUnlocked===true;clock.hidden=!clockUnlocked;
  id=Number.isSafeInteger(s.id)&&s.id>0?s.id:1;
@@ -230,18 +305,26 @@ async function init(){
  let data=null;try{data=await load();}catch(e){/* Start without a save; explain error when attempting research. */}
  now=Date.now();
  if(data&&data.schema===1&&data.kind==='full'&&data.saveUnlocked===true){
-   recoverFull(data,now);
+   recoverFull(rebaseLoaded(data,now),now);
  }else{
    for(let i=0;i<3;i++)spawnJob(now);
    if(data&&data.schema===1&&data.kind==='research'&&timeValue(data.started)&&timeValue(data.ends)&&data.ends>data.started){
-     putStudy('save',{expires:data.ends,started:data.started,ends:data.ends},now);
+     const restored=rebaseLoaded(data,now);
+     putStudy('save',{expires:restored.ends,started:restored.started,ends:restored.ends},now);
    }
  }
  tick();
- window.setInterval(tick,1000);
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();else persist();});
- window.addEventListener('pagehide',persist);
- window.addEventListener('pageshow',tick);
+ let lastPeriodicSave=Date.now();
+ window.setInterval(()=>{
+   tick();
+   if(pausedAt===null&&!document.hidden&&Date.now()-lastPeriodicSave>=5000){
+     lastPeriodicSave=Date.now();
+     persist();
+   }
+ },1000);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else resume();});
+ window.addEventListener('pagehide',pause);
+ window.addEventListener('pageshow',resume);
 }
 void init();
 })();
