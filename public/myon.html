@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.08.01</title>
+<title>MYON v0.08.02</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -14,17 +14,22 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 .viewport{min-height:100dvh;display:flex;justify-content:center}
 .app{background:#0e171b;width:100%;max-width:450px;height:100dvh;height:100svh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 @media(min-width:600px){.viewport{padding:20px 0}.app{height:calc(100dvh - 40px);border:1px solid #304448;border-radius:16px;box-shadow:0 0 35px #0005}}
-.topbar{background:#14242a;border-bottom:1px solid #2c4346;height:54px;flex:none;display:flex;align-items:center;padding:0 17px}
+.topbar{background:#14242a;border-bottom:1px solid #2c4346;height:54px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px}
 .brand{font-size:19px;font-weight:800;letter-spacing:.015em}
 .missions{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;-ms-overflow-style:none;padding:12px;display:flex;flex-direction:column;gap:8px}
 .missions::-webkit-scrollbar{display:none;width:0;height:0}
-.mission-card{background:#19292e;border:1px solid #30484a;border-radius:11px;padding:12px;min-height:66px;display:flex;align-items:center;gap:12px;flex-shrink:0}
-.mission-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
-.mission-name{font-size:14px;font-weight:600;line-height:1.45;overflow-wrap:anywhere}
-.mission-status{font-size:12px;color:#a5c9b2}
+.mission-card{background:#19292e;border:1px solid #30484a;border-radius:11px;padding:10px;min-height:59px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.mission-info{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+.mission-name{font-size:13px;font-weight:600;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.mission-status{font-size:12px;color:#a5c9b2;white-space:nowrap}
 .mission-warning{font-size:12px;color:#edaa98}
-.mission-start{flex:none;background:#b1e5c2;color:#183626;border:0;border-radius:9px;padding:9px 15px;font-size:13px;font-weight:750;cursor:pointer;min-width:56px}
+.mission-start{flex:none;background:#b1e5c2;color:#183626;border:0;border-radius:8px;padding:8px 11px;font-size:12px;font-weight:750;cursor:pointer;min-width:52px}
 .mission-start:active{background:#88d3a7}
+.clock{font:500 12px ui-monospace,SFMono-Regular,Consolas,monospace;color:#c6edd3;white-space:nowrap;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.clock[hidden],.countdown[hidden],.mission-status[hidden],.mission-start[hidden]{display:none!important}
+.countdown{flex:none;white-space:nowrap;font:600 12px ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums;color:#b8e5c9}
+.countdown.expiry{font-weight:500;color:#d4b6a0}
+.warning{color:#edaa98;font-size:12px;white-space:nowrap}
 .nav{flex:none;border-top:1px solid #2c4346;background:#14242a;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
 .nav button{border:0;border-radius:8px;height:40px;background:none;font-size:14px;font-weight:550;color:#738e8c}
 .nav button[aria-current="page"]{background:#294a3b;color:#c2ebd0;font-weight:700}
@@ -34,7 +39,7 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><strong class="brand">MYON</strong></header>
+<header class="topbar"><strong class="brand">MYON</strong><time id="clock" class="clock" hidden></time></header>
 <main class="missions" id="missions" aria-label="임무 목록"></main>
 <nav class="nav" aria-label="메뉴">
 <button type="button" aria-current="page">홈</button>
@@ -45,12 +50,13 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 <script>
 (function(){
 'use strict';
-// v0.08.01 새 게임: 현재 임무는 메모리에서만 관리하고 저장소에는 접근하지 않습니다.
-// 화면에는 임무 완료시각, 등장/폐기시각, 제한 수, 자금, 시계를 표시하지 않습니다.
+// 시간 연구: 무작위 등장, 실제 경과 24시간에 완료. 저장 없이 1초마다 갱신.
 const MAX_RUNNING=10;
 const ARRIVAL_MIN=4000,ARRIVAL_MAX=8500;
 const EXPIRY_MIN=17000,EXPIRY_MAX=33000;
 const FINISH_MIN=120000,FINISH_MAX=360000;
+const RESEARCH_DURATION=24*60*60*1000;
+const RESEARCH_APPEAR_MIN=8000,RESEARCH_APPEAR_MAX=25000;
 const NAMES=[
 '지역 전력 공급','생활 물자 운송','노후 시설 보수','공공시설 점검',
 '상가 물품 공급','생활용수 확보','산업 설비 정비','도로 안전 점검',
@@ -62,85 +68,140 @@ const NAMES=[
 '폐기물 처리 지원','지역 통신망 보수','공공 급식 공급','산업 폐수 정비'
 ];
 const list=document.getElementById('missions');
+const clock=document.getElementById('clock');
 const missions=new Map();
-let nextId=1;
 const randomBetween=(min,max)=>min+Math.floor(Math.random()*(max-min+1));
-let nextArrival=Date.now()+randomBetween(ARRIVAL_MIN,ARRIVAL_MAX);
-function runningCount(){
- let total=0;
- for(const mission of missions.values()) if(mission.startedAt!==null) total++;
- return total;
+const pad=n=>String(n).padStart(2,'0');
+function duration(ms){
+ const seconds=Math.max(0,Math.ceil(ms/1000));
+ return pad(Math.floor(seconds/3600))+':'+pad(Math.floor(seconds%3600/60))+':'+pad(seconds%60);
 }
-function removeMission(id){
+function expiryDuration(ms){
+ const seconds=Math.max(0,Math.ceil(ms/1000));
+ return pad(Math.floor(seconds/60))+':'+pad(seconds%60);
+}
+function localClock(now){
+ const d=new Date(now+9*3600000);
+ return d.getUTCFullYear()+'.'+pad(d.getUTCMonth()+1)+'.'+pad(d.getUTCDate())+' '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes());
+}
+let nextId=1,unlocked=false,research=null;
+let nextMission=Date.now()+randomBetween(ARRIVAL_MIN,ARRIVAL_MAX);
+let nextResearch=Date.now()+randomBetween(RESEARCH_APPEAR_MIN,RESEARCH_APPEAR_MAX);
+function card(title){
+ const element=document.createElement('article');
+ element.className='mission-card';
+ const name=document.createElement('span');
+ name.className='mission-name';name.textContent=title;name.title=title;
+ const timer=document.createElement('span');
+ timer.className='countdown';timer.hidden=true;
+ const state=document.createElement('span');
+ state.className='mission-status';state.hidden=true;
+ const start=document.createElement('button');
+ start.className='mission-start';start.type='button';start.textContent='시작';
+ element.append(name,timer,state,start);
+ return {element,timer,state,start};
+}
+function activeCount(){
+ let count=0;
+ for(const mission of missions.values())if(mission.startedAt!==null)count++;
+ return count;
+}
+function erase(id){
  const mission=missions.get(id);
- if(!mission)return;
- missions.delete(id);
- mission.card.remove();
+ if(mission){mission.ui.element.remove();missions.delete(id);}
 }
-function newMission(now){
+function draw(m,now){
+ if(m.startedAt===null){
+   m.ui.start.hidden=false;
+   m.ui.state.hidden=true;
+   m.ui.timer.hidden=!unlocked;
+   if(unlocked){
+     m.ui.timer.className='countdown expiry';
+     m.ui.timer.textContent='폐기 '+expiryDuration(m.expiresAt-now);
+   }
+ }else{
+   m.ui.start.hidden=true;
+   m.ui.state.hidden=unlocked;
+   m.ui.timer.hidden=!unlocked;
+   if(unlocked){
+     m.ui.timer.className='countdown';
+     m.ui.timer.textContent=duration(m.finishesAt-now);
+   }else m.ui.state.textContent='임무 진행중';
+ }
+}
+function addMission(now){
  const taken=new Set(Array.from(missions.values(),m=>m.name));
- const available=NAMES.filter(name=>!taken.has(name));
- if(!available.length)return;
- const name=available[randomBetween(0,available.length-1)];
- const mission={id:nextId++,name,expiresAt:now+randomBetween(EXPIRY_MIN,EXPIRY_MAX),
-   startedAt:null,finishesAt:null,card:null};
- const card=document.createElement('article');
- card.className='mission-card';
- const info=document.createElement('div');
- info.className='mission-info';
- const title=document.createElement('span');
- title.className='mission-name';
- title.textContent=name;
- info.appendChild(title);
- const button=document.createElement('button');
- button.type='button';
- button.className='mission-start';
- button.textContent='시작';
- button.addEventListener('click',()=>{
-   if(!missions.has(mission.id)||mission.startedAt!==null)return;
-   if(Date.now()>=mission.expiresAt){removeMission(mission.id);return;}
-   if(runningCount()>=MAX_RUNNING){
-     let warning=info.querySelector('.mission-warning');
-     if(!warning){
-       warning=document.createElement('span');
-       warning.className='mission-warning';
-       warning.textContent='임무를 시작할 수 없습니다.';
-       info.appendChild(warning);
-       window.setTimeout(()=>warning.remove(),2500);
+ const options=NAMES.filter(name=>!taken.has(name));
+ if(!options.length)return;
+ const name=options[randomBetween(0,options.length-1)];
+ const m={id:nextId++,name,expiresAt:now+randomBetween(EXPIRY_MIN,EXPIRY_MAX),startedAt:null,finishesAt:null,ui:card(name)};
+ m.ui.start.addEventListener('click',()=>{
+   if(!missions.has(m.id)||m.startedAt!==null)return;
+   const at=Date.now();
+   if(at>=m.expiresAt){erase(m.id);return;}
+   if(activeCount()>=MAX_RUNNING){
+     if(!m.ui.element.querySelector('.warning')){
+       const msg=document.createElement('span');
+       msg.className='warning';msg.textContent='시작 불가';
+       m.ui.element.append(msg);
+       window.setTimeout(()=>msg.remove(),2500);
      }
      return;
    }
-   mission.startedAt=Date.now();
-   mission.finishesAt=mission.startedAt+randomBetween(FINISH_MIN,FINISH_MAX);
-   const status=document.createElement('span');
-   status.className='mission-status';
-   status.textContent='임무 진행중';
-   info.appendChild(status);
-   button.remove();
+   m.startedAt=at;
+   m.finishesAt=at+randomBetween(FINISH_MIN,FINISH_MAX);
+   draw(m,at);
  });
- card.append(info,button);
- mission.card=card;
- missions.set(mission.id,mission);
- list.appendChild(card);
+ missions.set(m.id,m);
+ draw(m,now);
+ list.append(m.ui.element);
+}
+function scheduleResearchAgain(now){
+ if(research){research.ui.element.remove();research=null;}
+ if(!unlocked)nextResearch=now+randomBetween(RESEARCH_APPEAR_MIN,RESEARCH_APPEAR_MAX);
+}
+function addResearch(now){
+ if(research||unlocked)return;
+ const ui=card('시간 연구');
+ research={expiresAt:now+randomBetween(EXPIRY_MIN,EXPIRY_MAX),startedAt:null,finishesAt:null,ui};
+ ui.start.addEventListener('click',()=>{
+   if(!research||research.ui!==ui||research.startedAt!==null)return;
+   const at=Date.now();
+   if(at>=research.expiresAt){scheduleResearchAgain(at);return;}
+   research.startedAt=at;
+   research.finishesAt=at+RESEARCH_DURATION;
+   ui.start.hidden=true;
+   ui.state.hidden=false;
+   ui.state.textContent='연구 진행중';
+ });
+ list.append(ui.element);
+}
+function completeResearch(now){
+ unlocked=true;
+ clock.hidden=false;
+ if(research){research.ui.element.remove();research=null;}
+ clock.textContent=localClock(now);
+ for(const mission of missions.values())draw(mission,now);
 }
 function tick(){
  const now=Date.now();
- for(const mission of missions.values()){
-   if(mission.startedAt===null&&now>=mission.expiresAt){
-     // 시작하지 않은 일은 다른 도시 주체가 해결한 것으로 간주합니다.
-     removeMission(mission.id);
-   }else if(mission.startedAt!==null&&now>=mission.finishesAt){
-     // 숨겨진 완료시각에 종료하며 다음 임무를 받을 수 있게 됩니다.
-     removeMission(mission.id);
-   }
+ if(research){
+   if(research.startedAt===null&&now>=research.expiresAt)scheduleResearchAgain(now);
+   else if(research.startedAt!==null&&now>=research.finishesAt)completeResearch(now);
+ }else if(!unlocked&&now>=nextResearch)addResearch(now);
+ for(const m of missions.values()){
+   if(m.startedAt===null&&now>=m.expiresAt)erase(m.id);
+   else if(m.startedAt!==null&&now>=m.finishesAt)erase(m.id);
+   else if(unlocked)draw(m,now);
  }
- if(now>=nextArrival){
-   newMission(now);
-   nextArrival=now+randomBetween(ARRIVAL_MIN,ARRIVAL_MAX);
+ if(now>=nextMission){
+   addMission(now);
+   nextMission=now+randomBetween(ARRIVAL_MIN,ARRIVAL_MAX);
  }
+ if(unlocked)clock.textContent=localClock(now);
 }
-for(let i=0;i<3;i++)newMission(Date.now());
-window.setInterval(tick,700);
+for(let i=0;i<3;i++)addMission(Date.now());
+window.setInterval(tick,1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
 window.addEventListener('pageshow',tick);
 })();
