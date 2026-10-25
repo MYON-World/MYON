@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-// v0.08.06: 24-hour auto-accept unlock, expiry-priority acceptance, sorted missions, 10 total cards.
+// v0.08.07: v0.08.05 layout preserved, stable CSS-order sorting, v0.08.06 mission features retained.
 const MAX_RUNNING=10,MAX_CARDS=10;
 const AUTO_MISSION='자동 임무 수락';
 const AUTO_DURATION=86400000,AUTO_INTERVAL=600000,AUTO_COOLDOWN=60000;
@@ -105,8 +105,13 @@ function sortCards(){
    const bt=bw?b.expiresAt:b.finishesAt;
    return at-bt||a.id-b.id;
  });
- const nodes=sorted.map(m=>m.ui.el);
- if(nodes.some((node,i)=>list.children[i]!==node))list.append(...nodes);
+ // Keep every v0.08.05 card in its original DOM position.
+ // CSS flex order sorts the view without re-appending nodes, which caused
+ // scroll jumps/reflow during mission arrivals and automatic acceptance.
+ sorted.forEach((m,index)=>{
+   const value=String(index);
+   if(m.ui.el.style.order!==value)m.ui.el.style.order=value;
+ });
 }
 function enableAuto(at){
  if(autoUnlocked)return false;
