@@ -3,6 +3,10 @@
 const MAX_RUNNING=10,ARRIVAL_MIN=4000,ARRIVAL_MAX=8500,EXPIRY_MIN=17000,EXPIRY_MAX=33000;
 const FINISH_MIN=120000,FINISH_MAX=360000,RESEARCH_MIN=8000,RESEARCH_MAX=25000;
 const SAVE_DURATION=3600000,TIME_DURATION=86400000;
+// Fresh v0.08.04 save namespace: do not import or revive 0.08.03 progress.
+const PROGRESS_DB='myon-v00804-progress';
+const PREVIOUS_DB='myon-v008-progress';
+const RESET_MARKER='v00804-initialized';
 const NAMES=['지역 전력 공급','생활 물자 운송','노후 시설 보수','공공시설 점검',
 '상가 물품 공급','생활용수 확보','산업 설비 정비','도로 안전 점검',
 '지역 환경 정비','긴급 물자 확보','주거시설 보수','공장 자재 운송',
@@ -28,7 +32,7 @@ function openDb(){
  if(!dbPromise){
    dbPromise=new Promise((resolve,reject)=>{
      if(!window.indexedDB){reject(new Error('IndexedDB unavailable'));return;}
-     const req=window.indexedDB.open('myon-v008-progress',1);
+     const req=window.indexedDB.open(PROGRESS_DB,1);
      req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('game'))req.result.createObjectStore('game');};
      req.onsuccess=()=>resolve(req.result);
      req.onerror=()=>reject(req.error||new Error('Database error'));
@@ -36,24 +40,40 @@ function openDb(){
  }
  return dbPromise;
 }
-async function load(){
+async function load(key='main'){
  const db=await openDb();
  return new Promise((resolve,reject)=>{
-   const tx=db.transaction('game','readonly'),req=tx.objectStore('game').get('main');
+   const tx=db.transaction('game','readonly'),req=tx.objectStore('game').get(key);
    req.onsuccess=()=>resolve(req.result||null);
    req.onerror=()=>reject(req.error||new Error('Read failed'));
    tx.onerror=()=>reject(tx.error||new Error('Read transaction failed'));
  });
 }
-async function store(value){
+async function store(value,key='main'){
  const db=await openDb();
  return new Promise((resolve,reject)=>{
    const tx=db.transaction('game','readwrite');
-   tx.objectStore('game').put(value,'main');
+   tx.objectStore('game').put(value,key);
    tx.oncomplete=()=>resolve();
    tx.onerror=()=>reject(tx.error||new Error('Save failed'));
    tx.onabort=()=>reject(tx.error||new Error('Save aborted'));
  });
+}
+async function resetPreviousProgressOnce(){
+ // This targets only the earlier v0.08 progress DB; legacy v0.07 data is not touched.
+ // A separate DB guarantees a clean start even if deletion is blocked by an old open tab.
+ try{
+   if(await load(RESET_MARKER)===true)return;
+   await new Promise((resolve,reject)=>{
+     const req=window.indexedDB.deleteDatabase(PREVIOUS_DB);
+     req.onsuccess=()=>resolve();
+     req.onerror=()=>reject(req.error||new Error('Old DB deletion failed'));
+     req.onblocked=()=>reject(new Error('Old DB deletion blocked'));
+   });
+   await store(true,RESET_MARKER);
+ }catch(_err){
+   // Ignore only old-database cleanup failures; new progress is safely isolated.
+ }
 }
 function warn(){
  if(storageWarned)return;
@@ -303,6 +323,8 @@ async function init(){
  nextTimeStudy=now+random(RESEARCH_MIN,RESEARCH_MAX);
  nextSaveStudy=now+random(RESEARCH_MIN,RESEARCH_MAX);
  let data=null;try{data=await load();}catch(e){/* Start without a save; explain error when attempting research. */}
+ // Run once per browser, outside the UI flow; never reset the v0.08.04 DB on re-entry.
+ void resetPreviousProgressOnce();
  now=Date.now();
  if(data&&data.schema===1&&data.kind==='full'&&data.saveUnlocked===true){
    recoverFull(rebaseLoaded(data,now),now);
