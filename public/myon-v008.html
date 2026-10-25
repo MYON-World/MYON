@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e171b">
+<title>MYON v0.08</title>
+<style>
+:root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:#0b1217}
+button{font:inherit}
+button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
+.viewport{min-height:100dvh;display:flex;justify-content:center}
+.app{background:#0e171b;width:100%;max-width:450px;height:100dvh;height:100svh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+@media(min-width:600px){.viewport{padding:20px 0}.app{height:calc(100dvh - 40px);border:1px solid #304448;border-radius:16px;box-shadow:0 0 35px #0005}}
+.topbar{background:#14242a;border-bottom:1px solid #2c4346;height:54px;flex:none;display:flex;align-items:center;padding:0 17px}
+.brand{font-size:19px;font-weight:800;letter-spacing:.015em}
+.missions{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;-ms-overflow-style:none;padding:12px;display:flex;flex-direction:column;gap:8px}
+.missions::-webkit-scrollbar{display:none;width:0;height:0}
+.mission-card{background:#19292e;border:1px solid #30484a;border-radius:11px;padding:12px;min-height:66px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.mission-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.mission-name{font-size:14px;font-weight:600;line-height:1.45;overflow-wrap:anywhere}
+.mission-status{font-size:12px;color:#a5c9b2}
+.mission-warning{font-size:12px;color:#edaa98}
+.mission-start{flex:none;background:#b1e5c2;color:#183626;border:0;border-radius:9px;padding:9px 15px;font-size:13px;font-weight:750;cursor:pointer;min-width:56px}
+.mission-start:active{background:#88d3a7}
+.nav{flex:none;border-top:1px solid #2c4346;background:#14242a;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
+.nav button{border:0;border-radius:8px;height:40px;background:none;font-size:14px;font-weight:550;color:#738e8c}
+.nav button[aria-current="page"]{background:#294a3b;color:#c2ebd0;font-weight:700}
+.nav button:disabled{cursor:not-allowed;opacity:.75}
+.lock{font-size:11px;margin-right:4px;filter:grayscale(1);opacity:.65}
+</style>
+</head>
+<body>
+<div class="viewport"><div class="app">
+<header class="topbar"><strong class="brand">MYON</strong></header>
+<main class="missions" id="missions" aria-label="임무 목록"></main>
+<nav class="nav" aria-label="메뉴">
+<button type="button" aria-current="page">홈</button>
+<button type="button" disabled aria-label="회사 잠김"><span class="lock" aria-hidden="true">🔒</span>회사</button>
+<button type="button" disabled aria-label="설정 잠김"><span class="lock" aria-hidden="true">🔒</span>설정</button>
+</nav>
+</div></div>
+<script>
+(function(){
+'use strict';
+// v0.08 시작 단계: 별도의 저장을 하지 않습니다. 기존 v0.07 IndexedDB는 읽거나 변경하지 않습니다.
+// 화면에는 임무 완료시각, 등장/폐기시각, 제한 수, 자금, 시계를 표시하지 않습니다.
+const MAX_RUNNING=10;
+const ARRIVAL_MIN=4000,ARRIVAL_MAX=8500;
+const EXPIRY_MIN=17000,EXPIRY_MAX=33000;
+const FINISH_MIN=120000,FINISH_MAX=360000;
+const NAMES=[
+'지역 전력 공급','생활 물자 운송','노후 시설 보수','공공시설 점검',
+'상가 물품 공급','생활용수 확보','산업 설비 정비','도로 안전 점검',
+'지역 환경 정비','긴급 물자 확보','주거시설 보수','공장 자재 운송',
+'노후 배관 교체','지역 의료 물품 확보','통신 시설 점검','산업단지 설비 보수',
+'배수시설 정비','지역 식료품 확보','학교 시설 보수','정수시설 점검',
+'물류 창고 정비','주거지역 전기 점검','하천 시설 복구','상업시설 안전 점검',
+'복지시설 물품 공급','공원 시설 정비','가로등 정비','정류장 시설 보수',
+'폐기물 처리 지원','지역 통신망 보수','공공 급식 공급','산업 폐수 정비'
+];
+const list=document.getElementById('missions');
+const missions=new Map();
+let nextId=1;
+const randomBetween=(min,max)=>min+Math.floor(Math.random()*(max-min+1));
+let nextArrival=Date.now()+randomBetween(ARRIVAL_MIN,ARRIVAL_MAX);
+function runningCount(){
+ let total=0;
+ for(const mission of missions.values()) if(mission.startedAt!==null) total++;
+ return total;
+}
+function removeMission(id){
+ const mission=missions.get(id);
+ if(!mission)return;
+ missions.delete(id);
+ mission.card.remove();
+}
+function newMission(now){
+ const taken=new Set(Array.from(missions.values(),m=>m.name));
+ const available=NAMES.filter(name=>!taken.has(name));
+ if(!available.length)return;
+ const name=available[randomBetween(0,available.length-1)];
+ const mission={id:nextId++,name,expiresAt:now+randomBetween(EXPIRY_MIN,EXPIRY_MAX),
+   startedAt:null,finishesAt:null,card:null};
+ const card=document.createElement('article');
+ card.className='mission-card';
+ const info=document.createElement('div');
+ info.className='mission-info';
+ const title=document.createElement('span');
+ title.className='mission-name';
+ title.textContent=name;
+ info.appendChild(title);
+ const button=document.createElement('button');
+ button.type='button';
+ button.className='mission-start';
+ button.textContent='시작';
+ button.addEventListener('click',()=>{
+   if(!missions.has(mission.id)||mission.startedAt!==null)return;
+   if(Date.now()>=mission.expiresAt){removeMission(mission.id);return;}
+   if(runningCount()>=MAX_RUNNING){
+     let warning=info.querySelector('.mission-warning');
+     if(!warning){
+       warning=document.createElement('span');
+       warning.className='mission-warning';
+       warning.textContent='임무를 시작할 수 없습니다.';
+       info.appendChild(warning);
+       window.setTimeout(()=>warning.remove(),2500);
+     }
+     return;
+   }
+   mission.startedAt=Date.now();
+   mission.finishesAt=mission.startedAt+randomBetween(FINISH_MIN,FINISH_MAX);
+   const status=document.createElement('span');
+   status.className='mission-status';
+   status.textContent='임무 진행중';
+   info.appendChild(status);
+   button.remove();
+ });
+ card.append(info,button);
+ mission.card=card;
+ missions.set(mission.id,mission);
+ list.appendChild(card);
+}
+function tick(){
+ const now=Date.now();
+ for(const mission of missions.values()){
+   if(mission.startedAt===null&&now>=mission.expiresAt){
+     // 시작하지 않은 일은 다른 도시 주체가 해결한 것으로 간주합니다.
+     removeMission(mission.id);
+   }else if(mission.startedAt!==null&&now>=mission.finishesAt){
+     // 숨겨진 완료시각에 종료하며 다음 임무를 받을 수 있게 됩니다.
+     removeMission(mission.id);
+   }
+ }
+ if(now>=nextArrival){
+   newMission(now);
+   nextArrival=now+randomBetween(ARRIVAL_MIN,ARRIVAL_MAX);
+ }
+}
+for(let i=0;i<3;i++)newMission(Date.now());
+window.setInterval(tick,700);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
+window.addEventListener('pageshow',tick);
+})();
+</script>
+</body>
+</html>
