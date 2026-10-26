@@ -1,12 +1,26 @@
 (function(){
 'use strict';
-// v0.08.07: v0.08.05 layout preserved, stable CSS-order sorting, v0.08.06 mission features retained.
+// v0.08.08: mission-specific real-work estimates at 10% duration; UI and auto-unlock unchanged.
 const MAX_RUNNING=10,MAX_CARDS=10;
 const AUTO_MISSION='자동 임무 수락';
 const AUTO_DURATION=86400000,AUTO_INTERVAL=600000,AUTO_COOLDOWN=60000;
 const ARRIVAL_MIN=4000,ARRIVAL_MAX=8500;
 const EXPIRY_MIN=17000,EXPIRY_MAX=33000;
-const FINISH_MIN=120000,FINISH_MAX=360000;
+// Real-world baseline estimates for balancing, not guaranteed real-world averages.
+// 90% shorter: 1 real hour becomes 6 game minutes. Applies only when starting a new normal mission.
+const REAL_WORK_HOURS = {
+ 1: ["생활 물자 운송", "긴급 물자 확보", "지역 의료 물품 확보", "지역 식료품 확보", "복지시설 물품 공급", "공공 급식 공급"],
+ 2: ["공공시설 점검", "도로 안전 점검", "통신 시설 점검", "정수시설 점검", "주거지역 전기 점검", "상업시설 안전 점검"],
+ 4: ["지역 전력 공급", "상가 물품 공급", "생활용수 확보", "공장 자재 운송", "가로등 정비", "정류장 시설 보수"],
+ 6: ["지역 환경 정비", "배수시설 정비", "물류 창고 정비", "공원 시설 정비", "폐기물 처리 지원", "지역 통신망 보수"],
+ 8: ["노후 시설 보수", "산업 설비 정비", "주거시설 보수", "산업단지 설비 보수", "학교 시설 보수"],
+ 12: ["노후 배관 교체", "하천 시설 복구", "산업 폐수 정비"]
+};
+const NORMAL_DURATION_MS = Object.fromEntries(
+ Object.entries(REAL_WORK_HOURS).flatMap(([hours,names])=>
+   names.map(name=>[name,Number(hours)*360000])
+ )
+);
 const DB_NAME='myon-v00804-progress';
 const STORE_NAME='game',SAVE_KEY='v00806-main',PRIOR_KEY='v00805-main',LEGACY_KEY='main';
 const NAMES=[
@@ -123,7 +137,7 @@ function enableAuto(at){
 function startMission(m,at){
  if(!missions.has(m.id)||m.startedAt!==null||at>=m.expiresAt||countRunning()>=MAX_RUNNING)return false;
  m.startedAt=at;
- m.finishesAt=at+(m.kind==='auto-unlock'?AUTO_DURATION:random(FINISH_MIN,FINISH_MAX));
+ m.finishesAt=at+(m.kind==='auto-unlock'?AUTO_DURATION:NORMAL_DURATION_MS[m.name]);
  render(m,at);sortCards();
  return true;
 }
