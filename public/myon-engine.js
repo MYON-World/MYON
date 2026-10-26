@@ -1,9 +1,13 @@
 (function(){
 'use strict';
-// v0.08.08: mission-specific real-work estimates at 10% duration; UI and auto-unlock unchanged.
+// v0.08.09: sequential ten-stage mission-time research; layout, saved missions and auto-accept preserved.
 const MAX_RUNNING=10,MAX_CARDS=10;
 const AUTO_MISSION='자동 임무 수락';
 const AUTO_DURATION=86400000,AUTO_INTERVAL=600000,AUTO_COOLDOWN=60000;
+const TIME_PERCENT=[10,15,20,30,40,50,60,70,80,90,100];
+const TIME_RESEARCH_MIN=[0,5,15,30,60,120,180,360,540,720,1440];
+const MAX_TIME_LEVEL=10;
+const upgradeName=level=>'임무시간 업그레이드 '+level;
 const ARRIVAL_MIN=4000,ARRIVAL_MAX=8500;
 const EXPIRY_MIN=17000,EXPIRY_MAX=33000;
 // Real-world baseline estimates for balancing, not guaranteed real-world averages.
@@ -40,7 +44,7 @@ const missions=new Map();
 const random=(min,max)=>min+Math.floor(Math.random()*(max-min+1));
 const pad=n=>String(n).padStart(2,'0');
 const timeValue=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
-let nextId=1,nextArrival=0,autoUnlocked=false,nextAutoAt=0,cooldownUntil=0;
+let nextId=1,nextArrival=0,autoUnlocked=false,nextAutoAt=0,cooldownUntil=0,timeLevel=0;
 let dbPromise=null,saveChain=Promise.resolve(),storageWarned=false;
 
 function updateClock(now){
@@ -93,9 +97,9 @@ function storageWarning(){
 }
 function snapshot(){
  return {
-   schema:3,kind:'game',savedAt:Date.now(),nextId,nextArrival,autoUnlocked,nextAutoAt,cooldownUntil,
+   schema:3,kind:'game',savedAt:Date.now(),nextId,nextArrival,autoUnlocked,nextAutoAt,cooldownUntil,timeLevel,
    missions:Array.from(missions.values(),m=>({
-     id:m.id,name:m.name,kind:m.kind,expiresAt:m.expiresAt,startedAt:m.startedAt,finishesAt:m.finishesAt
+     id:m.id,name:m.name,kind:m.kind,level:m.level??null,expiresAt:m.expiresAt,startedAt:m.startedAt,finishesAt:m.finishesAt
    }))
  };
 }
@@ -136,15 +140,23 @@ function enableAuto(at){
 }
 function startMission(m,at){
  if(!missions.has(m.id)||m.startedAt!==null||at>=m.expiresAt||countRunning()>=MAX_RUNNING)return false;
+ // Upgrades are sequential and only their exact next stage is startable.
+ if(m.kind==='time-upgrade'&&(m.level!==timeLevel+1||!Number.isInteger(m.level)))return false;
+ const duration=m.kind==='auto-unlock'
+   ?AUTO_DURATION
+   :m.kind==='time-upgrade'
+     ?TIME_RESEARCH_MIN[m.level]*60000
+     :NORMAL_DURATION_MS[m.name]*(TIME_PERCENT[timeLevel]/10);
+ if(!Number.isFinite(duration)||duration<=0)return false;
  m.startedAt=at;
- m.finishesAt=at+(m.kind==='auto-unlock'?AUTO_DURATION:NORMAL_DURATION_MS[m.name]);
+ m.finishesAt=at+duration;
  render(m,at);sortCards();
  return true;
 }
 function automaticAccept(now){
  if(!autoUnlocked||now<nextAutoAt||now<cooldownUntil||countRunning()>=MAX_RUNNING)return false;
  const candidate=Array.from(missions.values())
-  .filter(m=>m.startedAt===null&&m.expiresAt>now&&m.kind!=='auto-unlock')
+  .filter(m=>m.startedAt===null&&m.expiresAt>now&&m.kind==='normal')
   .sort((a,b)=>a.expiresAt-b.expiresAt||a.id-b.id)[0];
  if(!candidate||!startMission(candidate,now))return false;
  nextAutoAt=now+AUTO_INTERVAL;
@@ -205,10 +217,19 @@ function spawn(now){
  const taken=new Set(Array.from(missions.values(),m=>m.name));
  const names=NAMES.filter(name=>!taken.has(name));
  const eligibleAuto=!autoUnlocked&&!taken.has(AUTO_MISSION);
- if(!names.length&&!eligibleAuto)return false;
- const special=eligibleAuto&&(!names.length||Math.random()<0.25);
- const name=special?AUTO_MISSION:names[random(0,names.length-1)];
- mount({id:nextId++,name,kind:special?'auto-unlock':'normal',
+ const level=timeLevel+1;
+ const eligibleTime=level<=MAX_TIME_LEVEL&&!Array.from(missions.values()).some(m=>m.kind==='time-upgrade');
+ const specials=[];
+ if(eligibleAuto)specials.push({kind:'auto-unlock',name:AUTO_MISSION,level:null});
+ if(eligibleTime)specials.push({kind:'time-upgrade',name:upgradeName(level),level});
+ if(!names.length&&!specials.length)return false;
+ // Like the existing auto-accept upgrade, the next time upgrade is a random mission.
+ // With both unlocks available, special spawns share the 25% slot probability.
+ const special=specials.length&&(!names.length||Math.random()<0.25)
+   ?specials[random(0,specials.length-1)]
+   :null;
+ const name=special?special.name:names[random(0,names.length-1)];
+ mount({id:nextId++,name,kind:special?special.kind:'normal',level:special?special.level:null,
    expiresAt:now+random(EXPIRY_MIN,EXPIRY_MAX),startedAt:null,finishesAt:null},now);
  sortCards();
  return true;
@@ -218,21 +239,28 @@ function restoreJobs(raw,now){
  const taken=new Set();
  for(const data of raw.slice(0,100)){
    if(!data||!Number.isSafeInteger(data.id)||data.id<1||!timeValue(data.expiresAt))continue;
-   const special=data.kind==='auto-unlock'&&data.name===AUTO_MISSION;
-   if(!special&&!NAMES.includes(data.name))continue;
+   const auto=data.kind==='auto-unlock'&&data.name===AUTO_MISSION;
+   const upgrade=data.kind==='time-upgrade'&&Number.isInteger(data.level)
+     &&data.level>=1&&data.level<=MAX_TIME_LEVEL&&data.name===upgradeName(data.level);
+   if(!auto&&!upgrade&&!NAMES.includes(data.name))continue;
    if(taken.has(data.name)||missions.size>=MAX_CARDS)continue;
    const startedAt=timeValue(data.startedAt)?data.startedAt:null;
    const finishesAt=timeValue(data.finishesAt)?data.finishesAt:null;
    if(startedAt!==null&&!timeValue(finishesAt))continue;
    nextId=Math.max(nextId,data.id+1);
-   // Completing the unlock mission offline must permanently grant the feature.
-   if(special&&startedAt!==null&&finishesAt<=now){enableAuto(finishesAt);continue;}
-   if(special&&autoUnlocked)continue;
+   if(auto&&startedAt!==null&&finishesAt<=now){enableAuto(finishesAt);continue;}
+   if(auto&&autoUnlocked)continue;
+   if(upgrade){
+     if(data.level!==timeLevel+1)continue;
+     // One upgrade may finish offline. Unlock exactly that level, not later levels.
+     if(startedAt!==null&&finishesAt<=now){timeLevel=data.level;continue;}
+     if(Array.from(missions.values()).some(m=>m.kind==='time-upgrade'))continue;
+   }
    if(startedAt===null&&data.expiresAt<=now)continue;
    if(startedAt!==null&&finishesAt<=now)continue;
    taken.add(data.name);
-   mount({id:data.id,name:data.name,kind:special?'auto-unlock':'normal',
-     expiresAt:data.expiresAt,startedAt,finishesAt},now);
+   mount({id:data.id,name:data.name,kind:auto?'auto-unlock':upgrade?'time-upgrade':'normal',
+     level:upgrade?data.level:null,expiresAt:data.expiresAt,startedAt,finishesAt},now);
  }
  sortCards();
 }
@@ -242,6 +270,7 @@ function restoreCurrent(saved,now){
  autoUnlocked=saved.autoUnlocked===true;
  nextAutoAt=timeValue(saved.nextAutoAt)?saved.nextAutoAt:0;
  cooldownUntil=timeValue(saved.cooldownUntil)?saved.cooldownUntil:0;
+ timeLevel=Number.isInteger(saved.timeLevel)&&saved.timeLevel>=0&&saved.timeLevel<=MAX_TIME_LEVEL?saved.timeLevel:0;
  restoreJobs(saved.missions,now);
 }
 function restorePrior(saved,now){
@@ -272,6 +301,9 @@ function tick(){
  for(const m of missions.values()){
    if(m.startedAt===null&&now>=m.expiresAt||m.startedAt!==null&&now>=m.finishesAt){
      if(m.kind==='auto-unlock'&&m.startedAt!==null)changed=enableAuto(m.finishesAt)||changed;
+     if(m.kind==='time-upgrade'&&m.startedAt!==null&&m.level===timeLevel+1){
+       timeLevel=m.level;changed=true;
+     }
      changed=remove(m)||changed;
    }else render(m,now);
  }
