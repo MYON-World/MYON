@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.08.12</title>
+<title>MYON v0.08.13</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -38,16 +38,11 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 .nav button[aria-current="page"]{background:#294a3b;color:#c2ebd0;font-weight:700}
 .nav button:disabled{cursor:not-allowed;opacity:.75}
 .lock{font-size:11px;margin-right:4px;filter:grayscale(1);opacity:.65}
-.mission-tags{flex:none;display:flex;flex-wrap:wrap;gap:5px;padding:10px 12px 9px;background:#0e171b;border-bottom:1px solid #30484a}
-.tag-card{flex:none;border:1px solid #30484a;border-radius:7px;background:#19292e;color:#aabfbb;padding:7px 9px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer}
-.tag-card[aria-pressed="true"]{background:#294a3b;border-color:#9cdab4;color:#c2ebd0;font-weight:750}
-.mission-card[hidden]{display:none!important}
 </style>
 </head>
 <body>
 <div class="viewport"><div class="app">
 <header class="topbar"><strong class="brand">MYON</strong><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div></header>
-<section class="mission-tags" id="mission-tags" aria-label="임무 분야 선택"></section>
 <main class="missions" id="missions" aria-label="임무 목록"></main>
 <nav class="nav" aria-label="메뉴">
 <button type="button" aria-current="page">홈</button>
@@ -56,6 +51,6 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 <button type="button" disabled aria-label="설정 잠김"><span class="lock" aria-hidden="true">🔒</span>설정</button>
 </nav>
 </div></div>
-<script src="myon-engine.js?v=0.08.12"></script>
+<script src="myon-engine.js?v=0.08.13"></script>
 </body>
 </html>
