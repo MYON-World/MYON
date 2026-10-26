@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-// v0.08.10: hard-enforce manual-only time research in both auto selection and mission start.
+// v0.08.11: arrival and unaccepted expiry scale with time research; v0.08.05 UI preserved.
 const MAX_RUNNING=10,MAX_CARDS=10;
 const AUTO_MISSION='자동 임무 수락';
 const AUTO_DURATION=86400000,AUTO_INTERVAL=600000,AUTO_COOLDOWN=60000;
@@ -9,7 +9,16 @@ const TIME_RESEARCH_MIN=[0,5,15,30,60,120,180,360,540,720,1440];
 const MAX_TIME_LEVEL=10;
 const upgradeName=level=>'임무시간 업그레이드 '+level;
 const ARRIVAL_MIN=4000,ARRIVAL_MAX=8500;
-const EXPIRY_MIN=17000,EXPIRY_MAX=33000;
+// Maximum unaccepted lifetime in milliseconds, by completed time research.
+const EXPIRY_MAX_BY_LEVEL=[33000,60000,120000,180000,300000,420000,600000,840000,1140000,1440000,1800000];
+const arrivalDelay=()=>random(
+ Math.round(ARRIVAL_MIN*TIME_PERCENT[timeLevel]/10),
+ Math.round(ARRIVAL_MAX*TIME_PERCENT[timeLevel]/10)
+);
+const expiryDelay=()=>{
+ const max=EXPIRY_MAX_BY_LEVEL[timeLevel];
+ return random(timeLevel===0?17000:max/2,max);
+};
 // Real-world baseline estimates for balancing, not guaranteed real-world averages.
 // 90% shorter: 1 real hour becomes 6 game minutes. Applies only when starting a new normal mission.
 const REAL_WORK_HOURS = {
@@ -97,7 +106,7 @@ function storageWarning(){
 }
 function snapshot(){
  return {
-   schema:3,kind:'game',savedAt:Date.now(),nextId,nextArrival,autoUnlocked,nextAutoAt,cooldownUntil,timeLevel,
+   schema:3,kind:'game',savedAt:Date.now(),nextId,nextArrival,autoUnlocked,nextAutoAt,cooldownUntil,timeLevel,timingVersion:1,
    missions:Array.from(missions.values(),m=>({
      id:m.id,name:m.name,kind:m.kind,level:m.level??null,expiresAt:m.expiresAt,startedAt:m.startedAt,finishesAt:m.finishesAt
    }))
@@ -237,7 +246,7 @@ function spawn(now){
    :null;
  const name=special?special.name:names[random(0,names.length-1)];
  mount({id:nextId++,name,kind:special?special.kind:'normal',level:special?special.level:null,
-   expiresAt:now+random(EXPIRY_MIN,EXPIRY_MAX),startedAt:null,finishesAt:null},now);
+   expiresAt:now+expiryDelay(),startedAt:null,finishesAt:null},now);
  sortCards();
  return true;
 }
@@ -273,17 +282,22 @@ function restoreJobs(raw,now){
 }
 function restoreCurrent(saved,now){
  nextId=Number.isSafeInteger(saved.nextId)&&saved.nextId>0?saved.nextId:1;
- nextArrival=timeValue(saved.nextArrival)?saved.nextArrival:now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+ nextArrival=timeValue(saved.nextArrival)?saved.nextArrival:now+arrivalDelay();
  autoUnlocked=saved.autoUnlocked===true;
  nextAutoAt=timeValue(saved.nextAutoAt)?saved.nextAutoAt:0;
  cooldownUntil=timeValue(saved.cooldownUntil)?saved.cooldownUntil:0;
  timeLevel=Number.isInteger(saved.timeLevel)&&saved.timeLevel>=0&&saved.timeLevel<=MAX_TIME_LEVEL?saved.timeLevel:0;
+ const levelBeforeRestore=timeLevel;
  restoreJobs(saved.missions,now);
+ // Previously scheduled arrivals used v0.08.10's 4-8.5 second rate.
+ // Rebase arrival after updating; preserve each existing expiry/deadline.
+ if(saved.timingVersion!==1||timeLevel!==levelBeforeRestore)
+   nextArrival=now+arrivalDelay();
 }
 function restorePrior(saved,now){
  if(!saved||saved.schema!==2||saved.kind!=='game')return false;
  nextId=Number.isSafeInteger(saved.nextId)&&saved.nextId>0?saved.nextId:1;
- nextArrival=timeValue(saved.nextArrival)?saved.nextArrival:now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+ nextArrival=timeValue(saved.nextArrival)?saved.nextArrival:now+arrivalDelay();
  restoreJobs(saved.missions,now);
  return true;
 }
@@ -293,7 +307,7 @@ function restoreLegacy(saved,now){
  // never contained its unsaved missions, and is therefore started with fresh jobs.
  if(!saved||saved.schema!==1||saved.kind!=='full'||saved.saveUnlocked!==true)return false;
  nextId=Number.isSafeInteger(saved.id)&&saved.id>0?saved.id:1;
- nextArrival=timeValue(saved.nextJob)?saved.nextJob:now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+ nextArrival=timeValue(saved.nextJob)?saved.nextJob:now+arrivalDelay();
  const jobs=Array.isArray(saved.jobs)?saved.jobs.map(j=>({
    id:j.id,name:j.name,expiresAt:j.expires,startedAt:j.started,finishesAt:j.ends
  })):[];
@@ -309,7 +323,9 @@ function tick(){
    if(m.startedAt===null&&now>=m.expiresAt||m.startedAt!==null&&now>=m.finishesAt){
      if(m.kind==='auto-unlock'&&m.startedAt!==null)changed=enableAuto(m.finishesAt)||changed;
      if(m.kind==='time-upgrade'&&m.startedAt!==null&&m.level===timeLevel+1){
-       timeLevel=m.level;changed=true;
+       timeLevel=m.level;
+       nextArrival=now+arrivalDelay();
+       changed=true;
      }
      changed=remove(m)||changed;
    }else render(m,now);
@@ -318,7 +334,7 @@ function tick(){
  if(missions.size<MAX_CARDS&&now>=nextArrival){
    changed=spawn(now)||changed;
    // Skip backlogged random arrivals while away: spawn at most one on return.
-   nextArrival=now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+   nextArrival=now+arrivalDelay();
    changed=true;
  }
  if(changed){sortCards();void persist();}
@@ -326,7 +342,7 @@ function tick(){
 async function initialize(){
  updateClock(Date.now());
  const now=Date.now();
- nextArrival=now+random(ARRIVAL_MIN,ARRIVAL_MAX);
+ nextArrival=now+arrivalDelay();
  let current=null,prior=null,legacy=null,storageAvailable=true;
  try{
    current=await readRecord(SAVE_KEY);
