@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-// v0.08.09: sequential ten-stage mission-time research; layout, saved missions and auto-accept preserved.
+// v0.08.10: hard-enforce manual-only time research in both auto selection and mission start.
 const MAX_RUNNING=10,MAX_CARDS=10;
 const AUTO_MISSION='자동 임무 수락';
 const AUTO_DURATION=86400000,AUTO_INTERVAL=600000,AUTO_COOLDOWN=60000;
@@ -138,7 +138,14 @@ function enableAuto(at){
  nextAutoAt=cooldownUntil;
  return true;
 }
-function startMission(m,at){
+function eligibleForAutoAccept(m,at){
+ // Only listed normal city missions can be accepted automatically.
+ // Research and upgrade missions must always be started manually.
+ return m.kind==='normal'&&NAMES.includes(m.name)&&m.startedAt===null&&m.expiresAt>at;
+}
+function startMission(m,at,source='manual'){
+ // Guard at the actual start path, independent of candidate selection.
+ if(source==='auto'&&!eligibleForAutoAccept(m,at))return false;
  if(!missions.has(m.id)||m.startedAt!==null||at>=m.expiresAt||countRunning()>=MAX_RUNNING)return false;
  // Upgrades are sequential and only their exact next stage is startable.
  if(m.kind==='time-upgrade'&&(m.level!==timeLevel+1||!Number.isInteger(m.level)))return false;
@@ -156,9 +163,9 @@ function startMission(m,at){
 function automaticAccept(now){
  if(!autoUnlocked||now<nextAutoAt||now<cooldownUntil||countRunning()>=MAX_RUNNING)return false;
  const candidate=Array.from(missions.values())
-  .filter(m=>m.startedAt===null&&m.expiresAt>now&&m.kind==='normal')
+  .filter(m=>eligibleForAutoAccept(m,now))
   .sort((a,b)=>a.expiresAt-b.expiresAt||a.id-b.id)[0];
- if(!candidate||!startMission(candidate,now))return false;
+ if(!candidate||!startMission(candidate,now,'auto'))return false;
  nextAutoAt=now+AUTO_INTERVAL;
  cooldownUntil=now+AUTO_COOLDOWN;
  return true;
