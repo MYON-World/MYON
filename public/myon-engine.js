@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-// v0.08.11: arrival and unaccepted expiry scale with time research; v0.08.05 UI preserved.
+// v0.08.12: category tag filter and 30 transport jobs, preserving existing mission engine.
 const MAX_RUNNING=10,MAX_CARDS=10;
 const AUTO_MISSION='자동 임무 수락';
 const AUTO_DURATION=86400000,AUTO_INTERVAL=600000,AUTO_COOLDOWN=60000;
@@ -29,14 +29,48 @@ const REAL_WORK_HOURS = {
  8: ["노후 시설 보수", "산업 설비 정비", "주거시설 보수", "산업단지 설비 보수", "학교 시설 보수"],
  12: ["노후 배관 교체", "하천 시설 복구", "산업 폐수 정비"]
 };
-const NORMAL_DURATION_MS = Object.fromEntries(
- Object.entries(REAL_WORK_HOURS).flatMap(([hours,names])=>
-   names.map(name=>[name,Number(hours)*360000])
+// Transport schedules are game-balancing estimates, not verified carrier timetables.
+const TRANSPORT_MISSIONS={
+ '택시':[
+  ['시내 단거리 승객 운송',0.5],['시내 일반 승객 운행',1],
+  ['공항 택시 운행',2],['심야 택시 순환 운행',4],['관광 택시 예약 운행',6]
+ ],
+ '버스':[
+  ['마을버스 노선 왕복',1],['시내버스 출퇴근 운행',3],
+  ['시내버스 정규노선 운행',6],['광역버스 도시 간 왕복',4],['고속버스 장거리 운행',8]
+ ],
+ '철도':[
+  ['도시철도 노선 왕복',2],['광역전철 승객 수송',4],
+  ['고속철도 도시 간 운행',3],['야간 여객열차 장거리 운행',10],['철도 화물 장거리 운송',12]
+ ],
+ '항공':[
+  ['국내선 여객 운항',2],['국내선 화물 운항',3],
+  ['근거리 국제선 운항',5],['중거리 국제선 운항',10],['장거리 국제선 운항',15]
+ ],
+ '선박':[
+  ['항만 예인 운항 지원',2],['연안 여객선 왕복',4],
+  ['연안 화물선 운항',10],['국제 여객선 운항',18],['원양 화물선 구간 운항',72]
+ ],
+ '우주':[
+  ['인공위성 궤도 점검',4],['우주 발사 준비',24],
+  ['인공위성 발사 운용',12],['우주정거장 물자 운송',48],['달 탐사선 운항',96]
+ ]
+};
+const TRANSPORT_CATEGORY=Object.fromEntries(
+ Object.entries(TRANSPORT_MISSIONS).flatMap(([category,jobs])=>
+   jobs.map(([name])=>[name,category])
  )
 );
+const CATEGORIES=['전체','도시',...Object.keys(TRANSPORT_MISSIONS)];
+const NORMAL_DURATION_MS=Object.fromEntries([
+ ...Object.entries(REAL_WORK_HOURS).flatMap(([hours,names])=>
+   names.map(name=>[name,Number(hours)*360000])),
+ ...Object.values(TRANSPORT_MISSIONS).flatMap(jobs=>
+   jobs.map(([name,hours])=>[name,hours*360000]))
+]);
 const DB_NAME='myon-v00804-progress';
 const STORE_NAME='game',SAVE_KEY='v00806-main',PRIOR_KEY='v00805-main',LEGACY_KEY='main';
-const NAMES=[
+const CITY_NAMES=[
 '지역 전력 공급','생활 물자 운송','노후 시설 보수','공공시설 점검',
 '상가 물품 공급','생활용수 확보','산업 설비 정비','도로 안전 점검',
 '지역 환경 정비','긴급 물자 확보','주거시설 보수','공장 자재 운송',
@@ -46,7 +80,10 @@ const NAMES=[
 '복지시설 물품 공급','공원 시설 정비','가로등 정비','정류장 시설 보수',
 '폐기물 처리 지원','지역 통신망 보수','공공 급식 공급','산업 폐수 정비'
 ];
+const NAMES=[...CITY_NAMES,...Object.values(TRANSPORT_MISSIONS).flatMap(jobs=>jobs.map(([name])=>name))];
+const categoryOf=name=>TRANSPORT_CATEGORY[name]||'도시';
 const list=document.getElementById('missions');
+const tagBar=document.getElementById('mission-tags');
 const dateEl=document.getElementById('clock-date');
 const timeEl=document.getElementById('clock-time');
 const missions=new Map();
@@ -54,6 +91,7 @@ const random=(min,max)=>min+Math.floor(Math.random()*(max-min+1));
 const pad=n=>String(n).padStart(2,'0');
 const timeValue=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
 let nextId=1,nextArrival=0,autoUnlocked=false,nextAutoAt=0,cooldownUntil=0,timeLevel=0;
+let activeCategory='전체';
 let dbPromise=null,saveChain=Promise.resolve(),storageWarned=false;
 
 function updateClock(now){
@@ -140,6 +178,24 @@ function sortCards(){
    if(m.ui.el.style.order!==value)m.ui.el.style.order=value;
  });
 }
+function setCategory(category){
+ if(!CATEGORIES.includes(category))return;
+ activeCategory=category;
+ for(const mission of missions.values())
+   mission.ui.el.hidden=category!=='전체'&&categoryOf(mission.name)!==category;
+ for(const button of tagBar.children)
+   button.setAttribute('aria-pressed',String(button.textContent===category));
+}
+function initializeTags(){
+ for(const category of CATEGORIES){
+   const button=document.createElement('button');
+   button.type='button';button.className='tag-card';
+   button.textContent=category;
+   button.setAttribute('aria-pressed',String(category===activeCategory));
+   button.addEventListener('click',()=>setCategory(category));
+   tagBar.append(button);
+ }
+}
 function enableAuto(at){
  if(autoUnlocked)return false;
  autoUnlocked=true;
@@ -148,7 +204,7 @@ function enableAuto(at){
  return true;
 }
 function eligibleForAutoAccept(m,at){
- // Only listed normal city missions can be accepted automatically.
+ // Only registered normal missions (city + transport) may be accepted automatically.
  // Research and upgrade missions must always be started manually.
  return m.kind==='normal'&&NAMES.includes(m.name)&&m.startedAt===null&&m.expiresAt>at;
 }
@@ -183,7 +239,7 @@ function createCard(name){
  const el=document.createElement('article');
  el.className='mission-card';
  const title=document.createElement('span');
- title.className='mission-name';title.textContent=name;title.title=name;
+ title.className='mission-name';title.textContent='['+categoryOf(name)+'] '+name;title.title=name;
  const countdownEl=document.createElement('span');
  countdownEl.className='countdown';
  const start=document.createElement('button');
@@ -218,6 +274,7 @@ function startWarning(ui){
 }
 function mount(data,now){
  const m={...data,ui:createCard(data.name)};
+ m.ui.el.hidden=activeCategory!=='전체'&&categoryOf(m.name)!==activeCategory;
  missions.set(m.id,m);
  m.ui.start.addEventListener('click',()=>{
    if(!missions.has(m.id)||m.startedAt!==null)return;
@@ -340,6 +397,7 @@ function tick(){
  if(changed){sortCards();void persist();}
 }
 async function initialize(){
+ initializeTags();
  updateClock(Date.now());
  const now=Date.now();
  nextArrival=now+arrivalDelay();
