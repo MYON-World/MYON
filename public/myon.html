@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.09.00</title>
+<title>MYON v0.09.01</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -39,7 +39,7 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 .nav button:disabled{cursor:not-allowed;opacity:.75}
 .lock{font-size:11px;margin-right:4px;filter:grayscale(1);opacity:.65}
 
-/* v0.09.00: operating-category page. The original clock and mission-card styles stay unchanged. */
+/* v0.09.01: operating-category page. The original clock and mission-card styles stay unchanged. */
 .missions[hidden],.operations[hidden]{display:none!important}
 .operations{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;-ms-overflow-style:none;padding:12px;display:flex;flex-direction:column;gap:8px}
 .operations::-webkit-scrollbar{display:none;width:0;height:0}
@@ -54,6 +54,34 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 .operation-card:disabled .operation-trailing{stroke:#738e8c}
 .operation-subheading{font-size:14px;font-weight:650;color:#edf5f0;padding:12px 4px 4px}
 .operation-notice{background:#19292e;border:1px solid #30484a;border-radius:11px;padding:14px;color:#9bb9af;font-size:13px;line-height:1.6}
+
+/* 0.09.01 taxi board, balances and skill summaries. */
+.funds-panel{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:59px}
+.funds-label{color:#9bb9af;font-size:13px;font-weight:600}
+.funds-value{font-size:18px;font-weight:750;color:#c2ebd0;white-space:nowrap;font-variant-numeric:tabular-nums}
+.taxi-vehicle-card{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:6px;min-height:64px}
+.taxi-card-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.taxi-card-row .mission-name{flex:1;min-width:0}
+.taxi-distance{font-size:12px;color:#9bb9af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.taxi-revenue{font-size:12px;color:#edf5f0;white-space:nowrap;font-weight:650;font-variant-numeric:tabular-nums}
+.taxi-panel{background:#19292e;border:1px solid #30484a;border-radius:11px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.taxi-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.taxi-label{font-size:12px;color:#9bb9af}
+.taxi-value{font-size:17px;font-weight:750;color:#c2ebd0;font-variant-numeric:tabular-nums}
+.taxi-meta{font-size:12px;color:#9bb9af;line-height:1.5}
+.taxi-progress{height:6px;background:#304448;border-radius:10px;overflow:hidden}
+.taxi-progress-fill{height:100%;width:0;background:#b1e5c2;border-radius:10px}
+.taxi-action{background:#b1e5c2;color:#183626;border:0;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:750;cursor:pointer}
+.taxi-action:disabled{background:#304448;color:#738e8c;cursor:not-allowed}
+.taxi-action[hidden]{display:none!important}
+.taxi-sell{padding:7px 10px}
+.taxi-owned-list{display:flex;flex-direction:column;gap:8px}
+.taxi-owned-row{display:flex;align-items:center;gap:8px;min-height:36px;font-size:13px}
+.taxi-owned-row>span:first-child{font-weight:600;white-space:nowrap}
+.taxi-owned-cost{font-size:11px;color:#9bb9af;flex:1;min-width:0;text-align:right}
+.taxi-skill{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:8px}
+.taxi-skill-name{font-size:13px;font-weight:600;color:#edf5f0}
+.taxi-skill-status{font-size:11px;color:#9bb9af;text-align:right}
 </style>
 </head>
 <body>
@@ -75,6 +103,7 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 <header class="topbar"><strong class="brand">MYON</strong><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div></header>
 <main class="missions" id="missions" aria-label="운영 종합판"></main>
 <main class="operations" id="operations" aria-label="운영 메뉴" hidden>
+<div class="operation-notice funds-panel"><span class="funds-label">공용자금</span><strong class="funds-value" id="common-balance">0 M</strong></div>
 <button type="button" class="operation-card" id="operation-taxi"><svg class="operation-icon" aria-hidden="true"><use href="#i-taxi"/></svg><span class="operation-name">택시</span><svg class="operation-icon operation-trailing" aria-hidden="true"><use href="#i-chevron"/></svg></button>
 <button type="button" class="operation-card" disabled aria-label="트럭 준비중"><svg class="operation-icon" aria-hidden="true"><use href="#i-truck"/></svg><span class="operation-name">트럭</span><span class="operation-status">준비중</span><svg class="operation-icon operation-trailing" aria-hidden="true"><use href="#i-lock"/></svg></button>
 <button type="button" class="operation-card" disabled aria-label="버스 준비중"><svg class="operation-icon" aria-hidden="true"><use href="#i-bus"/></svg><span class="operation-name">버스</span><span class="operation-status">준비중</span><svg class="operation-icon operation-trailing" aria-hidden="true"><use href="#i-lock"/></svg></button>
@@ -86,7 +115,30 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 <main class="operations" id="taxi-operations" aria-label="택시 운영" hidden>
 <button type="button" class="operation-card" id="taxi-back"><svg class="operation-icon" aria-hidden="true"><use href="#i-back"/></svg><span class="operation-name">운영</span></button>
 <div class="operation-subheading">택시</div>
-<div class="operation-notice">차량 구매·업그레이드의 세부 규칙은 아직 정해지지 않았습니다.</div>
+<section class="taxi-panel" aria-label="택시 분야 레벨">
+  <div class="taxi-panel-head"><span class="taxi-label">택시 분야 레벨</span><strong class="taxi-value" id="taxi-level">Lv.1</strong></div>
+  <div class="taxi-panel-head"><span class="taxi-label">경험치</span><span class="taxi-meta" id="taxi-exp">0 / 300 EXP</span></div>
+  <div class="taxi-progress"><div class="taxi-progress-fill" id="taxi-exp-bar"></div></div>
+  <div class="taxi-meta" id="taxi-level-info">운행 1회 +1 EXP · 레벨업 해금 24시간</div>
+  <button class="taxi-action" id="taxi-level-button" type="button" hidden>레벨업 해금 시작 · 24시간</button>
+</section>
+<div class="operation-subheading">차량 관리</div>
+<section class="taxi-panel" aria-label="택시 차량 확보">
+  <div class="taxi-panel-head"><span class="taxi-label">보유 택시</span><strong class="taxi-value" id="taxi-fleet-count">0 / 30대</strong></div>
+  <div class="taxi-panel-head"><span class="taxi-label">현재 차량가격</span><span class="taxi-meta" id="taxi-purchase-price">2.595 M</span></div>
+  <div class="taxi-meta" id="taxi-aid">시 지원 100% · 자부담 0%</div>
+  <div class="taxi-meta" id="taxi-buy-info">24시간에 1대 확보 가능</div>
+  <button type="button" class="taxi-action" id="taxi-buy">차량 확보</button>
+</section>
+<section class="taxi-panel" aria-label="보유 택시 판매">
+  <div class="taxi-panel-head"><span class="taxi-label">택시 판매</span><span class="taxi-meta">자부담 50% 회수 · 판매 제한 없음</span></div>
+  <div class="taxi-owned-list" id="taxi-owned"></div>
+</section>
+<div class="operation-subheading">택시 스킬</div>
+<section class="taxi-panel taxi-skill"><span class="taxi-skill-name">기본요금</span><span class="taxi-skill-status" id="taxi-skill-fare">기본요금 1,000원</span></section>
+<section class="taxi-panel taxi-skill"><span class="taxi-skill-name">심야운행</span><span class="taxi-skill-status" id="taxi-skill-night">잠금</span></section>
+<section class="taxi-panel taxi-skill"><span class="taxi-skill-name">시 지원 축소</span><span class="taxi-skill-status" id="taxi-skill-support">시 지원 100% / 10단계</span></section>
+<section class="taxi-panel taxi-skill"><span class="taxi-skill-name">차량가격</span><span class="taxi-skill-status" id="taxi-skill-price">실차 가격 10% / 10단계</span></section>
 </main>
 <nav class="nav" aria-label="메뉴">
 <button type="button" id="nav-overview" aria-current="page">운영 종합판</button>
@@ -122,6 +174,7 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
  show('overview');
 })();
 </script>
-<script src="myon-engine.js?v=0.09.00"></script>
+<script src="myon-engine.js?v=0.09.01"></script>
+<script src="myon-taxi.js?v=0.09.01"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-// v0.08.14: two manual research upgrades without introducing a currency system.
+// v0.09.01: preserve existing missions, excluding old taxi-tag jobs from the mission board.
 const MAX_RUNNING=10,BASE_MAX_CARDS=10,UPGRADED_MAX_CARDS=20;
 const AUTO_MISSION='자동 임무 수락';
 const AUTO2_MISSION='자동 임무 수락 2단계';
@@ -82,12 +82,16 @@ const CITY_NAMES=[
 '복지시설 물품 공급','공원 시설 정비','가로등 정비','정류장 시설 보수',
 '폐기물 처리 지원','지역 통신망 보수','공공 급식 공급','산업 폐수 정비'
 ];
-const NAMES=[...CITY_NAMES,...Object.values(TRANSPORT_MISSIONS).flatMap(jobs=>jobs.map(([name])=>name))];
+const NAMES=[...CITY_NAMES,...Object.entries(TRANSPORT_MISSIONS)
+ .filter(([category])=>category!=='택시')
+ .flatMap(([,jobs])=>jobs.map(([name])=>name))];
 const categoryOf=name=>TRANSPORT_CATEGORY[name]||'도시';
 const list=document.getElementById('missions');
 const dateEl=document.getElementById('clock-date');
 const timeEl=document.getElementById('clock-time');
 const missions=new Map();
+// Kept in the original save record for historical continuity; no longer displayed or auto-accepted.
+const retiredTaxiMissions=[];
 const random=(min,max)=>min+Math.floor(Math.random()*(max-min+1));
 const pad=n=>String(n).padStart(2,'0');
 const timeValue=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
@@ -146,6 +150,7 @@ function storageWarning(){
 function snapshot(){
  return {
    schema:3,kind:'game',savedAt:Date.now(),nextId,nextArrival,autoUnlocked,nextAutoAt,cooldownUntil,timeLevel,timingVersion:1,autoInstantUnlocked,capacityUnlocked,
+   retiredTaxiMissions,
    missions:Array.from(missions.values(),m=>({
      id:m.id,name:m.name,kind:m.kind,level:m.level??null,expiresAt:m.expiresAt,startedAt:m.startedAt,finishesAt:m.finishesAt
    }))
@@ -324,6 +329,12 @@ function restoreJobs(raw,now){
  const taken=new Set();
  for(const data of raw.slice(0,100)){
    if(!data||!Number.isSafeInteger(data.id)||data.id<1||!timeValue(data.expiresAt))continue;
+   if(data.kind==='normal'&&TRANSPORT_CATEGORY[data.name]==='택시'){
+     retiredTaxiMissions.push({id:data.id,name:data.name,kind:data.kind,
+       expiresAt:data.expiresAt,startedAt:data.startedAt??null,finishesAt:data.finishesAt??null});
+     nextId=Math.max(nextId,data.id+1);
+     continue;
+   }
    const auto=data.kind==='auto-unlock'&&data.name===AUTO_MISSION;
    const auto2=data.kind==='auto-upgrade'&&data.name===AUTO2_MISSION&&data.level===2;
    const capacity2=data.kind==='capacity-upgrade'&&data.name===CAPACITY2_MISSION&&data.level===2;
@@ -362,6 +373,12 @@ function restoreJobs(raw,now){
  sortCards();
 }
 function restoreCurrent(saved,now){
+ if(Array.isArray(saved.retiredTaxiMissions)){
+   for(const item of saved.retiredTaxiMissions.slice(0,100)){
+     if(item&&Number.isSafeInteger(item.id)&&TRANSPORT_CATEGORY[item.name]==='택시')
+       retiredTaxiMissions.push(item);
+   }
+ }
  nextId=Number.isSafeInteger(saved.nextId)&&saved.nextId>0?saved.nextId:1;
  nextArrival=timeValue(saved.nextArrival)?saved.nextArrival:now+arrivalDelay();
  autoUnlocked=saved.autoUnlocked===true;
