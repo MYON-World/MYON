@@ -4,13 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.10.00</title>
+<title>MYON ATC v0.11.00</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;background:#0b1217}
-button{font:inherit}
-button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 .viewport{min-height:100dvh;display:flex;justify-content:center}
 .app{background:#0e171b;width:100%;max-width:450px;height:100dvh;height:100svh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 @media(min-width:600px){.viewport{padding:20px 0}.app{height:calc(100dvh - 40px);border:1px solid #304448;border-radius:16px;box-shadow:0 0 35px #0005}}
@@ -20,47 +18,19 @@ button:focus-visible{outline:2px solid #a3e0bc;outline-offset:2px}
 .clock-date{color:#9bb9af;font:400 11px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.055em}
 .clock-time{font:700 31px/1.12 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.015em;color:#c2ebd0;font-variant-numeric:tabular-nums}
 @media(max-width:360px){.clock-time{font-size:27px}.brand{font-size:18px}}
-.money-wrap{flex:none;background:#0e171b;border-bottom:1px solid #30484a;padding:12px}
-.money{background:#19292e;border:1px solid #30484a;border-radius:11px;padding:13px 14px;text-align:right;font-size:24px;font-weight:750;font-variant-numeric:tabular-nums;color:#edf5f0}
 .content{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;-ms-overflow-style:none;padding:12px}
 .content::-webkit-scrollbar{display:none;width:0;height:0}
-.company{background:#19292e;border:1px solid #30484a;border-radius:11px;padding:13px 12px;display:flex;flex-direction:column;gap:11px}
-.line{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
-.company-name{font-size:14px;font-weight:700}
-.countdown{font:650 14px ui-monospace,SFMono-Regular,Consolas,monospace;color:#b8e5c9;white-space:nowrap;font-variant-numeric:tabular-nums}
-.sub{font-size:12px;color:#9bb9af}
-.payout{font-size:12px;color:#edf5f0;white-space:nowrap;font-variant-numeric:tabular-nums}
-.separator{height:1px;background:#30484a}
-.upgrade{display:flex;flex-direction:column;gap:8px}
-.upgrade-title{font-size:13px;font-weight:650}
-.upgrade-next{font-size:12px;color:#a9c3b6;min-width:0}
-.action{flex:none;border:0;border-radius:8px;background:#b1e5c2;color:#183626;padding:9px 10px;font-size:12px;font-weight:750;cursor:pointer}
-.action:active:not(:disabled){background:#88d3a7}
-.action:disabled{background:#304448;color:#91a9a4;cursor:default}
-@media(max-width:360px){.upgrade .line{flex-wrap:wrap}.upgrade-next{width:100%}.action{margin-left:auto}}
+.flights{display:flex;flex-direction:column;gap:9px}
+.flight{background:#19292e;border:1px solid #30484a;border-radius:11px;padding:15px 13px;display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.callsign{font-size:14px;font-weight:700;letter-spacing:.035em;color:#edf5f0;font-variant-numeric:tabular-nums}
+.status{font-size:12px;color:#b8e5c9;text-align:right;white-space:nowrap}
 </style>
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><strong class="brand">MYON</strong><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div></header>
-<div class="money-wrap"><div id="balance" class="money" aria-label="보유 자금">0 M</div></div>
-<main class="content" aria-label="도시 기반시설">
-<article class="company" aria-label="유저회사">
-  <div class="line"><strong class="company-name">유저회사</strong><time id="settlement-clock" class="countdown">24:00:00</time></div>
-  <div class="line"><span class="sub">운영 중</span><span class="payout" id="settlement-amount">정산 예정 24 M</span></div>
-  <div class="separator"></div>
-  <section class="upgrade" aria-label="정산시간 업그레이드">
-    <strong class="upgrade-title">정산시간 업그레이드</strong>
-    <div class="line"><span class="upgrade-next" id="time-detail">24시간 → 12시간</span><button class="action" id="time-upgrade" type="button" disabled>6 M · 업그레이드</button></div>
-  </section>
-  <div class="separator"></div>
-  <section class="upgrade" aria-label="수익 업그레이드">
-    <strong class="upgrade-title">수익 업그레이드</strong>
-    <div class="line"><span class="upgrade-next" id="income-detail">1 M/시간 → 2 M/시간</span><button class="action" id="income-upgrade" type="button" disabled>12 M · 업그레이드</button></div>
-  </section>
-</article>
-</main>
+<header class="topbar"><strong class="brand">MYON ATC</strong><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div></header>
+<main class="content" aria-label="항공기 관제 현황"><div id="flights" class="flights"></div></main>
 </div></div>
-<script src="myon-city.js?v=0.10.00"></script>
+<script src="myon-atc.js?v=0.11.00"></script>
 </body>
 </html>
