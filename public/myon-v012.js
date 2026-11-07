@@ -1,16 +1,11 @@
-// MYON v0.12.00 — two-tab city shell and one manual taxi slot.
+// MYON v0.12.01 — two-tab city shell and one manual taxi slot.
 // All pre-v0.12.00 IndexedDB records are retained and not read as current income.
 (function () {
 'use strict';
 const DB='myon-v00804-progress', STORE='game', KEY='v01200-taxi';
 const DURATION=15000;
 const tree=[
-  {name:'교통',children:[{name:'택시',kind:'taxi'},{name:'버스'},{name:'철도'},{name:'항공'}]},
-  {name:'물류',children:[{name:'택배'},{name:'화물'}]},
-  {name:'상업',children:[{name:'상점'},{name:'음식점'}]},
-  {name:'도시환경',children:[{name:'쓰레기 수거'},{name:'공원 관리'}]},
-  {name:'시설관리',children:[{name:'주차장'},{name:'건물 관리'}]},
-  {name:'공공안전',children:[{name:'구급차'},{name:'소방'}]}
+  {name:'교통',children:[{name:'택시',kind:'taxi'}]}
 ];
 const root={name:'운영',children:tree};
 const el=id=>document.getElementById(id);
@@ -155,16 +150,12 @@ function drawOperations(){
     return;
   }
   const card=create('div','operation-detail');
-  if(page.kind==='taxi'){
-    const heading=create('strong','','택시 운영 현황');
-    const level=create('p','','레벨 '+state.level+' · 완료 운행 '+state.completed+'회');
-    const income=create('p','','운행 수익 '+won(rewardFor(state.level))+'/회');
-    const next=create('p','','다음 업글 '+won(priceFor(state.level)));
-    const hint=create('div','muted','운행과 업글은 임무 탭에서 진행합니다.');
-    card.append(heading,level,income,next,hint);
-  }else{
-    card.appendChild(create('p','',page.name+' 운영 설정은 이후 개발 예정입니다.'));
-  }
+  const heading=create('strong','','택시 운영 현황');
+  const level=create('p','','레벨 '+state.level+' · 완료 운행 '+state.completed+'회');
+  const income=create('p','','운행 수익 '+won(rewardFor(state.level))+'/회');
+  const next=create('p','','다음 업글 '+won(priceFor(state.level)));
+  const hint=create('div','muted','운행과 업글은 임무 탭에서 진행합니다.');
+  card.append(heading,level,income,next,hint);
   ui.list.appendChild(card);
 }
 function setTab(tab){
