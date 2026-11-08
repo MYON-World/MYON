@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.12.02</title>
+<title>MYON v0.12.03</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -19,74 +19,37 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .clock{display:flex;flex-direction:column;align-items:flex-end;gap:0;font-variant-numeric:tabular-nums;white-space:nowrap}
 .clock-date{color:#9bb9af;font:400 11px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.055em}
 .clock-time{font:700 31px/1.12 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.015em;color:#c2ebd0}
-.balance-bar{background:#112027;border-bottom:1px solid #2b4144;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex:none;font-size:12px;color:#a7c4bb}
-.balance-bar strong{font-size:15px;color:#ecf7ee;font-variant-numeric:tabular-nums}
 .content{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;-ms-overflow-style:none;padding:12px}
 .content::-webkit-scrollbar{display:none;width:0;height:0}
-.view[hidden]{display:none!important}
-.slot{position:relative;overflow:hidden;background:#19292e;border:1px solid #30484a;border-radius:10px;padding:9px 11px 11px;min-height:52px}
+.slot-list{display:flex;flex-direction:column;gap:8px}
+.slot{position:relative;overflow:hidden;background:#19292e;border:1px solid #30484a;border-radius:10px;padding:9px 11px 11px;min-height:52px;flex:none}
 .slot-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px}
 .slot-name{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}
 .slot-name strong{font-size:13px;font-weight:750;letter-spacing:-.2px}
 .slot-icon{font-size:15px;line-height:1}
 .slot-level{font-size:10px;color:#9eb6b2;font-variant-numeric:tabular-nums}
- .slot-button{border:1px solid #467585;border-radius:6px;height:30px;padding:0 9px;background:#253942;color:#d1eff1;font-size:11px;font-weight:700;white-space:nowrap}
-.slot-button:disabled{opacity:.5;cursor:default}
-.slot-state{display:none;background:#174d3c;border-radius:5px;padding:5px 8px;font-size:11px;color:#9ae7c6;font-weight:650;white-space:nowrap}
-.slot-details{display:none;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-variant-numeric:tabular-nums}
+.slot-right{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.slot-state{background:#174d3c;border-radius:5px;padding:5px 8px;font-size:11px;color:#9ae7c6;font-weight:650;white-space:nowrap}
+.slot-button{border:1px solid #467585;border-radius:6px;height:30px;padding:0 10px;background:#253942;color:#d1eff1;font-size:11px;font-weight:700;white-space:nowrap}
+.slot-button:active{filter:brightness(.82)}
+.slot-details{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-variant-numeric:tabular-nums}
 .slot-metric{font-size:18px;font-weight:770;letter-spacing:-.4px;white-space:nowrap}
-.slot-fare{color:#9ae7c6}
-.slot-waiting{display:none;margin-top:8px;font-size:15px;font-weight:750;font-variant-numeric:tabular-nums;color:#b9cbc5}
+.slot-operations{color:#9ae7c6}
 .slot-progress{position:absolute;bottom:0;left:0;height:3px;width:0%;background:#62b7ec}
-.feedback{font-size:11px;color:#a7daba;margin:8px 2px 0}
-.feedback:empty{display:none}
-.operation-head{display:flex;align-items:center;gap:9px;margin-bottom:13px;min-height:34px}
-.operation-back{width:35px;height:35px;flex:none;background:#24383e;color:#e9f3ef;border:1px solid #36555a;border-radius:7px;font-size:20px}
-.operation-back[hidden]{display:none}
-.operation-crumb{font-size:10px;color:#93b5ad;margin-bottom:2px}
-.operation-title{font-size:17px;font-weight:750;line-height:1.2}
-.operation-list{display:flex;flex-direction:column;gap:8px}
-.operation-button{width:100%;height:46px;background:#19292e;border:1px solid #30484a;border-radius:8px;padding:0 13px;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;font-size:13px;font-weight:700;color:#edf5f0}
-.operation-button:active{background:#284b51}
-.operation-chevron{font-size:19px;font-weight:400;color:#9cbdb4}
-.operation-detail{border:1px solid #30484a;border-radius:9px;background:#19292e;padding:14px;font-size:13px;line-height:1.8}
-.operation-detail p{margin:0 0 6px;color:#b6cac3}
-.operation-detail p:last-child{margin-bottom:0}
-.operation-detail strong{color:#edf5f0}
-.muted{font-size:12px;color:#a4b9b2}
-.bottom-nav{background:#14242a;border-top:1px solid #2c4346;display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:none;padding:9px 12px max(9px,env(safe-area-inset-bottom))}
-.nav-button{height:42px;color:#b0c8bd;background:#1b3036;border:1px solid #365058;border-radius:8px;font-size:14px;font-weight:700}
-.nav-button[aria-selected="true"]{background:#245c63;border-color:#4d8990;color:#effff6}
-@media(max-width:360px){.clock-time{font-size:27px}.brand{font-size:18px}.slot{padding:8px 9px 10px}.slot-name strong{font-size:12px}.slot-button{font-size:10px;padding:0 7px}.slot-metric{font-size:16px}}
+.supply{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#19292e;border:1px solid #30484a;border-radius:9px;padding:12px;margin-top:8px;font-variant-numeric:tabular-nums}
+.supply-label{font-size:12px;color:#aac3b9}
+.supply-time{font:750 16px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;color:#c2ebd0;white-space:nowrap}
+@media(max-width:360px){.clock-time{font-size:27px}.brand{font-size:18px}.slot{padding:8px 9px 10px}.slot-name strong{font-size:12px}.slot-button{font-size:10px;padding:0 7px}.slot-metric{font-size:16px}.slot-state{font-size:10px;padding:5px 6px}}
 </style>
 </head>
 <body>
 <div class="viewport"><div class="app">
 <header class="topbar"><strong class="brand">MYON</strong><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div></header>
-<div class="balance-bar"><span>보유 자금</span><strong id="balance">₩0</strong></div>
 <main class="content">
-  <section id="mission-view" class="view" role="tabpanel" aria-labelledby="tab-mission">
-    <div id="slot-list">
-      <article class="slot" id="taxi-slot" aria-label="택시 1호차">
-        <div class="slot-head">
-          <div class="slot-name"><span class="slot-icon" aria-hidden="true">🚕</span><strong>택시 1호차</strong><span class="slot-level" id="taxi-level">Lv.1</span></div>
-          <span class="slot-state" id="taxi-status">운행 중</span>
-          <button type="button" class="slot-button" id="taxi-upgrade" style="display:none">업글 ₩100,000</button>
-        </div>
-        <div class="slot-details" id="taxi-details"><span class="slot-metric" id="taxi-distance">0.00km</span><span class="slot-metric slot-fare" id="taxi-fare">₩1,000</span></div>
-        <div class="slot-waiting" id="taxi-waiting">대기 10:00</div>
-        <div class="slot-progress" id="taxi-progress"></div>
-      </article>
-    </div>
-    <div id="mission-feedback" class="feedback" role="status" aria-live="polite"></div>
-  </section>
-  <section id="operation-view" class="view" role="tabpanel" aria-labelledby="tab-operation" hidden>
-    <div class="operation-head"><button type="button" id="operation-back" class="operation-back" aria-label="이전 메뉴" hidden>←</button><div><div class="operation-crumb" id="operation-crumb">도시 활동</div><div class="operation-title" id="operation-title">운영</div></div></div>
-    <div id="operation-list" class="operation-list"></div>
-  </section>
+  <div id="slot-list" class="slot-list"></div>
+  <div class="supply"><span class="supply-label">다음 차량 등장</span><strong id="next-supply" class="supply-time">24:00:00</strong></div>
 </main>
-<nav class="bottom-nav" role="tablist" aria-label="기본 메뉴"><button type="button" role="tab" id="tab-mission" class="nav-button" aria-controls="mission-view" aria-selected="true">임무</button><button type="button" role="tab" id="tab-operation" class="nav-button" aria-controls="operation-view" aria-selected="false">운영</button></nav>
 </div></div>
-<script src="myon-v012.js?v=0.12.02"></script>
+<script src="myon-v012.js?v=0.12.03"></script>
 </body>
 </html>

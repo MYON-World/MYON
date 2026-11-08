@@ -1,58 +1,73 @@
-// MYON v0.12.02 — automatically cycling distance-based taxi with a 10-minute cooldown.
-// Preserve the v01200-taxi save key and all earlier game save records.
+// MYON v0.12.03 — one-page autonomous fleet. Operating counts replace money.
+// New world save key preserves the old v01200-taxi record and all earlier versions.
 (function () {
 'use strict';
-const DB='myon-v00804-progress', STORE='game', KEY='v01200-taxi';
-const COOLDOWN=10*60*1000, SPEED=250, MAX_LEVEL=10;
-const tree=[{name:'교통',children:[{name:'택시',kind:'taxi'}]}];
-const root={name:'운영',children:tree};
+const DB='myon-v00804-progress', STORE='game', KEY='v01203-world', OLD_KEY='v01200-taxi';
+const HOUR=3600000, DAY=24*HOUR, MINUTE=60000;
+const MAX_VEHICLES=100, MAX_LEVEL=20, SPEED=250, PERIOD=4096;
 const el=id=>document.getElementById(id);
-const ui={
-  date:el('clock-date'),clock:el('clock-time'),balance:el('balance'),
-  mission:el('mission-view'),operation:el('operation-view'),
-  missionTab:el('tab-mission'),operationTab:el('tab-operation'),
-  slot:el('taxi-slot'),level:el('taxi-level'),upgrade:el('taxi-upgrade'),
-  status:el('taxi-status'),metrics:el('taxi-details'),waiting:el('taxi-waiting'),
-  distance:el('taxi-distance'),fare:el('taxi-fare'),progress:el('taxi-progress'),
-  feedback:el('mission-feedback'),back:el('operation-back'),crumb:el('operation-crumb'),
-  title:el('operation-title'),list:el('operation-list')
-};
+const ui={date:el('clock-date'),clock:el('clock-time'),list:el('slot-list'),supply:el('next-supply')};
 const dateFmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
 const timeFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
-const won=n=>'₩'+n.toLocaleString('ko-KR');
-const mmss=seconds=>String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
-const baseFee=level=>level*1000;
-const priceFor=level=>level*100000;
-const meter=(meters,level)=>baseFee(level)+100*Math.max(0,Math.ceil((meters-1600)/131-1e-9));
-const initial=()=>({schema:2,level:1,balance:0,completed:0,trip:null,waitingUntil:0,legacy:null});
-const validMoney=n=>Number.isSafeInteger(n)&&n>=0;
-function validLegacySave(s){
-  if(!s||s.schema!==1||!Number.isSafeInteger(s.level)||s.level<1||s.level>100000||!validMoney(s.balance)||!validMoney(s.completed))return false;
-  const j=s.running;
-  return j===null||!!(j&&Number.isSafeInteger(j.startedAt)&&j.startedAt>0&&Number.isSafeInteger(j.endsAt)&&j.endsAt===j.startedAt+15000&&Number.isSafeInteger(j.reward)&&j.reward>0);
+const count=n=>n.toLocaleString('ko-KR')+'회';
+const pad=n=>String(n).padStart(2,'0');
+const mmss=s=>pad(Math.floor(s/60))+':'+pad(s%60);
+const hhmmss=s=>pad(Math.floor(s/3600))+':'+pad(Math.floor(s/60)%60)+':'+pad(s%60);
+const levelFor=n=>Math.min(MAX_LEVEL,1+Math.floor(n/100));
+const cooldown=n=>Math.max(MINUTE,600000-(levelFor(n)-1)*30000);
+const randomSeed=()=>Math.floor(Math.random()*4294967296)>>>0;
+// A stable per-taxi pseudorandom 3–10 km itinerary, restorable without extra
+// storage and fast-forwardable even after long periods away from the page.
+function distanceFor(seed,index){
+  let n=(seed+Math.imul(index%PERIOD+1,0x9e3779b9))>>>0;
+  n=Math.imul(n^(n>>>16),0x7feb352d)>>>0;
+  n=Math.imul(n^(n>>>15),0x846ca68b)>>>0;
+  n=(n^(n>>>16))>>>0;
+  return 3000+(n%71)*100;
 }
-function validSave(s){
-  if(!s||s.schema!==2||!Number.isSafeInteger(s.level)||s.level<1||s.level>MAX_LEVEL||!validMoney(s.balance)||!validMoney(s.completed)||!Number.isSafeInteger(s.waitingUntil)||s.waitingUntil<0)return false;
-  if(s.trip!==null){
-    const j=s.trip;
-    if(!j||!Number.isSafeInteger(j.distance)||j.distance<3000||j.distance>10000||j.distance%100!==0||!Number.isSafeInteger(j.level)||j.level<1||j.level>MAX_LEVEL||!Number.isSafeInteger(j.startedAt)||j.startedAt<=0||j.endsAt!==j.startedAt+j.distance*4)return false;
+const distanceMs=(v,index)=>distanceFor(v.seed,index)*1000/SPEED;
+const initialVehicle=(id,at)=>{
+  const v={id,kind:'taxi',seed:randomSeed(),completed:0,maxRuns:0,phase:'trip',since:at,until:at,distance:0};
+  v.distance=distanceFor(v.seed,0);
+  v.until=at+v.distance*1000/SPEED;
+  return v;
+};
+const initial=(at)=>({schema:1,nextId:2,supplyHours:24,nextSupplyAt:at+DAY,vehicles:[initialVehicle(1,at)]});
+function validWorld(s){
+  if(!s||s.schema!==1||!Number.isSafeInteger(s.nextId)||s.nextId<1||!Number.isInteger(s.supplyHours)||s.supplyHours<1||s.supplyHours>24||!Number.isSafeInteger(s.nextSupplyAt)||s.nextSupplyAt<=0||!Array.isArray(s.vehicles)||s.vehicles.length>MAX_VEHICLES)return false;
+  const seen=new Set();
+  for(const v of s.vehicles){
+    if(!v||v.kind!=='taxi'||!Number.isSafeInteger(v.id)||v.id<1||v.id>=s.nextId||seen.has(v.id)||!Number.isInteger(v.seed)||v.seed<0||v.seed>4294967295||!Number.isSafeInteger(v.completed)||v.completed<0||!Number.isSafeInteger(v.maxRuns)||v.maxRuns<0||v.maxRuns>v.completed||!['trip','wait','legacy'].includes(v.phase)||!Number.isSafeInteger(v.since)||v.since<=0||!Number.isSafeInteger(v.until)||v.until<v.since)return false;
+    if(v.phase==='trip'&&(!Number.isInteger(v.distance)||v.distance<3000||v.distance>10000||v.until!==v.since+v.distance*1000/SPEED))return false;
+    seen.add(v.id);
   }
-  if(s.legacy!==null){
-    const j=s.legacy;
-    if(!j||!Number.isSafeInteger(j.endsAt)||j.endsAt<=0||!Number.isSafeInteger(j.reward)||j.reward<=0)return false;
+  return true;
+}
+function migrate(old,at){
+  const world=initial(at),v=world.vehicles[0];
+  if(!old||![1,2].includes(old.schema)||!Number.isSafeInteger(old.completed)||old.completed<0)return world;
+  v.completed=old.completed; // Past money is intentionally retired; past completed work is preserved.
+  if(old.schema===2&&old.trip&&Number.isSafeInteger(old.trip.distance)&&Number.isSafeInteger(old.trip.startedAt)&&Number.isSafeInteger(old.trip.endsAt)){
+    // Settle an already-finished old trip once at migration time; do not
+    // retroactively run the new fleet rules before this version existed.
+    v.phase='trip';v.distance=old.trip.distance;
+    v.until=Math.max(at,old.trip.endsAt);v.since=v.until-v.distance*1000/SPEED;
+  }else if(old.schema===2&&old.legacy&&Number.isSafeInteger(old.legacy.endsAt)){
+    v.phase='legacy';v.distance=0;v.until=Math.max(at,old.legacy.endsAt);v.since=at;
+  }else if(old.schema===1&&old.running&&Number.isSafeInteger(old.running.endsAt)){
+    v.phase='legacy';v.distance=0;v.until=Math.max(at,old.running.endsAt);v.since=at;
+  }else if(old.schema===2&&Number.isSafeInteger(old.waitingUntil)&&old.waitingUntil>at){
+    v.phase='wait';v.distance=0;v.since=at;v.until=old.waitingUntil;
+  }else{
+    v.distance=distanceFor(v.seed,v.completed);
+    v.until=at+v.distance*1000/SPEED;
   }
-  return !(s.trip&&s.legacy)&&!(s.waitingUntil&&(s.trip||s.legacy));
+  // Prior versions had no max-level contribution, so the new per-taxi
+  // contribution counter starts at zero even for a veteran taxi.
+  return world;
 }
-function migrate(s){
-  const next=initial();
-  next.level=Math.min(MAX_LEVEL,s.level);
-  next.balance=s.balance;
-  next.completed=s.completed;
-  if(s.running)next.legacy={endsAt:s.running.endsAt,reward:s.running.reward};
-  return next;
-}
-let state=initial(),ready=false,dbPromise=null,saveQueue=Promise.resolve(),feedbackTimeout=null;
-let path=[root],currentTab='mission';
+let state,ready=false,dbPromise=null,saveQueue=Promise.resolve();
+const slots=new Map(),prefixCache=new Map();
 function openDb(){
   if(!dbPromise)dbPromise=new Promise((resolve,reject)=>{
     if(!window.indexedDB){reject(new Error('IndexedDB unavailable'));return;}
@@ -63,10 +78,10 @@ function openDb(){
   }).catch(err=>{dbPromise=null;throw err;});
   return dbPromise;
 }
-async function load(){
+async function read(key){
   const db=await openDb();
   return new Promise((resolve,reject)=>{
-    const req=db.transaction(STORE,'readonly').objectStore(STORE).get(KEY);
+    const req=db.transaction(STORE,'readonly').objectStore(STORE).get(key);
     req.onsuccess=()=>resolve(req.result||null);
     req.onerror=()=>reject(req.error||new Error('MYON save read failed'));
   });
@@ -85,146 +100,199 @@ function save(){
     });
   }).catch(err=>console.error('MYON save:',err));
 }
-function feedback(message){
-  if(feedbackTimeout!==null){clearTimeout(feedbackTimeout);feedbackTimeout=null;}
-  ui.feedback.textContent=message;
-  if(message)feedbackTimeout=setTimeout(()=>{ui.feedback.textContent='';feedbackTimeout=null;},3500);
+function startTrip(v,at){
+  v.phase='trip';v.since=at;
+  v.distance=distanceFor(v.seed,v.completed);
+  v.until=at+v.distance*1000/SPEED;
 }
-function startTrip(at){
-  const distance=(30+Math.floor(Math.random()*71))*100;
-  state.trip={distance,level:state.level,startedAt:at,endsAt:at+distance*4};
-  state.waitingUntil=0;
+function endTrip(v,at){
+  const previous=v.completed;
+  v.completed++;
+  if(previous>=1900){
+    v.maxRuns++;
+    if(v.maxRuns%100===0&&state.supplyHours>1){
+      state.supplyHours--;
+      // Change the *upcoming* vehicle's arrival immediately, not any past arrival.
+      state.nextSupplyAt=Math.max(at,state.nextSupplyAt-HOUR);
+    }
+  }
+  v.phase='wait';v.distance=0;v.since=at;v.until=at+cooldown(v.completed);
+}
+function stepVehicle(v){
+  const at=v.until;
+  if(v.phase==='wait')startTrip(v,at);
+  else endTrip(v,at);
+}
+function addVehicle(at){
+  if(state.vehicles.length>=MAX_VEHICLES)return false;
+  const v=initialVehicle(state.nextId++,at);
+  state.vehicles.push(v);
+  return true;
+}
+function cyclePrefix(v){
+  let c=prefixCache.get(v.id);
+  if(c&&c.seed===v.seed)return c.values;
+  const p=new Float64Array(PERIOD+1);
+  for(let i=0;i<PERIOD;i++)p[i+1]=p[i]+distanceMs(v,i);
+  prefixCache.set(v.id,{seed:v.seed,values:p});
+  return p;
+}
+function cycleSum(v,index,n){
+  const p=cyclePrefix(v);
+  const sumTo=x=>Math.floor(x/PERIOD)*p[PERIOD]+p[x%PERIOD];
+  return sumTo(index+n)-sumTo(index)+n*MINUTE;
+}
+function fastForwardOne(v,now){
+  let changed=false;
+  // Before Lv.20 the cooldown changes each 100 operations; replay those
+  // limited transitions exactly, then use a closed-form Lv.20 schedule.
+  while(v.completed<1900&&v.until<=now){stepVehicle(v);changed=true;}
+  if(v.until>now)return changed;
+  if(v.phase!=='wait'){
+    stepVehicle(v);changed=true;
+    if(v.until>now)return changed;
+  }
+  // At this point v is a Lv.20 taxi waiting to begin its next trip.
+  const start=v.until,first=v.completed;
+  let low=0,high=Math.floor((now-start)/(12*1000+MINUTE))+1;
+  while(low<high){
+    const mid=Math.floor((low+high+1)/2);
+    if(start+cycleSum(v,first,mid)<=now)low=mid;
+    else high=mid-1;
+  }
+  const completed=low;
+  if(completed){v.completed+=completed;v.maxRuns+=completed;changed=true;}
+  const nextStart=start+cycleSum(v,first,completed);
+  const d=distanceFor(v.seed,v.completed),ends=nextStart+d*1000/SPEED;
+  if(now<ends){
+    v.phase='trip';v.since=nextStart;v.distance=d;v.until=ends;
+  }else{
+    v.completed++;v.maxRuns++;
+    v.phase='wait';v.since=ends;v.distance=0;v.until=ends+MINUTE;
+  }
+  return true;
 }
 function advance(now){
-  let changed=false;
-  // The saved end time defines every transition, so delayed/hidden tabs and
-  // offline sessions get the same 10-minute pause between completed trips.
-  for(let n=0;n<100000;n++){
-    if(state.legacy){
-      if(now<state.legacy.endsAt)break;
-      state.balance+=state.legacy.reward;
-      state.completed++;
-      state.waitingUntil=state.legacy.endsAt+COOLDOWN;
-      state.legacy=null;
+  if(!ready)return;
+  let changed=false,rosterChanged=false;
+  // Replay chronologically until the vehicle supply interval reaches one hour.
+  // Individual (not pooled) Lv.20 completions may shorten the next arrival.
+  while(state.supplyHours>1){
+    let next=state.nextSupplyAt,vehicle=null;
+    for(const v of state.vehicles){if(v.until<next){next=v.until;vehicle=v;}}
+    if(next>now)break;
+    if(vehicle){stepVehicle(vehicle);changed=true;}
+    else{
+      if(addVehicle(next))rosterChanged=true;
+      state.nextSupplyAt=next+state.supplyHours*HOUR;
       changed=true;
-      continue;
     }
-    if(state.trip){
-      if(now<state.trip.endsAt)break;
-      state.balance+=meter(state.trip.distance,state.trip.level);
-      state.completed++;
-      state.waitingUntil=state.trip.endsAt+COOLDOWN;
-      state.trip=null;
-      changed=true;
-      continue;
-    }
-    if(state.waitingUntil>now)break;
-    startTrip(state.waitingUntil||now);
-    changed=true;
   }
+  // Once the floor is reached, supply milestones no longer alter the clock.
+  // Jump over complete one-hour supply windows and long Lv.20 schedules.
+  if(state.supplyHours===1){
+    if(state.nextSupplyAt<=now){
+      const due=Math.floor((now-state.nextSupplyAt)/HOUR)+1;
+      const arrivals=Math.min(MAX_VEHICLES-state.vehicles.length,due);
+      for(let i=0;i<arrivals;i++){
+        addVehicle(state.nextSupplyAt+i*HOUR);
+        rosterChanged=true;
+      }
+      state.nextSupplyAt+=due*HOUR;
+      changed=true;
+    }
+    for(const v of state.vehicles)if(v.until<=now){
+      if(fastForwardOne(v,now))changed=true;
+    }
+  }
+  if(rosterChanged)renderSlots();
   if(changed)save();
-  return changed;
 }
-function drawTaxi(now){
-  ui.balance.textContent=won(state.balance);
-  ui.level.textContent='Lv.'+state.level;
-  const running=!!state.trip||!!state.legacy;
-  ui.status.style.display=running?'inline-block':'none';
-  ui.upgrade.style.display=running?'none':'inline-block';
-  ui.upgrade.disabled=state.level>=MAX_LEVEL;
-  ui.upgrade.textContent=state.level>=MAX_LEVEL?'MAX':'업글 '+won(priceFor(state.level));
-  ui.metrics.style.display=running?'flex':'none';
-  ui.waiting.style.display=running?'none':'block';
-  if(state.trip){
-    const j=state.trip;
-    const traveled=Math.min(j.distance,Math.max(0,(now-j.startedAt)/4));
-    ui.distance.textContent=((j.distance-traveled)/1000).toFixed(2)+'km';
-    ui.fare.textContent=won(meter(traveled,j.level));
-    ui.progress.style.width=(traveled/j.distance*100)+'%';
-  }else if(state.legacy){
-    // Preserve the payout of an in-flight v0.12.01 trip without fabricating a distance.
-    ui.distance.textContent='—km';
-    ui.fare.textContent=won(state.legacy.reward);
-    ui.progress.style.width='0%';
-  }else{
-    ui.waiting.textContent='대기 '+mmss(Math.max(0,Math.ceil((state.waitingUntil-now)/1000)));
-    ui.progress.style.width='0%';
+function create(tag,cls,txt){
+  const e=document.createElement(tag);
+  if(cls)e.className=cls;
+  if(txt!==undefined)e.textContent=txt;
+  return e;
+}
+function makeSlot(v){
+  const card=create('article','slot');card.setAttribute('aria-label','택시 '+v.id+'호차');
+  const head=create('div','slot-head');
+  const name=create('div','slot-name');
+  const icon=create('span','slot-icon','🚕');icon.setAttribute('aria-hidden','true');
+  const title=create('strong','', '택시 '+v.id+'호차');
+  const level=create('span','slot-level');name.append(icon,title,level);
+  const right=create('div','slot-right');
+  const status=create('span','slot-state','운행 중');
+  const sale=create('button','slot-button','판매');sale.type='button';
+  sale.addEventListener('click',()=>sellVehicle(v.id));
+  right.append(status,sale);head.append(name,right);
+  const details=create('div','slot-details');
+  const left=create('span','slot-metric');
+  const operations=create('span','slot-metric slot-operations');
+  details.append(left,operations);
+  const progress=create('div','slot-progress');
+  card.append(head,details,progress);
+  return {card,level,status,left,operations,progress};
+}
+function renderSlots(){
+  const fragment=document.createDocumentFragment(),ids=new Set();
+  for(const v of state.vehicles){
+    ids.add(v.id);
+    let slot=slots.get(v.id);
+    if(!slot){slot=makeSlot(v);slots.set(v.id,slot);}
+    fragment.appendChild(slot.card);
   }
+  for(const id of slots.keys())if(!ids.has(id)){slots.delete(id);prefixCache.delete(id);}
+  ui.list.replaceChildren(fragment);
 }
-function drawClock(now){
+function sellVehicle(id){
+  if(!ready)return;
+  const now=Date.now();
+  advance(now);
+  const i=state.vehicles.findIndex(v=>v.id===id);
+  if(i<0)return;
+  state.vehicles.splice(i,1);
+  renderSlots();
+  save(); // Irreversible by design; already-earned supply reductions remain.
+  draw(now);
+}
+function draw(now){
   const date=new Date(now);
   ui.date.textContent=dateFmt.format(date).replace(/-/g,'.');
   ui.clock.textContent=timeFmt.format(date);
+  if(!ready)return;
+  for(const v of state.vehicles){
+    const slot=slots.get(v.id);
+    if(!slot)continue;
+    const isTrip=v.phase==='trip',isWaiting=v.phase==='wait';
+    slot.level.textContent='Lv.'+levelFor(v.completed);
+    slot.status.style.display=isWaiting?'none':'inline-block';
+    slot.left.textContent=isTrip?((Math.max(0,v.distance-(now-v.since)*SPEED/1000)/1000).toFixed(2)+'km'):
+      isWaiting?'대기 '+mmss(Math.max(0,Math.ceil((v.until-now)/1000))):'—km';
+    slot.operations.textContent=count(v.completed);
+    slot.progress.style.width=isTrip?(Math.max(0,Math.min(100,(now-v.since)/(v.until-v.since)*100))+'%'):'0%';
+  }
+  ui.supply.textContent=state.vehicles.length>=MAX_VEHICLES?'차량 100대 도달':
+    hhmmss(Math.max(0,Math.ceil((state.nextSupplyAt-now)/1000)));
 }
 function tick(){
   const now=Date.now();
-  drawClock(now);
-  if(!ready)return;
-  if(advance(now)&&currentTab==='operation'&&path.length===3)drawOperations();
-  drawTaxi(now);
+  advance(now);
+  draw(now);
 }
-function upgradeTaxi(){
-  if(!ready||state.trip||state.legacy||state.waitingUntil<=Date.now()||state.level>=MAX_LEVEL)return;
-  const cost=priceFor(state.level);
-  if(state.balance<cost){feedback('업글 비용 '+won(cost)+' · '+won(cost-state.balance)+' 부족');return;}
-  state.balance-=cost;
-  state.level++;
-  feedback('Lv.'+state.level+' 업그레이드 완료');
-  save();drawTaxi(Date.now());
-}
-const create=(tag,className,text)=>{
-  const e=document.createElement(tag);
-  if(className)e.className=className;
-  if(text!==undefined)e.textContent=text;
-  return e;
-};
-function drawOperations(){
-  const page=path[path.length-1];
-  ui.back.hidden=path.length===1;
-  ui.title.textContent=page.name;
-  ui.crumb.textContent=path.length===1?'도시 활동':path.slice(0,-1).map(p=>p.name).join(' › ');
-  ui.list.replaceChildren();
-  if(page.children){
-    for(const item of page.children){
-      const btn=create('button','operation-button');
-      btn.type='button';
-      btn.append(create('span','',item.name),create('span','operation-chevron','›'));
-      btn.addEventListener('click',()=>{path.push(item);drawOperations();});
-      ui.list.appendChild(btn);
-    }
-    return;
-  }
-  const card=create('div','operation-detail');
-  const heading=create('strong','','택시 운영 현황');
-  const level=create('p','','레벨 '+state.level+' · 완료 운행 '+state.completed+'회');
-  const income=create('p','','기본요금 '+won(baseFee(state.level))+' · 다음 업글 '+(state.level===MAX_LEVEL?'MAX':won(priceFor(state.level))));
-  const hint=create('div','muted','운행은 자동 진행 중입니다.');
-  card.append(heading,level,income,hint);
-  ui.list.appendChild(card);
-}
-function setTab(tab){
-  currentTab=tab;
-  ui.mission.hidden=tab!=='mission';
-  ui.operation.hidden=tab!=='operation';
-  ui.missionTab.setAttribute('aria-selected',String(tab==='mission'));
-  ui.operationTab.setAttribute('aria-selected',String(tab==='operation'));
-  if(tab==='operation'){path=[root];drawOperations();}
-}
-ui.upgrade.addEventListener('click',upgradeTaxi);
-ui.missionTab.addEventListener('click',()=>setTab('mission'));
-ui.operationTab.addEventListener('click',()=>setTab('operation'));
-ui.back.addEventListener('click',()=>{if(path.length>1){path.pop();drawOperations();}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
 window.addEventListener('pagehide',()=>{if(ready)save();});
 (async()=>{
-  let stored=null;
-  try{stored=await load();}catch(err){console.error('MYON load:',err);}
-  const isCurrent=validSave(stored),isOld=validLegacySave(stored);
-  state=isCurrent?stored:isOld?migrate(stored):initial();
+  const now=Date.now();
+  let stored=null,old=null;
+  try{stored=await read(KEY);if(!validWorld(stored))old=await read(OLD_KEY);}
+  catch(err){console.error('MYON load:',err);}
+  const fromCurrent=validWorld(stored);
+  state=fromCurrent?stored:migrate(old,now);
   ready=true;
-  if(!isCurrent)save();
-  drawOperations();
+  renderSlots();
+  if(!fromCurrent)save();
   tick();
-  setInterval(tick,100);
+  setInterval(tick,250);
 })();
 })();
