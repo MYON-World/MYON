@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.02</title>
+<title>MYON v0.13.03</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -56,17 +56,11 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .route-position{font-size:11px;color:#e0f1e9;text-align:right;min-width:0;overflow-wrap:anywhere}
 @media(max-width:360px){.route-row{grid-template-columns:60px minmax(0,1fr)}.route-position{font-size:10px}.route-info{font-size:9px}}
 
-/* v0.13.02: construction mission cards inside the unified mission list. */
-.construction{margin-top:8px}
-.construction-card{min-height:54px;padding:10px 11px 11px}
-.construction-line{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
-.construction-line + .construction-line{margin-top:9px}
-.construction-line strong{font-size:13px;font-weight:750;white-space:nowrap}
+/* v0.13.03: maintenance follows the vehicle card's two-row layout. */
 .construction-total{font-size:11px;color:#aac3b9;white-space:nowrap;font-variant-numeric:tabular-nums}
-.construction-track{flex:1;min-width:15px;height:6px;border-radius:999px;background:#314a4d;overflow:hidden}
-.construction-fill{height:100%;width:0;background:#67c2a5;border-radius:999px;transition:width .8s linear}
-.construction-progress{font-size:10px;color:#c2ebd0;white-space:nowrap;font-variant-numeric:tabular-nums}
-@media(max-width:360px){.construction-card{padding:9px 9px 10px}.construction-line{gap:5px}.construction-line strong{font-size:12px}.construction-progress{font-size:9px}.construction-total{font-size:10px}}
+.construction-card .slot-progress{background:#67c2a5}
+.construction-card .slot-operations{font-size:11px}
+@media(max-width:360px){.construction-total{font-size:10px}.construction-card .slot-operations{font-size:11px}}
 </style>
 </head>
 <body>
@@ -77,6 +71,6 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
   <div class="supply"><span class="supply-label">다음 임무 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
 </main>
 </div></div>
-<script src="myon-v013.js?v=0.13.02"></script>
+<script src="myon-v013.js?v=0.13.03"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// MYON v0.13.02 — unified autonomous 30-slot mission system.
+// MYON v0.13.03 — unified missions, first-departure scheduling and maintenance cards.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
@@ -12,7 +12,6 @@ const timeFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-dig
 const pad=n=>String(Math.max(0,Math.floor(n))).padStart(2,'0');
 const hms=n=>pad(n/3600)+':'+pad((n%3600)/60)+':'+pad(n%60);
 const countdown=n=>{n=Math.max(0,Math.ceil(n));return n>=DAY?Math.floor(n/DAY)+'일 '+hms(n%DAY):hms(n);};
-const shortRemaining=n=>{n=Math.max(0,Math.ceil(n));return n>=DAY?Math.ceil(n/DAY)+'일':n>=HOUR?Math.ceil(n/HOUR)+'시간':Math.ceil(n/60)+'분';};
 const km=n=>(Math.max(0,n)/1000).toLocaleString('ko-KR',{maximumFractionDigits:2,minimumFractionDigits:2})+'km';
 const seedNow=()=>((Math.random()*4294967296)>>>0)||1;
 function mix(n){n=(n^(n>>>16))>>>0;n=Math.imul(n,0x7feb352d)>>>0;n=(n^(n>>>15))>>>0;n=Math.imul(n,0x846ca68b)>>>0;return (n^(n>>>16))>>>0;}
@@ -179,7 +178,11 @@ function createRoute(at,old=null){
  const base=jobIdentity(at,old);
  const routeKey=old&&specs.has(old.routeKey)?old.routeKey:pick(routeTypes).key;
  const spec=specs.get(routeKey);
- const serviceDay=kstMidnight(at)+DAY;
+ // Start with today's first departure if it has not passed yet (KST).
+ // Otherwise, schedule the following day's first departure.
+ const today=kstMidnight(at);
+ const firstDeparture=today+(spec.night?18:5)*HOUR;
+ const serviceDay=at<=firstDeparture?today:today+DAY;
  return {...base,kind:'route',routeKey,serviceDay,cutoff:serviceDay+DAY+(spec.night?8*HOUR:0)};
 }
 function createConstruction(at,old=null){
@@ -380,15 +383,17 @@ function makeUnitCard(v){
  return {card,status,left,right,bar};
 }
 function makeConstructionCard(v){
+ // Use the same two-row layout and bottom progress bar as transport missions.
  const card=element('article','slot construction-card');
- const row1=element('div','construction-line'),row2=element('div','construction-line');
+ const head=element('div','slot-head'),label=element('div','slot-name');
  const name=element('strong'),total=element('span','construction-total');
- row1.append(name,total);
- const track=element('div','construction-track'),bar=element('div','construction-fill');
- track.append(bar);
- const progress=element('span','construction-progress');
- row2.append(track,progress);card.append(row1,row2);
- return {card,name,total,progress,bar};
+ label.append(name);head.append(label,total);
+ const details=element('div','slot-details');
+ const left=element('span','slot-metric'),right=element('span','slot-metric slot-operations');
+ details.append(left,right);
+ const bar=element('div','slot-progress');
+ card.append(head,details,bar);
+ return {card,name,total,left,right,bar};
 }
 function makeRouteCard(v){
  const spec=specs.get(v.routeKey),card=element('article','slot route-slot');
@@ -500,7 +505,8 @@ function draw(now){
    const done=Math.min(v.targetMeters,Math.max(0,(now-v.start)*v.dailyMeters/DAY));
    const p=Math.min(1,done/v.targetMeters);
    slot.name.textContent=spec.name;slot.total.textContent='총 '+km(v.targetMeters);
-   slot.progress.textContent=km(done)+' · '+(100*p).toFixed(1)+'% · '+shortRemaining(v.end-now)+' 남음';
+   slot.left.textContent=km(done);
+   slot.right.textContent='남은 '+countdown(v.end-now);
    slot.bar.style.width=(100*p).toFixed(2)+'%';
    continue;
   }
