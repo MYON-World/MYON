@@ -1,49 +1,66 @@
-// MYON v0.12.01 — two-tab city shell and one manual taxi slot.
-// All pre-v0.12.00 IndexedDB records are retained and not read as current income.
+// MYON v0.12.02 — automatically cycling distance-based taxi with a 10-minute cooldown.
+// Preserve the v01200-taxi save key and all earlier game save records.
 (function () {
 'use strict';
 const DB='myon-v00804-progress', STORE='game', KEY='v01200-taxi';
-const DURATION=15000;
-const tree=[
-  {name:'교통',children:[{name:'택시',kind:'taxi'}]}
-];
+const COOLDOWN=10*60*1000, SPEED=250, MAX_LEVEL=10;
+const tree=[{name:'교통',children:[{name:'택시',kind:'taxi'}]}];
 const root={name:'운영',children:tree};
 const el=id=>document.getElementById(id);
 const ui={
   date:el('clock-date'),clock:el('clock-time'),balance:el('balance'),
   mission:el('mission-view'),operation:el('operation-view'),
   missionTab:el('tab-mission'),operationTab:el('tab-operation'),
-  slot:el('taxi-slot'),level:el('taxi-level'),start:el('taxi-start'),upgrade:el('taxi-upgrade'),
-  elapsed:el('taxi-elapsed'),remaining:el('taxi-remaining'),percent:el('taxi-percent'),progress:el('taxi-progress'),
+  slot:el('taxi-slot'),level:el('taxi-level'),upgrade:el('taxi-upgrade'),
+  status:el('taxi-status'),metrics:el('taxi-details'),waiting:el('taxi-waiting'),
+  distance:el('taxi-distance'),fare:el('taxi-fare'),progress:el('taxi-progress'),
   feedback:el('mission-feedback'),back:el('operation-back'),crumb:el('operation-crumb'),
   title:el('operation-title'),list:el('operation-list')
 };
 const dateFmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
 const timeFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
 const won=n=>'₩'+n.toLocaleString('ko-KR');
-const mmss=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
-const rewardFor=level=>500+(level-1)*100;
-const priceFor=level=>500+(level-1)*250;
-const initial=()=>({schema:1,level:1,balance:0,completed:0,running:null});
-function valid(data){
-  if(!data||data.schema!==1)return false;
-  if(!Number.isSafeInteger(data.level)||data.level<1||data.level>100000)return false;
-  if(!Number.isSafeInteger(data.balance)||data.balance<0||!Number.isSafeInteger(data.completed)||data.completed<0)return false;
-  const job=data.running;
-  return job===null||!!(job&&Number.isSafeInteger(job.startedAt)&&job.startedAt>0&&
-    Number.isSafeInteger(job.endsAt)&&job.endsAt===job.startedAt+DURATION&&
-    Number.isSafeInteger(job.reward)&&job.reward>0);
+const mmss=seconds=>String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+const baseFee=level=>level*1000;
+const priceFor=level=>level*100000;
+const meter=(meters,level)=>baseFee(level)+100*Math.max(0,Math.ceil((meters-1600)/131-1e-9));
+const initial=()=>({schema:2,level:1,balance:0,completed:0,trip:null,waitingUntil:0,legacy:null});
+const validMoney=n=>Number.isSafeInteger(n)&&n>=0;
+function validLegacySave(s){
+  if(!s||s.schema!==1||!Number.isSafeInteger(s.level)||s.level<1||s.level>100000||!validMoney(s.balance)||!validMoney(s.completed))return false;
+  const j=s.running;
+  return j===null||!!(j&&Number.isSafeInteger(j.startedAt)&&j.startedAt>0&&Number.isSafeInteger(j.endsAt)&&j.endsAt===j.startedAt+15000&&Number.isSafeInteger(j.reward)&&j.reward>0);
 }
-let state=initial(),ready=false,dbPromise=null,saveQueue=Promise.resolve(),notificationTimeout=null;
-let currentTab='mission',path=[root];
+function validSave(s){
+  if(!s||s.schema!==2||!Number.isSafeInteger(s.level)||s.level<1||s.level>MAX_LEVEL||!validMoney(s.balance)||!validMoney(s.completed)||!Number.isSafeInteger(s.waitingUntil)||s.waitingUntil<0)return false;
+  if(s.trip!==null){
+    const j=s.trip;
+    if(!j||!Number.isSafeInteger(j.distance)||j.distance<3000||j.distance>10000||j.distance%100!==0||!Number.isSafeInteger(j.level)||j.level<1||j.level>MAX_LEVEL||!Number.isSafeInteger(j.startedAt)||j.startedAt<=0||j.endsAt!==j.startedAt+j.distance*4)return false;
+  }
+  if(s.legacy!==null){
+    const j=s.legacy;
+    if(!j||!Number.isSafeInteger(j.endsAt)||j.endsAt<=0||!Number.isSafeInteger(j.reward)||j.reward<=0)return false;
+  }
+  return !(s.trip&&s.legacy)&&!(s.waitingUntil&&(s.trip||s.legacy));
+}
+function migrate(s){
+  const next=initial();
+  next.level=Math.min(MAX_LEVEL,s.level);
+  next.balance=s.balance;
+  next.completed=s.completed;
+  if(s.running)next.legacy={endsAt:s.running.endsAt,reward:s.running.reward};
+  return next;
+}
+let state=initial(),ready=false,dbPromise=null,saveQueue=Promise.resolve(),feedbackTimeout=null;
+let path=[root],currentTab='mission';
 function openDb(){
   if(!dbPromise)dbPromise=new Promise((resolve,reject)=>{
     if(!window.indexedDB){reject(new Error('IndexedDB unavailable'));return;}
-    const request=window.indexedDB.open(DB,1);
-    request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains(STORE))request.result.createObjectStore(STORE);};
-    request.onsuccess=()=>resolve(request.result);
-    request.onerror=()=>reject(request.error||new Error('IndexedDB open failed'));
-  }).catch(error=>{dbPromise=null;throw error;});
+    const req=window.indexedDB.open(DB,1);
+    req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(STORE))req.result.createObjectStore(STORE);};
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||new Error('IndexedDB open failed'));
+  }).catch(err=>{dbPromise=null;throw err;});
   return dbPromise;
 }
 async function load(){
@@ -60,43 +77,79 @@ function save(){
   saveQueue=saveQueue.catch(()=>{}).then(async()=>{
     const db=await openDb();
     return new Promise((resolve,reject)=>{
-      const transaction=db.transaction(STORE,'readwrite');
-      transaction.objectStore(STORE).put(snapshot,KEY);
-      transaction.oncomplete=resolve;
-      transaction.onerror=()=>reject(transaction.error||new Error('MYON save failed'));
-      transaction.onabort=()=>reject(transaction.error||new Error('MYON save aborted'));
+      const tx=db.transaction(STORE,'readwrite');
+      tx.objectStore(STORE).put(snapshot,KEY);
+      tx.oncomplete=resolve;
+      tx.onerror=()=>reject(tx.error||new Error('MYON save failed'));
+      tx.onabort=()=>reject(tx.error||new Error('MYON save aborted'));
     });
-  }).catch(error=>console.error('MYON save:',error));
+  }).catch(err=>console.error('MYON save:',err));
 }
 function feedback(message){
-  if(notificationTimeout!==null){clearTimeout(notificationTimeout);notificationTimeout=null;}
+  if(feedbackTimeout!==null){clearTimeout(feedbackTimeout);feedbackTimeout=null;}
   ui.feedback.textContent=message;
-  if(message)notificationTimeout=setTimeout(()=>{ui.feedback.textContent='';notificationTimeout=null;},3500);
+  if(message)feedbackTimeout=setTimeout(()=>{ui.feedback.textContent='';feedbackTimeout=null;},3500);
+}
+function startTrip(at){
+  const distance=(30+Math.floor(Math.random()*71))*100;
+  state.trip={distance,level:state.level,startedAt:at,endsAt:at+distance*4};
+  state.waitingUntil=0;
 }
 function advance(now){
-  if(!state.running||now<state.running.endsAt)return false;
-  // Exactly one manually-started trip is settled, even after a long offline absence.
-  state.balance+=state.running.reward;
-  state.completed++;
-  const reward=state.running.reward;
-  state.running=null;
-  feedback('운행 완료 · '+won(reward)+' 정산');
-  save();
-  return true;
+  let changed=false;
+  // The saved end time defines every transition, so delayed/hidden tabs and
+  // offline sessions get the same 10-minute pause between completed trips.
+  for(let n=0;n<100000;n++){
+    if(state.legacy){
+      if(now<state.legacy.endsAt)break;
+      state.balance+=state.legacy.reward;
+      state.completed++;
+      state.waitingUntil=state.legacy.endsAt+COOLDOWN;
+      state.legacy=null;
+      changed=true;
+      continue;
+    }
+    if(state.trip){
+      if(now<state.trip.endsAt)break;
+      state.balance+=meter(state.trip.distance,state.trip.level);
+      state.completed++;
+      state.waitingUntil=state.trip.endsAt+COOLDOWN;
+      state.trip=null;
+      changed=true;
+      continue;
+    }
+    if(state.waitingUntil>now)break;
+    startTrip(state.waitingUntil||now);
+    changed=true;
+  }
+  if(changed)save();
+  return changed;
 }
 function drawTaxi(now){
   ui.balance.textContent=won(state.balance);
   ui.level.textContent='Lv.'+state.level;
-  ui.upgrade.textContent='업글 '+won(priceFor(state.level));
-  ui.upgrade.title='수익 '+won(rewardFor(state.level))+'/회 · 다음 업글 '+won(priceFor(state.level));
-  const job=state.running;
-  ui.slot.classList.toggle('is-running',!!job);
-  if(!job){ui.progress.style.width='0%';return;}
-  const passed=Math.max(0,Math.min(DURATION,now-job.startedAt));
-  ui.elapsed.textContent=mmss(Math.floor(passed/1000));
-  ui.remaining.textContent=mmss(Math.ceil((DURATION-passed)/1000));
-  ui.percent.textContent=Math.round(passed/DURATION*100)+'%';
-  ui.progress.style.width=(passed/DURATION*100)+'%';
+  const running=!!state.trip||!!state.legacy;
+  ui.status.style.display=running?'inline-block':'none';
+  ui.upgrade.style.display=running?'none':'inline-block';
+  ui.upgrade.disabled=state.level>=MAX_LEVEL;
+  ui.upgrade.textContent=state.level>=MAX_LEVEL?'MAX':'업글 '+won(priceFor(state.level));
+  ui.metrics.style.display=running?'flex':'none';
+  ui.waiting.style.display=running?'none':'block';
+  if(state.trip){
+    const j=state.trip;
+    const traveled=Math.min(j.distance,Math.max(0,(now-j.startedAt)/4));
+    ui.distance.textContent=((j.distance-traveled)/1000).toFixed(2)+'km';
+    ui.fare.textContent=won(meter(traveled,j.level));
+    ui.progress.style.width=(traveled/j.distance*100)+'%';
+  }else if(state.legacy){
+    // Preserve the payout of an in-flight v0.12.01 trip without fabricating a distance.
+    ui.distance.textContent='—km';
+    ui.fare.textContent=won(state.legacy.reward);
+    ui.progress.style.width='0%';
+  }else{
+    ui.waiting.textContent='대기 '+mmss(Math.max(0,Math.ceil((state.waitingUntil-now)/1000)));
+    ui.progress.style.width='0%';
+  }
 }
 function drawClock(now){
   const date=new Date(now);
@@ -107,31 +160,23 @@ function tick(){
   const now=Date.now();
   drawClock(now);
   if(!ready)return;
-  advance(now);
+  if(advance(now)&&currentTab==='operation'&&path.length===3)drawOperations();
   drawTaxi(now);
 }
-function startTrip(){
-  if(!ready||state.running)return;
-  const now=Date.now();
-  state.running={startedAt:now,endsAt:now+DURATION,reward:rewardFor(state.level)};
-  feedback('');
-  save();drawTaxi(now);
-}
 function upgradeTaxi(){
-  if(!ready||state.running)return;
-  const price=priceFor(state.level);
-  if(state.level>=100000){feedback('최대 단계에 도달했어요.');return;}
-  if(state.balance<price){feedback('업글 비용 '+won(price)+' · '+won(price-state.balance)+' 부족');return;}
-  state.balance-=price;
+  if(!ready||state.trip||state.legacy||state.waitingUntil<=Date.now()||state.level>=MAX_LEVEL)return;
+  const cost=priceFor(state.level);
+  if(state.balance<cost){feedback('업글 비용 '+won(cost)+' · '+won(cost-state.balance)+' 부족');return;}
+  state.balance-=cost;
   state.level++;
-  feedback('Lv.'+state.level+' 업그레이드 완료 · 운행 수익 증가');
+  feedback('Lv.'+state.level+' 업그레이드 완료');
   save();drawTaxi(Date.now());
 }
 const create=(tag,className,text)=>{
-  const node=document.createElement(tag);
-  if(className)node.className=className;
-  if(text!==undefined)node.textContent=text;
-  return node;
+  const e=document.createElement(tag);
+  if(className)e.className=className;
+  if(text!==undefined)e.textContent=text;
+  return e;
 };
 function drawOperations(){
   const page=path[path.length-1];
@@ -141,21 +186,20 @@ function drawOperations(){
   ui.list.replaceChildren();
   if(page.children){
     for(const item of page.children){
-      const button=create('button','operation-button');
-      button.type='button';
-      button.append(create('span','',item.name),create('span','operation-chevron','›'));
-      button.addEventListener('click',()=>{path.push(item);drawOperations();});
-      ui.list.appendChild(button);
+      const btn=create('button','operation-button');
+      btn.type='button';
+      btn.append(create('span','',item.name),create('span','operation-chevron','›'));
+      btn.addEventListener('click',()=>{path.push(item);drawOperations();});
+      ui.list.appendChild(btn);
     }
     return;
   }
   const card=create('div','operation-detail');
   const heading=create('strong','','택시 운영 현황');
   const level=create('p','','레벨 '+state.level+' · 완료 운행 '+state.completed+'회');
-  const income=create('p','','운행 수익 '+won(rewardFor(state.level))+'/회');
-  const next=create('p','','다음 업글 '+won(priceFor(state.level)));
-  const hint=create('div','muted','운행과 업글은 임무 탭에서 진행합니다.');
-  card.append(heading,level,income,next,hint);
+  const income=create('p','','기본요금 '+won(baseFee(state.level))+' · 다음 업글 '+(state.level===MAX_LEVEL?'MAX':won(priceFor(state.level))));
+  const hint=create('div','muted','운행은 자동 진행 중입니다.');
+  card.append(heading,level,income,hint);
   ui.list.appendChild(card);
 }
 function setTab(tab){
@@ -166,7 +210,6 @@ function setTab(tab){
   ui.operationTab.setAttribute('aria-selected',String(tab==='operation'));
   if(tab==='operation'){path=[root];drawOperations();}
 }
-ui.start.addEventListener('click',startTrip);
 ui.upgrade.addEventListener('click',upgradeTaxi);
 ui.missionTab.addEventListener('click',()=>setTab('mission'));
 ui.operationTab.addEventListener('click',()=>setTab('operation'));
@@ -175,13 +218,13 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
 window.addEventListener('pagehide',()=>{if(ready)save();});
 (async()=>{
   let stored=null;
-  try{stored=await load();}catch(error){console.error('MYON load:',error);}
-  state=valid(stored)?stored:initial();
+  try{stored=await load();}catch(err){console.error('MYON load:',err);}
+  const isCurrent=validSave(stored),isOld=validLegacySave(stored);
+  state=isCurrent?stored:isOld?migrate(stored):initial();
   ready=true;
-  if(!valid(stored))save();
-  advance(Date.now());
+  if(!isCurrent)save();
   drawOperations();
   tick();
-  setInterval(tick,200);
+  setInterval(tick,100);
 })();
 })();
