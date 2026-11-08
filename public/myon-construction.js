@@ -8,7 +8,8 @@ const equipment=[
  {key:'railRepair',name:'철도보수',dailyMeters:1500},
  {key:'roadRepair',name:'도로보수',dailyMeters:2000}
 ];
-// Temporary game balance, not manufacturer-certified daily production.
+// Official MYON v0.13.01 game-balance rules; these figures are not certified
+// real-world equipment specifications.
 // 100m units: common short contracts, exceptionally rare extreme distances.
 const tiers=[
  {weight:6500,min:5,max:50},        // 0.5–5km: 65%

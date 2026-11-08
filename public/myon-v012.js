@@ -1,9 +1,10 @@
 // MYON v0.12.04 — autonomous road, route, air and sea transport.
 // KST timetables use real clock time. Route departures are derived, not owned fleet slots.
+// v0.13.01: new vehicle appearances stop at 10 owned slots; older larger saves remain valid.
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01204-world',PREV='v01203-world',LEGACY='v01200-taxi';
-const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=100,LOOKBACK=2*DAY;
+const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=10,LEGACY_MAX=100,LOOKBACK=2*DAY;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply')};
 const dateFmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
@@ -228,7 +229,8 @@ function advance(now){
  if(processed)dirty=true;
 }
 function validWorld(s){
- return s&&s.schema===1&&Array.isArray(s.units)&&s.units.length<=MAX&&Number.isSafeInteger(s.nextId)&&
+ // Preserve existing 11–100 vehicle saves without deleting anything.
+ return s&&s.schema===1&&Array.isArray(s.units)&&s.units.length<=LEGACY_MAX&&Number.isSafeInteger(s.nextId)&&
   Number.isSafeInteger(s.nextSupplyAt)&&s.nextSupplyAt>0&&Number.isInteger(s.rng)&&typeof s.pending==='boolean'&&
   s.units.every(v=>v&&Number.isSafeInteger(v.id)&&typeof v.kind==='string'&&(v.kind!=='route'||specs.has(v.routeKey)));
 }
@@ -405,7 +407,7 @@ function draw(now){
   slot.left.textContent=p.value;slot.right.textContent=v.completed+'회';
   slot.bar.style.width=(p.progress*100).toFixed(2)+'%';
  }
- ui.supply.textContent=state.units.length>=MAX?'100대 · 공급 대기':
+ ui.supply.textContent=state.units.length>=MAX?state.units.length+'대 · 공급 대기':
   state.pending?'대기 차량 등장 예정':countdown(state.nextSupplyAt-now);
 }
 function tick(){
