@@ -1,4 +1,4 @@
-// MYON v0.13.03 — unified missions, first-departure scheduling and maintenance cards.
+// MYON v0.13.04 — construction/maintenance staging, return journeys, and single-/double-track builds.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
@@ -97,6 +97,9 @@ const constructionSpecs=[
  {key:'roadRepair',name:'도로보수',dailyMeters:2000}
 ];
 // Official MYON game balance. Not manufacturer-certified equipment production.
+// Construction equipment uses an explicit MYON game assumption of 20km/h for transit;
+// outbound site travel is randomly 30 minutes to 8 hours. Return time follows distance.
+const CONSTRUCTION_TRAVEL_METERS_PER_HOUR=20000;
 const constructionTiers=[
  {weight:6500,min:5,max:50},     // 0.5–5km 65%
  {weight:2500,min:51,max:200},   // 5.1–20km 25%
@@ -185,6 +188,47 @@ function createRoute(at,old=null){
  const serviceDay=at<=firstDeparture?today:today+DAY;
  return {...base,kind:'route',routeKey,serviceDay,cutoff:serviceDay+DAY+(spec.night?8*HOUR:0)};
 }
+function constructionTravelSeconds(meters){
+ return Math.ceil(meters*HOUR/CONSTRUCTION_TRAVEL_METERS_PER_HOUR);
+}
+function scheduleConstruction(v,legacy=false){
+ // The construction job's deterministic seed fixes its movement and rail type
+ // across refreshes and offline replay without advancing the world's supply RNG.
+ const travelSeconds=range(v.seed,19,1,16)*1800; // 30min–8h, 30min steps
+ const travelMeters=travelSeconds*CONSTRUCTION_TRAVEL_METERS_PER_HOUR/HOUR;
+ const tracks=v.constructionKey==='newRail'?(legacy?1:range(v.seed,20,1,2)):1;
+ // Legacy work began at v.start and must not be reset by an upgrade.
+ const workStart=legacy?v.start:v.start+travelSeconds;
+ const workEnd=legacy?v.end:workStart+Math.ceil(v.targetMeters*DAY/v.dailyMeters);
+ const dispatchStart=workStart-travelSeconds;
+ let cursor=workEnd;
+ const stages=[
+  {phase:'travel-out',start:dispatchStart,end:workStart,distance:travelMeters},
+  {phase:'work-out',start:workStart,end:workEnd,distance:v.targetMeters}
+ ];
+ if(tracks===2){
+  // The return track is constructed while the equipment travels back along
+  // the same section, then the vehicle drives its original approach route.
+  const returnWorkEnd=cursor+(workEnd-workStart);
+  stages.push({phase:'work-return',start:cursor,end:returnWorkEnd,distance:v.targetMeters});
+  cursor=returnWorkEnd;
+  stages.push({phase:'travel-return',start:cursor,end:cursor+travelSeconds,distance:travelMeters});
+  cursor+=travelSeconds;
+ }else{
+  // A single track (and repair job) must drive all the way back from the far
+  // end of the finished work section, including its original approach route.
+  const returnDistance=v.targetMeters+travelMeters;
+  const end=cursor+constructionTravelSeconds(returnDistance);
+  stages.push({phase:'travel-return',start:cursor,end,distance:returnDistance});
+  cursor=end;
+ }
+ v.trackCount=tracks;
+ v.travelMeters=travelMeters;
+ v.stages=stages;
+ v.start=dispatchStart;
+ v.end=cursor;
+ return v;
+}
 function createConstruction(at,old=null){
  const base=jobIdentity(at,old);
  const spec=old&&constructionSpecs.find(x=>x.key===old.kind)||pick(constructionSpecs);
@@ -197,7 +241,8 @@ function createConstruction(at,old=null){
  }
  const dailyMeters=old&&Number.isInteger(old.dailyMeters)&&old.dailyMeters>0?old.dailyMeters:spec.dailyMeters;
  const start=old&&Number.isSafeInteger(old.startedAt)?old.startedAt:at;
- return {...base,kind:'construction',constructionKey:spec.key,targetMeters,dailyMeters,start,end:start+Math.ceil(targetMeters*DAY/dailyMeters)};
+ return scheduleConstruction({...base,kind:'construction',constructionKey:spec.key,targetMeters,dailyMeters,start,
+  end:start+Math.ceil(targetMeters*DAY/dailyMeters)},Boolean(old&&Number.isSafeInteger(old.startedAt)));
 }
 function itinerary(route,depart){
  const key=route.id+':'+depart;
@@ -383,17 +428,18 @@ function makeUnitCard(v){
  return {card,status,left,right,bar};
 }
 function makeConstructionCard(v){
- // Use the same two-row layout and bottom progress bar as transport missions.
+ // First line: mission name (single/double track for new rail) and travel/work
+ // status. Second line: remaining distance for this stage and final ETA.
  const card=element('article','slot construction-card');
  const head=element('div','slot-head'),label=element('div','slot-name');
- const name=element('strong'),total=element('span','construction-total');
- label.append(name);head.append(label,total);
+ const name=element('strong'),status=element('span','slot-state');
+ label.append(name);head.append(label,status);
  const details=element('div','slot-details');
  const left=element('span','slot-metric'),right=element('span','slot-metric slot-operations');
  details.append(left,right);
  const bar=element('div','slot-progress');
  card.append(head,details,bar);
- return {card,name,total,left,right,bar};
+ return {card,name,status,left,right,bar};
 }
 function makeRouteCard(v){
  const spec=specs.get(v.routeKey),card=element('article','slot route-slot');
@@ -502,11 +548,16 @@ function draw(now){
   if(v.kind==='route'){drawRoute(v,slot,now);continue;}
   if(v.kind==='construction'){
    const spec=constructionSpecs.find(s=>s.key===v.constructionKey);
-   const done=Math.min(v.targetMeters,Math.max(0,(now-v.start)*v.dailyMeters/DAY));
-   const p=Math.min(1,done/v.targetMeters);
-   slot.name.textContent=spec.name;slot.total.textContent='총 '+km(v.targetMeters);
-   slot.left.textContent=km(done);
+   const stage=v.stages.find(x=>now<x.end)||v.stages[v.stages.length-1];
+   const ratio=Math.max(0,Math.min(1,(stage.end-now)/(stage.end-stage.start)));
+   const remainingMeters=stage.distance*ratio;
+   const working=stage.phase.startsWith('work');
+   slot.name.textContent=spec.name+(spec.key==='newRail'?' · '+(v.trackCount===2?'복선':'단선'):'');
+   slot.status.textContent=working?'작업중':'이동중';
+   slot.status.classList.toggle('waiting',!working);
+   slot.left.textContent='남은 '+km(remainingMeters);
    slot.right.textContent='남은 '+countdown(v.end-now);
+   const p=Math.max(0,Math.min(1,(now-v.start)/(v.end-v.start)));
    slot.bar.style.width=(100*p).toFixed(2)+'%';
    continue;
   }
@@ -533,8 +584,17 @@ window.addEventListener('pagehide',()=>{if(ready&&dirty)save(Math.floor(Date.now
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
  }catch(e){console.error('MYON mission load:',e);}
- if(saved&&validWorld(saved))state=saved;
- else{state=migrate(oldVehicles,oldConstruction,now);dirty=true;}
+ if(saved&&validWorld(saved)){
+  state=saved;
+  // Upgrade existing in-progress contracts in place: preserve already worked
+  // distance and the scheduled work completion, only append the return journey.
+  for(const v of state.units){
+   if(v.kind==='construction'&&(!Array.isArray(v.stages)||!v.stages.length)){
+    scheduleConstruction(v,true);
+    dirty=true;
+   }
+  }
+ }else{state=migrate(oldVehicles,oldConstruction,now);dirty=true;}
  ready=true;
  tick();
  if(dirty)save(now);
