@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.12.04</title>
+<title>MYON v0.13.00</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -55,6 +55,18 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .route-depart{font-size:11px;color:#c2d5cd;white-space:nowrap}
 .route-position{font-size:11px;color:#e0f1e9;text-align:right;min-width:0;overflow-wrap:anywhere}
 @media(max-width:360px){.route-row{grid-template-columns:60px minmax(0,1fr)}.route-position{font-size:10px}.route-info{font-size:9px}}
+
+/* v0.13.00: one automatic construction job, two compact visible lines. */
+.construction{margin-top:8px}
+.construction-card{min-height:54px;padding:10px 11px 11px}
+.construction-line{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.construction-line + .construction-line{margin-top:9px}
+.construction-line strong{font-size:13px;font-weight:750;white-space:nowrap}
+.construction-total{font-size:11px;color:#aac3b9;white-space:nowrap;font-variant-numeric:tabular-nums}
+.construction-track{flex:1;min-width:15px;height:6px;border-radius:999px;background:#314a4d;overflow:hidden}
+.construction-fill{height:100%;width:0;background:#67c2a5;border-radius:999px;transition:width .8s linear}
+.construction-progress{font-size:10px;color:#c2ebd0;white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:360px){.construction-card{padding:9px 9px 10px}.construction-line{gap:5px}.construction-line strong{font-size:12px}.construction-progress{font-size:9px}.construction-total{font-size:10px}}
 </style>
 </head>
 <body>
@@ -63,8 +75,15 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 <main class="content">
   <div id="slot-list" class="slot-list"></div>
   <div class="supply"><span class="supply-label">다음 차량 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
+  <section class="construction" aria-label="공사 임무">
+    <article class="slot construction-card">
+      <div class="construction-line"><strong id="construction-name">공사 준비 중</strong><span id="construction-total" class="construction-total">총 --km</span></div>
+      <div class="construction-line"><div class="construction-track"><div id="construction-bar" class="construction-fill"></div></div><span id="construction-progress" class="construction-progress">진행 준비 중</span></div>
+    </article>
+  </section>
 </main>
 </div></div>
 <script src="myon-v012.js?v=0.12.04"></script>
+<script src="myon-construction.js?v=0.13.00"></script>
 </body>
 </html>
