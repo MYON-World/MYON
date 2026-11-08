@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.12.03</title>
+<title>MYON v0.12.04</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -40,6 +40,21 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .supply-label{font-size:12px;color:#aac3b9}
 .supply-time{font:750 16px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;color:#c2ebd0;white-space:nowrap}
 @media(max-width:360px){.clock-time{font-size:27px}.brand{font-size:18px}.slot{padding:8px 9px 10px}.slot-name strong{font-size:12px}.slot-button{font-size:10px;padding:0 7px}.slot-metric{font-size:16px}.slot-state{font-size:10px;padding:5px 6px}}
+
+/* v0.12.04: compact timetable-based bus/rail cards */
+.slot-state.waiting{background:#293a3f;color:#c1cfca}
+.route-info{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0 8px;color:#9bb5b0;font-size:10px}
+.route-info span:last-child{white-space:nowrap}
+.route-row{display:grid;grid-template-columns:75px minmax(0,1fr);align-items:center;column-gap:10px}
+.route-heading{border-top:1px solid #304448;border-bottom:1px solid #304448;color:#8daaa2;font-size:10px;padding:7px 0}
+.route-heading span:last-child{text-align:right}
+.route-vehicles{max-height:155px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;-ms-overflow-style:none}
+.route-vehicles::-webkit-scrollbar{display:none;width:0;height:0}
+.route-vehicle{min-height:35px;padding:9px 0;border-bottom:1px solid #2b4043;font-variant-numeric:tabular-nums}
+.route-vehicle:last-child{border-bottom:0}
+.route-depart{font-size:11px;color:#c2d5cd;white-space:nowrap}
+.route-position{font-size:11px;color:#e0f1e9;text-align:right;min-width:0;overflow-wrap:anywhere}
+@media(max-width:360px){.route-row{grid-template-columns:60px minmax(0,1fr)}.route-position{font-size:10px}.route-info{font-size:9px}}
 </style>
 </head>
 <body>
@@ -47,9 +62,9 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 <header class="topbar"><strong class="brand">MYON</strong><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div></header>
 <main class="content">
   <div id="slot-list" class="slot-list"></div>
-  <div class="supply"><span class="supply-label">다음 차량 등장</span><strong id="next-supply" class="supply-time">24:00:00</strong></div>
+  <div class="supply"><span class="supply-label">다음 차량 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
 </main>
 </div></div>
-<script src="myon-v012.js?v=0.12.03"></script>
+<script src="myon-v012.js?v=0.12.04"></script>
 </body>
 </html>
