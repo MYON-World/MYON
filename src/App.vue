@@ -5,7 +5,7 @@ const buildId = __MYON_BUILD_ID__
 const baseUrl = String(import.meta.env.BASE_URL)
 const frameUrl = baseUrl + 'myon.html?build=' + encodeURIComponent(buildId)
 const isDevelopment = /\/dev\/integrated\/?$/.test(baseUrl)
-const devVersion = 'DEV 0.0003'
+const devVersion = 'DEV 0.0004'
 
 // Matches the 23 mission definitions shown in the integrated game's mission catalog.
 // Each leaf runs the original mission logic in its own DEV-only, memory-only frame.
@@ -58,6 +58,12 @@ const selectedPreview = computed(() => previewEntries.find(entry => entry.id ===
 const previewFrameUrl = computed(() => frameUrl + '&preview=' + encodeURIComponent(previewId.value))
 
 const history = [
+  {
+    version: 'DEV 0.0004',
+    date: '2026-11-10',
+    title: '미리보기의 다음 임무 표시 및 자동 배정 제거',
+    description: '선택한 임무 하나만 체험하도록 임무 공급 타이머와 임무 목록을 숨기고, 후속 임무 자동 생성 중단 및 개발 스크립트 캐시 갱신',
+  },
   {
     version: 'DEV 0.0003',
     date: '2026-11-10',
