@@ -1,4 +1,4 @@
-// MYON v0.13.04 — construction/maintenance staging, return journeys, and single-/double-track builds.
+// MYON v0.13.05 — adaptive mission countdown display; simulation unchanged.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
@@ -11,7 +11,7 @@ const weekdayFmt=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:
 const timeFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
 const pad=n=>String(Math.max(0,Math.floor(n))).padStart(2,'0');
 const hms=n=>pad(n/3600)+':'+pad((n%3600)/60)+':'+pad(n%60);
-const countdown=n=>{n=Math.max(0,Math.ceil(n));return n>=DAY?Math.floor(n/DAY)+'일 '+hms(n%DAY):hms(n);};
+const countdown=n=>{n=Math.max(0,Math.ceil(n));return n>2*HOUR?Math.floor(n/DAY)+'일 '+pad((n%DAY)/HOUR)+':'+pad((n%HOUR)/60):hms(n);};
 const km=n=>(Math.max(0,n)/1000).toLocaleString('ko-KR',{maximumFractionDigits:2,minimumFractionDigits:2})+'km';
 const seedNow=()=>((Math.random()*4294967296)>>>0)||1;
 function mix(n){n=(n^(n>>>16))>>>0;n=Math.imul(n,0x7feb352d)>>>0;n=(n^(n>>>15))>>>0;n=Math.imul(n,0x846ca68b)>>>0;return (n^(n>>>16))>>>0;}
