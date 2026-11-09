@@ -1,7 +1,7 @@
-name: Deploy MYON
+name: Deploy MYON environments
 on:
   push:
-    branches: [main]
+    branches: [main, test, develop]
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,15 +15,56 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
+      - uses: actions/checkout@v4
+        with:
+          ref: test
+          path: test
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          path: develop
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npm run build
+          cache-dependency-path: main/package-lock.json
+      - name: Build official game
+        working-directory: main
+        run: |
+          npm ci
+          npm run build
+      - name: Build test game
+        working-directory: test
+        env:
+          MYON_BASE_PATH: /MYON/test/
+        run: |
+          npm ci
+          npm run build
+      - name: Build integrated development game
+        working-directory: develop
+        env:
+          MYON_BASE_PATH: /MYON/dev/integrated/
+        run: |
+          npm ci
+          npm run build
+      - name: Assemble published paths
+        run: |
+          mkdir -p site/test site/dev/integrated
+          cp -a main/dist/. site/
+          cp -a test/dist/. site/test/
+          cp -a develop/dist/. site/dev/integrated/
+          test -f site/index.html
+          test -f site/test/index.html
+          test -f site/dev/integrated/index.html
+          test -f site/myon-v013.js
+          test -f site/test/myon-v013.js
+          test -f site/dev/integrated/myon-v013.js
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: site
   deploy:
     environment:
       name: github-pages

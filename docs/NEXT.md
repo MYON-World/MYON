@@ -1,3 +1,11 @@
+# MYON 실행 환경 분리 준비 — 2026-11-09
+
+- `main`/`test`/`develop`의 동일한 MYON 화면을 단일 GitHub Pages 배포로 게시. 기본 정식 `/MYON/`, 테스트 `/MYON/test/`, 개발통합 `/MYON/dev/integrated/`.
+- 톱니 메뉴에서 환경 이동. DEV/TEST 화면 표시. main만 IndexedDB 저장 및 복원. TEST/DEV는 메모리 게임만 진행.
+- 다음 단계: TEST 전용 시간 가속, DEV 실험 영역, 기능 승인 10건과 예약 자동 출시 체계.
+
+---
+
 # MYON 다음 작업 인계
 
 > 2026-11-09 / v0.13.09

@@ -3,6 +3,8 @@
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
+// Only the official main path can read or write the player save.
+const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply')};
@@ -496,6 +498,7 @@ function migrate(oldVehicles,oldConstruction,now){
  return state;
 }
 function openDb(){
+ if(!IS_LIVE)return Promise.reject(new Error('Save access disabled outside main'));
  if(!dbPromise)dbPromise=new Promise((resolve,reject)=>{
   if(!window.indexedDB){reject(new Error('IndexedDB unavailable'));return;}
   const req=window.indexedDB.open(DB,1);
@@ -514,7 +517,7 @@ async function read(key){
  });
 }
 function save(now){
- if(!ready)return;
+ if(!IS_LIVE||!ready)return;
  const snapshot=JSON.parse(JSON.stringify(state));
  lastSave=now;dirty=false;
  saveChain=saveChain.catch(()=>{}).then(async()=>{
@@ -790,6 +793,7 @@ window.addEventListener('pagehide',()=>{if(ready&&dirty)save(Math.floor(Date.now
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
+ if(!IS_LIVE){state=initial(now);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
