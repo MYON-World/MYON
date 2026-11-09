@@ -11,7 +11,21 @@ concurrency:
   group: github-pages
   cancel-in-progress: true
 jobs:
+  # GitHub Pages deployment belongs to main only. Non-main pushes ask
+  # the main-branch workflow to rebuild all three public environments.
+  request-main-deploy:
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Ask main to publish the latest three branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/$GITHUB_REPOSITORY/actions/workflows/deploy.yml/dispatches" -f ref=main
   build:
+    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
