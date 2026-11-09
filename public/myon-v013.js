@@ -1,4 +1,4 @@
-// MYON v0.13.07 — demand-route and single-dispatch charter buses, streamlined mission cards.
+// MYON v0.13.08 — 100-station subway express with fixed hourly service and five-multiple station stops.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
@@ -27,6 +27,7 @@ const routeTypes=[
  {key:'demandCharter',name:'수요대응 전세버스',icon:'🚌',mode:'bus',demand:'charter',stops:10,min:450,max:1100,dwell:90,highway:true,note:'출퇴근 시간대 선택 · 1회 운행'},
  {key:'tram',name:'트램',icon:'🚊',mode:'rail',stops:20,min:350,max:850,dwell:90,note:'정류장 20개 · 임시 이동 기준'},
  {key:'subway',name:'지하철',icon:'🚇',mode:'rail',stops:100,leg:180,dwell:60,note:'100개 역 · 이동 3분 · 정차 1분'},
+ {key:'subwayExpress',name:'지하철급행',icon:'🚇',mode:'rail',expressRail:true,stops:100,leg:180,dwell:60,note:'100개 역 · 5역 간격 정차 · 05:00~22:00'},
  {key:'nightSubway',name:'심야지하철',icon:'🚇',mode:'rail',night:true,stops:100,leg:180,dwell:60,note:'100개 역 · 심야운행'},
  {key:'regional',name:'일반열차',icon:'🚆',mode:'rail',stops:10,leg:1800,dwell:60,note:'10개 역 · 이동 30분 · 정차 1분'},
  {key:'highspeed',name:'고속열차',icon:'🚄',mode:'rail',stops:5,leg:3600,dwell:60,note:'5개 역 · 이동 1시간 · 정차 1분'}
@@ -49,6 +50,7 @@ function dayOfWeek(midnight){return new Date((midnight+KST)*1000).getUTCDay();}
 function mondayStart(t){const m=kstMidnight(t);return m-((dayOfWeek(m)+6)%7)*DAY;}
 function weekend(midnight){const d=dayOfWeek(midnight);return d===0||d===6;}
 function intervalFor(route,originMidnight,offset){
+ if(route.expressRail)return HOUR; // 05:00–22:00, weekdays and weekends.
  const off=offset%DAY;
  const peak=(off>=6*HOUR&&off<8*HOUR)||(off>=18*HOUR&&off<20*HOUR);
  if(route.night){
@@ -63,6 +65,15 @@ function departuresBetween(route,from,to){
  const result=[],first=kstMidnight(from)-DAY,last=kstMidnight(to),cutoff=route.cutoff;
  for(let day=first;day<=last;day+=DAY){
   if(day!==route.serviceDay)continue;
+  if(spec.expressRail){
+   // Exactly 18 hourly departures, from 05:00 through 22:00 (KST),
+   // independent of weekday/weekend and of other subway services.
+   for(let hour=5;hour<=22;hour++){
+    const at=day+hour*HOUR;
+    if(at>=from&&at<=to&&at>=route.acquired&&at<cutoff)result.push(at);
+   }
+   continue;
+  }
   if(spec.demand){
    // Scheduled demand buses run five half-hour departures; charter
    // demand dispatches ONE bus at a deterministic time within one peak.
@@ -278,6 +289,10 @@ function itinerary(route,depart){
  const key=route.id+':'+depart;
  if(tripCache.has(key))return tripCache.get(key);
  const spec=specs.get(route.routeKey),stages=[];
+ // Stops 1 and 100 are mandatory terminals; all intermediate express
+ // stops are multiples of five: 5,10,15,...,95. The SAME set applies
+ // on the return. Existing regular/night subway stops stay unchanged.
+ const expressStop=n=>n===1||n===spec.stops||n%5===0;
  if(spec.demand){
   // Passenger timetable: 06:00..08:00 uphill or 18:00..20:00
   // downhill. The full-route variant randomly selects one peak
@@ -362,7 +377,9 @@ function itinerary(route,depart){
   stages.push({end:offset,phase:highway?'highway':'travel',from:stop,to:next});
   stop=next;
   if(stop===spec.stops&&dir===1)dir=-1;
-  if(stop!==1){offset+=spec.dwell;stages.push({end:offset,phase:'stop',stop});}
+  if(spec.expressRail?expressStop(stop):stop!==1){
+   offset+=spec.dwell;stages.push({end:offset,phase:'stop',stop});
+  }
  }
  const result={total:offset,stages};
  if(tripCache.size>6000)tripCache.clear();
@@ -597,6 +614,15 @@ function routePosition(spec,trip){
   if(s.phase==='stop')return term+' '+s.stop+' '+direction+' 정차';
   if(s.phase==='highway')return direction+' · 고속도로 '+countdown(trip.remaining);
   return term+' '+s.from+' → '+s.to+' '+direction;
+ }
+ if(spec.expressRail){
+  // A station is passed only AFTER the train reaches it. When riding
+  // from station 1 to 2, never announce 2 as passed in advance.
+  if(s.phase==='stop')return s.stop+'역 정차 중';
+  if(s.phase==='travel'){
+   const fromStop=s.from===1||s.from===spec.stops||s.from%5===0;
+   return fromStop?s.from+'역 → '+s.to+'역 이동 중':s.from+'역 통과';
+  }
  }
  if(s.phase==='stop')return term+' '+s.stop+' 정차 중';
  if(s.phase==='highway')return '고속도로 이동 '+countdown(trip.remaining);
