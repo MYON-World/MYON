@@ -1,4 +1,4 @@
-// MYON v0.13.08 — 100-station subway express with fixed hourly service and five-multiple station stops.
+// MYON v0.13.09 — expandable source-driven catalog of randomly available missions.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
@@ -534,6 +534,48 @@ function element(tag,cls,value){
  if(value!==undefined)el.textContent=value;
  return el;
 }
+// Read the actual mission registries; this list is informational only.
+// No RNG, assignment, simulation or save-state operations belong here.
+function renderMissionCatalog(){
+ const holder=$('mission-catalog-list'),count=$('mission-catalog-count');
+ if(!holder||!count)return;
+ const routeItems=mode=>routeTypes.filter(spec=>spec.mode===mode).map(spec=>{
+  const note=spec.key==='demandCharter'?'출근용·퇴근용 랜덤 · 지정 시각 1회':
+   spec.key==='demandFull'?'출근·퇴근 시간대 랜덤':null;
+  return {name:spec.name,note};
+ });
+ const unitItems=keys=>keys.map(key=>({name:unitNames[key]}));
+ const groups=[
+  {name:'차량·화물',items:unitItems(['taxi','truck'])},
+  {name:'버스',items:routeItems('bus')},
+  {name:'철도',items:routeItems('rail')},
+  {name:'항공',items:unitItems(['domestic','international'])},
+  {name:'해상·우주',items:unitItems(['ship','space'])},
+  {name:'건설·유지보수',items:constructionSpecs.map(spec=>({
+   name:spec.name,note:spec.key==='newRail'?'단선·복선 랜덤':null
+  }))}
+ ];
+ const nodes=document.createDocumentFragment();
+ let total=0;
+ for(const group of groups){
+  total+=group.items.length;
+  const section=element('section','mission-catalog-group');
+  const header=element('div','mission-catalog-group-head');
+  header.append(element('strong','',group.name),element('span','',group.items.length+'종'));
+  const list=element('ul','mission-catalog-items');
+  for(const item of group.items){
+   const row=element('li','mission-catalog-item');
+   row.appendChild(element('span','',item.name));
+   if(item.note)row.appendChild(element('small','mission-catalog-item-note',item.note));
+   list.appendChild(row);
+  }
+  section.append(header,list);
+  nodes.appendChild(section);
+ }
+ holder.replaceChildren(nodes);
+ count.textContent=total+'종';
+}
+renderMissionCatalog();
 function makeUnitCard(v){
  const card=element('article','slot'),head=element('div','slot-head'),name=element('div','slot-name');
  name.append(element('span','slot-icon',unitIcons[v.kind]),element('strong','',unitNames[v.kind]));

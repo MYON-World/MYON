@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.08</title>
+<title>MYON v0.13.09</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -60,6 +60,23 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .construction-card .slot-progress{background:#67c2a5}
 .construction-card .slot-name strong{font-size:13px}
 @media(max-width:360px){.construction-card .slot-name strong{font-size:12px}}
+.mission-catalog{margin-top:8px;background:#19292e;border:1px solid #30484a;border-radius:9px;overflow:hidden}
+.mission-catalog-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;cursor:pointer;list-style:none;color:#e0eee7;font-size:12px;font-weight:700}
+.mission-catalog-summary::-webkit-details-marker{display:none}
+.mission-catalog-summary:focus-visible{outline:2px solid #8bdec3;outline-offset:-3px;border-radius:8px}
+.mission-catalog-meta{display:flex;align-items:center;gap:9px;color:#9bb9af;font-size:11px;white-space:nowrap}
+.mission-catalog-arrow{font-size:14px;display:inline-block;transition:transform .15s}
+.mission-catalog[open] .mission-catalog-arrow{transform:rotate(180deg)}
+.mission-catalog-body{border-top:1px solid #304448;padding:0 12px 12px}
+.mission-catalog-group{padding:11px 0}
+.mission-catalog-group+.mission-catalog-group{border-top:1px solid #2b4043}
+.mission-catalog-group-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;color:#a8c8bc;font-size:11px}
+.mission-catalog-group-head span{color:#789a90;font-size:10px}
+.mission-catalog-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px;row-gap:8px;list-style:none;margin:0;padding:0}
+.mission-catalog-item{display:flex;flex-direction:column;gap:2px;min-width:0;color:#e5f1ea;font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.mission-catalog-item-note{color:#95b4a9;font-size:10px}
+.mission-catalog-help{margin:6px 0 0;color:#92aca4;font-size:10px;line-height:1.55}
+@media(max-width:380px){.mission-catalog-items{grid-template-columns:minmax(0,1fr)}}
 </style>
 </head>
 <body>
@@ -68,8 +85,15 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 <main class="content">
   <div id="slot-list" class="slot-list"></div>
   <div class="supply"><span class="supply-label">다음 임무 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
+  <details class="mission-catalog">
+    <summary class="mission-catalog-summary"><span>등장 가능한 임무</span><span class="mission-catalog-meta"><span id="mission-catalog-count">목록</span><span class="mission-catalog-arrow" aria-hidden="true">⌄</span></span></summary>
+    <div class="mission-catalog-body">
+      <div id="mission-catalog-list"></div>
+      <p class="mission-catalog-help">임무는 매시간 랜덤으로 등장해요. 진행 중인 버스·철도 노선은 중복 배정되지 않으며, 전체 임무는 최대 30개예요.</p>
+    </div>
+  </details>
 </main>
 </div></div>
-<script src="myon-v013.js?v=0.13.08"></script>
+<script src="myon-v013.js?v=0.13.09"></script>
 </body>
 </html>
