@@ -1,4 +1,4 @@
-// MYON v0.13.06 — no zero-day label; remove bus/rail overall mission ETA.
+// MYON v0.13.07 — demand-route and single-dispatch charter buses, streamlined mission cards.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
@@ -21,6 +21,10 @@ const routeTypes=[
  {key:'city',name:'시내버스',icon:'🚌',mode:'bus',stops:40,min:600,max:1400,dwell:90,note:'정류장 40개'},
  {key:'express',name:'광역버스',icon:'🚌',mode:'bus',stops:10,min:450,max:1100,dwell:90,highway:true,note:'정류장 10개 · 고속도로 2시간'},
  {key:'nightExpress',name:'심야광역버스',icon:'🚌',mode:'bus',night:true,stops:10,min:450,max:1100,dwell:90,highway:true,note:'정류장 10개 · 심야운행'},
+ {key:'demandMorning',name:'수요대응 광역버스 출근용',icon:'🚌',mode:'bus',demand:'morning',stops:10,min:450,max:1100,dwell:90,highway:true,note:'상행 06:00~08:00 · 30분 배차'},
+ {key:'demandEvening',name:'수요대응 광역버스 퇴근용',icon:'🚌',mode:'bus',demand:'evening',stops:10,min:450,max:1100,dwell:90,highway:true,note:'상행 회송 후 하행 18:00~20:00 · 30분 배차'},
+ {key:'demandFull',name:'수요대응 광역버스 전구간용',icon:'🚌',mode:'bus',demand:'full',stops:10,min:450,max:1100,dwell:90,highway:true,note:'광역 왕복 · 30분 배차'},
+ {key:'demandCharter',name:'수요대응 전세버스',icon:'🚌',mode:'bus',demand:'charter',stops:10,min:450,max:1100,dwell:90,highway:true,note:'출퇴근 시간대 선택 · 1회 운행'},
  {key:'tram',name:'트램',icon:'🚊',mode:'rail',stops:20,min:350,max:850,dwell:90,note:'정류장 20개 · 임시 이동 기준'},
  {key:'subway',name:'지하철',icon:'🚇',mode:'rail',stops:100,leg:180,dwell:60,note:'100개 역 · 이동 3분 · 정차 1분'},
  {key:'nightSubway',name:'심야지하철',icon:'🚇',mode:'rail',night:true,stops:100,leg:180,dwell:60,note:'100개 역 · 심야운행'},
@@ -28,6 +32,15 @@ const routeTypes=[
  {key:'highspeed',name:'고속열차',icon:'🚄',mode:'rail',stops:5,leg:3600,dwell:60,note:'5개 역 · 이동 1시간 · 정차 1분'}
 ];
 const specs=new Map(routeTypes.map(r=>[r.key,r]));
+// The third demand-bus variant selects just one peak, deterministically
+// per mission, so reloading a save cannot change morning into evening.
+function demandShift(spec,seed){
+ return spec.demand==='full'||spec.demand==='charter'?
+  (range(seed,31,0,1)===0?'morning':'evening'):spec.demand;
+}
+function charterSlot(seed){
+ return range(seed,32,0,4); // One of five half-hour rush-hour departures.
+}
 const modes=['taxi','truck','bus','rail','air','ship','space','construction'];
 const unitNames={taxi:'택시',truck:'화물차',domestic:'국내선',international:'국제선',ship:'선박',space:'우주임무'};
 const unitIcons={taxi:'🚕',truck:'🚚',domestic:'✈️',international:'✈️',ship:'🚢',space:'🚀'};
@@ -50,6 +63,17 @@ function departuresBetween(route,from,to){
  const result=[],first=kstMidnight(from)-DAY,last=kstMidnight(to),cutoff=route.cutoff;
  for(let day=first;day<=last;day+=DAY){
   if(day!==route.serviceDay)continue;
+  if(spec.demand){
+   // Scheduled demand buses run five half-hour departures; charter
+   // demand dispatches ONE bus at a deterministic time within one peak.
+   const firstHour=demandShift(spec,route.seed)==='morning'?6:18;
+   const charter=spec.demand==='charter';
+   for(let i=charter?charterSlot(route.seed):0;i<=(charter?charterSlot(route.seed):4);i++){
+    const at=day+firstHour*HOUR+i*1800;
+    if(at>=from&&at<=to&&at>=route.acquired&&at<cutoff)result.push(at);
+   }
+   continue;
+  }
   if(spec.night){
    for(let offset=18*HOUR;offset<=DAY+8*HOUR;offset+=intervalFor(spec,day,offset)){
     const at=day+offset;
@@ -184,7 +208,13 @@ function createRoute(at,old=null){
  // Start with today's first departure if it has not passed yet (KST).
  // Otherwise, schedule the following day's first departure.
  const today=kstMidnight(at);
- const firstDeparture=today+(spec.night?18:5)*HOUR;
+ // Evening duties begin with an empty positioning trip at 15:00 so
+ // every 18:00–20:00 downhill passenger departure can run on time.
+ const selectedShift=spec.demand?demandShift(spec,base.seed):null;
+ const departureHour=selectedShift==='morning'?6:selectedShift==='evening'?
+  (spec.demand==='evening'||spec.demand==='charter'?15:18):spec.night?18:5;
+ const firstDeparture=today+departureHour*HOUR+
+  (spec.demand==='charter'?charterSlot(base.seed)*1800:0);
  const serviceDay=at<=firstDeparture?today:today+DAY;
  return {...base,kind:'route',routeKey,serviceDay,cutoff:serviceDay+DAY+(spec.night?8*HOUR:0)};
 }
@@ -248,6 +278,74 @@ function itinerary(route,depart){
  const key=route.id+':'+depart;
  if(tripCache.has(key))return tripCache.get(key);
  const spec=specs.get(route.routeKey),stages=[];
+ if(spec.demand){
+  // Passenger timetable: 06:00..08:00 uphill or 18:00..20:00
+  // downhill. The full-route variant randomly selects one peak
+  // and serves all ten stops in BOTH directions.
+  // Each dispatched vehicle draws one 1h/2h highway duration and
+  // reuses it in the opposite direction or empty repositioning.
+  const highwayHours=range(mix((route.seed^depart)>>>0),17,1,2);
+  const highwaySeconds=highwayHours*HOUR;
+  const shift=demandShift(spec,route.seed);
+  const reposition=shift==='evening'&&spec.demand!=='full'?3*HOUR:0;
+  let offset=-reposition,stop=1,legIndex=0;
+  const push=(phase,from,to,length,service)=>{
+   offset+=length;
+   stages.push({end:offset,phase,from,to,service});
+   stop=to;
+  };
+  const passenger=(direction,service)=>{
+   for(let i=0;i<spec.stops-1;i++,legIndex++){
+    const next=stop+direction;
+    const highway=(stop===5&&next===6)||(stop===6&&next===5);
+    let length;
+    if(highway)length=highwaySeconds;
+    else{
+     const legSeed=mix((route.seed^depart^Math.imul(legIndex+1,0x9e3779b9))>>>0);
+     const meters=range(legSeed,0,spec.min,spec.max);
+     length=roadEnd(legSeed,depart+offset,meters)-(depart+offset);
+    }
+    push(highway?'highway':'travel',stop,next,length,service);
+    if(stop!==1){
+     offset+=spec.dwell;
+     stages.push({end:offset,phase:'stop',stop,service});
+    }
+   }
+  };
+  const emptyPosition=()=>{
+   // Empty bus: departure area 5 stops collapsed into a 30-minute
+   // uninterrupted relocation; highway; destination area 30 minutes.
+   push('travel',1,5,1800,'position');
+   push('highway',5,6,highwaySeconds,'position');
+   push('travel',6,10,1800,'position');
+  };
+  const emptyReturn=()=>{
+   // Morning bus: after passengers reach stop 10, drive back with
+   // no boarding/station dwell (30m + same highway + 30m).
+   push('travel',10,6,1800,'return');
+   push('highway',6,5,highwaySeconds,'return');
+   push('travel',5,1,1800,'return');
+  };
+  if(shift==='evening'&&spec.demand!=='full'){
+   emptyPosition();
+   if(offset>0)throw new Error('Demand bus misses its downhill start');
+   // With a 1-hour highway the bus waits 1 hour; with 2 hours it
+   // reaches the departure terminus just in time.
+   if(offset<0)stages.push({end:0,phase:'layover',stop:10,service:'position'});
+   offset=0;
+   passenger(-1,'down');
+  }else if(shift==='morning'&&spec.demand!=='full'){
+   passenger(1,'up');
+   emptyReturn();
+  }else{
+   passenger(1,'up');
+   passenger(-1,'down');
+  }
+  const result={total:offset,startOffset:-reposition,highwayHours,stages};
+  if(tripCache.size>6000)tripCache.clear();
+  tripCache.set(key,result);
+  return result;
+ }
  let offset=0,stop=1,dir=1;
  for(let i=0;i<2*(spec.stops-1);i++){
   const next=stop+dir;
@@ -272,11 +370,13 @@ function itinerary(route,depart){
  return result;
 }
 function activeTrips(route,now){
- const times=departuresBetween(route,Math.max(route.acquired,now-LOOKBACK),now),active=[];
+ const spec=specs.get(route.routeKey);
+ const lead=(spec.demand==='evening'||spec.demand==='charter'&&demandShift(spec,route.seed)==='evening')?3*HOUR:0;
+ const times=departuresBetween(route,Math.max(route.acquired,now-LOOKBACK),now+lead),active=[];
  for(const dep of times){
   const plan=itinerary(route,dep);
   const elapsed=now-dep;
-  if(elapsed>=plan.total)continue;
+  if(elapsed<(plan.startOffset||0)||elapsed>=plan.total)continue;
   let lo=0,hi=plan.stages.length-1;
   while(lo<hi){const mid=(lo+hi)>>1;if(plan.stages[mid].end>elapsed)hi=mid;else lo=mid+1;}
   const stage=plan.stages[lo];
@@ -290,7 +390,9 @@ function routeEnd(route){
  const key=route.id+':'+route.serviceDay+':'+route.seed;
  if(routeEndCache.has(key))return routeEndCache.get(key);
  const departures=departuresBetween(route,route.serviceDay,route.cutoff);
- let end=route.cutoff;
+ // Rush-hour demand contracts end immediately after their final bus
+ // returns; ordinary routes preserve their existing timetable cutoff.
+ let end=specs.get(route.routeKey).demand?route.serviceDay:route.cutoff;
  for(const dep of departures)end=Math.max(end,dep+itinerary(route,dep).total);
  if(routeEndCache.size>500)routeEndCache.clear();
  routeEndCache.set(key,end);
@@ -444,7 +546,8 @@ function makeConstructionCard(v){
 function makeRouteCard(v){
  const spec=specs.get(v.routeKey),card=element('article','slot route-slot');
  const head=element('div','slot-head'),name=element('div','slot-name');
- name.append(element('span','slot-icon',spec.icon),element('strong','',spec.name));
+ const title=element('strong','',spec.name);
+ name.append(element('span','slot-icon',spec.icon),title);
  const status=element('span','slot-state');head.append(name,status);
  const info=element('div','route-info'),note=element('span','',spec.note),interval=element('span','');
  info.append(note,interval);
@@ -452,7 +555,7 @@ function makeRouteCard(v){
  tableHead.append(element('span','','출발시간'),element('span','','위치'));
  const rows=element('div','route-vehicles');
  card.append(head,info,tableHead,rows);
- return {card,status,interval,note,rows};
+ return {card,title,status,interval,note,rows};
 }
 
 function reorder(){
@@ -488,6 +591,13 @@ function unitPresentation(v,now){
 }
 function routePosition(spec,trip){
  const s=trip.stage,term=spec.mode==='rail'&&!['tram'].includes(spec.key)?'역':'정류장';
+ if(spec.demand){
+  if(s.phase==='layover')return '하행 운행 대기 '+countdown(trip.remaining);
+  const direction=s.service==='position'?'상행 회송':s.service==='up'?'상행 운행':s.service==='return'?'하행 회송 복귀':'하행 운행';
+  if(s.phase==='stop')return term+' '+s.stop+' '+direction+' 정차';
+  if(s.phase==='highway')return direction+' · 고속도로 '+countdown(trip.remaining);
+  return term+' '+s.from+' → '+s.to+' '+direction;
+ }
  if(s.phase==='stop')return term+' '+s.stop+' 정차 중';
  if(s.phase==='highway')return '고속도로 이동 '+countdown(trip.remaining);
  return term+' '+s.from+' → '+s.to+' 이동 중';
@@ -498,11 +608,33 @@ function nextDeparture(route,now){
 }
 function drawRoute(v,slot,now){
  const spec=specs.get(v.routeKey),trips=activeTrips(v,now);
+ if(spec.demand==='full'){
+  const peak=demandShift(spec,v.seed)==='morning'?'출근 06:00~08:00':'퇴근 18:00~20:00';
+  slot.note.textContent='광역 전구간 왕복 · '+peak+' · 30분 배차';
+ }else if(spec.demand==='charter'){
+  const shift=demandShift(spec,v.seed),morning=shift==='morning';
+  slot.title.textContent='수요대응 전세버스 '+(morning?'출근용':'퇴근용');
+  slot.note.textContent=(morning?'상행':'하행')+' 승객 운송 · 단 1회';
+ }
  const isClosing=now>=v.cutoff;
- slot.status.textContent=trips.length?'운행 중 '+trips.length+'대':isClosing?'운행 종료':'출발 대기';
+ if(spec.demand==='charter'){
+  const stage=trips[0]&&trips[0].stage;
+  slot.status.textContent=!stage?(isClosing?'운행 종료':'출발 대기'):
+   stage.phase==='layover'?'운행 대기':
+   stage.service==='position'?'회송 중':
+   stage.service==='return'?'복귀 중':'운행 중';
+ }else{
+  slot.status.textContent=trips.length?'운행 중 '+trips.length+'대':isClosing?'운행 종료':'출발 대기';
+ }
  slot.status.classList.toggle('waiting',!trips.length);
- const today=kstMidnight(now),int=intervalFor(spec,today,(now-today)%DAY);
- slot.interval.textContent='배차 '+(int===HOUR?'1시간':int/60+'분');
+ const today=kstMidnight(now),int=spec.demand?1800:intervalFor(spec,today,(now-today)%DAY);
+ if(spec.demand==='charter'){
+  const shift=demandShift(spec,v.seed);
+  const departure=v.serviceDay+(shift==='morning'?6:18)*HOUR+charterSlot(v.seed)*1800;
+  slot.interval.textContent='출발 '+timeFmt.format(new Date(departure*1000));
+ }else{
+  slot.interval.textContent='배차 '+(int===HOUR?'1시간':int/60+'분');
+ }
  const store=routeRows.get(v.id)||new Map();
  routeRows.set(v.id,store);
  const identities=trips.map(t=>String(t.dep));
@@ -514,8 +646,19 @@ function drawRoute(v,slot,now){
    const node=element('div','route-row route-vehicle'),a=element('span','route-depart'),b=element('span','route-position');
    node.append(a,b);row={node,a,b};store.set('standby',row);
   }
-  row.a.textContent=next?timeFmt.format(new Date(next*1000)):'--:--';
-  row.b.textContent=next?(new Date((next+KST)*1000).getUTCHours()===5?'첫차 출발대기 ':'출발대기 ')+countdown(next-now):'운행 종료';
+  const positioning=(spec.demand==='evening'||spec.demand==='charter'&&demandShift(spec,v.seed)==='evening')&&next&&now<next-3*HOUR;
+  const nextMove=positioning?next-3*HOUR:next;
+  // For charter work, the left column always displays its ONE booked
+  // passenger departure, not the earlier empty repositioning time.
+  row.a.textContent=next?timeFmt.format(new Date((spec.demand==='charter'?next:nextMove)*1000)):'--:--';
+  if(spec.demand==='charter'&&next){
+   row.b.textContent=positioning?
+    '회송 시작 '+timeFmt.format(new Date(nextMove*1000))+' · '+countdown(nextMove-now):
+    '출발 대기 '+countdown(next-now);
+  }else{
+   row.b.textContent=next?(positioning?'상행 회송 대기 ':
+    ((new Date((next+KST)*1000).getUTCHours()===5||spec.demand)?'첫차 출발대기 ':'출발대기 '))+countdown(nextMove-now):'운행 종료';
+  }
  }
  for(const trip of trips){
   const id=String(trip.dep);
@@ -554,8 +697,8 @@ function draw(now){
    slot.name.textContent=spec.name+(spec.key==='newRail'?' · '+(v.trackCount===2?'복선':'단선'):'');
    slot.status.textContent=working?'작업중':'이동중';
    slot.status.classList.toggle('waiting',!working);
-   slot.left.textContent='남은 '+km(remainingMeters);
-   slot.right.textContent='남은 '+countdown(v.end-now);
+   slot.left.textContent=km(remainingMeters);
+   slot.right.textContent=countdown(v.end-now);
    const p=Math.max(0,Math.min(1,(now-v.start)/(v.end-v.start)));
    slot.bar.style.width=(100*p).toFixed(2)+'%';
    continue;
@@ -563,7 +706,7 @@ function draw(now){
   const info=unitPresentation(v,now);
   slot.status.textContent=info.status;
   slot.left.textContent=info.value;
-  slot.right.textContent='남은 '+countdown(v.end-now);
+  slot.right.textContent=countdown(v.end-now);
   slot.bar.style.width=(100*info.progress).toFixed(2)+'%';
  }
  ui.supply.textContent=state.units.length>=MAX?state.units.length+'개 · 공급 대기':
