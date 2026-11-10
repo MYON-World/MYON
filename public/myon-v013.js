@@ -1,4 +1,4 @@
-// MYON v0.13.09 — expandable source-driven catalog of randomly available missions.
+// MYON v0.13.10 — main-only official game, unchanged simulation and save data.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';

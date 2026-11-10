@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.09</title>
+<title>MYON v0.13.10</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -79,29 +79,13 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 @media(max-width:380px){.mission-catalog-items{grid-template-columns:minmax(0,1fr)}}
 
 .env-brand{display:flex;align-items:center;gap:7px;min-width:0}
-.env-settings{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #3a5459;background:#1b3239;border-radius:8px;color:#b8dcd2;padding:0}
-.env-settings:hover{background:#29484f}
+.env-settings{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #3a5459;background:#1b3239;border-radius:8px;color:#b8dcd2;padding:0;pointer-events:none}
 .env-settings svg{height:17px;width:17px}
-.env-indicator{font-size:9px;font-weight:800;color:#c2ebd0;border:1px solid #3a6156;border-radius:4px;padding:4px 5px}
-.env-indicator[hidden]{display:none}
-.env-dialog{width:min(380px,calc(100vw - 28px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #43605c;background:#14242a;color:#edf5f0;border-radius:14px;padding:18px;box-shadow:0 16px 55px #000a}
-.env-dialog::backdrop{background:#000b}
-.env-dialog-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.env-dialog-title{font-size:16px;font-weight:800}
-.env-dialog-close{width:30px;height:30px;border-radius:7px;border:1px solid #385254;color:#c6dfd6;background:#1b3239}
-.env-dialog-info{margin:10px 0 15px;font-size:11px;line-height:1.6;color:#9bb9af}
-.env-options{display:flex;flex-direction:column;gap:8px}
-.env-link{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:#edf5f0;border:1px solid #30484a;background:#19292e;border-radius:9px;padding:12px}
-.env-link:hover,.env-link:focus-visible{border-color:#80bcaa;outline-offset:2px}
-.env-link[aria-current="page"]{border-color:#68bc9b;background:#1b3935}
-.env-link strong{font-size:13px}
-.env-link small{font-size:11px;color:#9bb9af;line-height:1.5}
-.env-link[aria-current="page"] strong::after{content:" · 현재 환경";font-size:10px;font-weight:500;color:#9ae7c6}
 </style>
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="environment-settings" class="env-settings" aria-label="MYON 실행 환경 선택" aria-haspopup="dialog" aria-controls="environment-dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="environment-indicator" class="env-indicator" hidden></span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div></header>
+<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><span class="env-settings" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div></header>
 <main class="content">
   <div id="slot-list" class="slot-list"></div>
   <div class="supply"><span class="supply-label">다음 임무 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
@@ -115,38 +99,6 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </main>
 </div></div>
 
-<dialog id="environment-dialog" class="env-dialog" aria-labelledby="environment-dialog-title">
-  <div class="env-dialog-head"><strong id="environment-dialog-title" class="env-dialog-title">MYON 실행 환경</strong><button type="button" id="environment-close" class="env-dialog-close" aria-label="환경 선택 닫기">×</button></div>
-  <p class="env-dialog-info">기본 주소는 언제나 정식 게임이에요. 다른 환경은 정식 저장 기록을 읽거나 수정하지 않아요.</p>
-  <nav class="env-options" aria-label="게임 환경">
-    <a data-environment="main" class="env-link" target="_top"><strong>정식 게임</strong><small>실제 시간 · 플레이 기록 자동 저장</small></a>
-    <a data-environment="test" class="env-link" target="_top"><strong>테스트 게임</strong><small>동일한 게임 화면 · 저장 없음 · 시간 가속 기능 준비</small></a>
-    <a data-environment="develop" class="env-link" target="_top"><strong>개발통합 게임</strong><small>실험 기능을 통합할 페이지 · 저장 없음</small></a>
-  </nav>
-</dialog>
-<script src="myon-v013.js?v=0.13.09"></script>
-<script>
-(() => {
-  const path=location.pathname;
-  const environment=/\/dev\/integrated\/myon\.html$/.test(path)?'develop':/\/test\/myon\.html$/.test(path)?'test':'main';
-  const root=path.replace(/(?:dev\/integrated\/|test\/)?myon\.html$/,'');
-  const routes={main:root,test:root+'test/',develop:root+'dev/integrated/'};
-  const dialog=document.getElementById('environment-dialog');
-  document.getElementById('environment-settings').addEventListener('click',()=>dialog.showModal());
-  document.getElementById('environment-close').addEventListener('click',()=>dialog.close());
-  dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
-  for(const a of dialog.querySelectorAll('[data-environment]')){
-    const key=a.dataset.environment;
-    a.href=routes[key];
-    if(key===environment)a.setAttribute('aria-current','page');
-  }
-  if(environment!=='main'){
-    const indicator=document.getElementById('environment-indicator');
-    indicator.textContent=environment==='test'?'TEST':'DEV';
-    indicator.hidden=false;
-    document.title+=environment==='test'?' · TEST':' · DEV';
-  }
-})();
-</script>
+<script src="myon-v013.js?v=0.13.10"></script>
 </body>
 </html>
