@@ -1,8 +1,9 @@
-// MYON v0.13.12 — speed icon preview only; simulation and save logic unchanged.
+// MYON v0.13.13 — stage-one assistant analysis with separate observer save.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
+const ASSISTANT_KEY='v01313-assistant'; // Isolated observer record; world schema and KEY stay unchanged.
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
@@ -144,7 +145,7 @@ const constructionTiers=[
  {weight:90,min:1001,max:5000},  // 100.1–500km 0.9%
  {weight:10,min:5001,max:10000}  // 500.1–1000km 0.1%
 ];
-let state=null,dbPromise=null,ready=false,lastSave=0,saveChain=Promise.resolve(),dirty=false;
+let state=null,assistant=null,dbPromise=null,ready=false,lastSave=0,saveChain=Promise.resolve(),dirty=false;
 const cards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
 function pick(arr){return arr[nextRandom()%arr.length];}
@@ -531,6 +532,44 @@ function save(now){
  }).catch(e=>{console.error('MYON save:',e);dirty=true;});
 }
 
+
+function newAssistant(now){
+ return {schema:1,startedAt:now,baselineNextId:state.nextId,baselineActive:state.units.length};
+}
+function validAssistant(value){
+ return value&&value.schema===1&&Number.isSafeInteger(value.startedAt)&&value.startedAt>0&&
+  Number.isSafeInteger(value.baselineNextId)&&value.baselineNextId>0&&
+  Number.isSafeInteger(value.baselineActive)&&value.baselineActive>=0&&
+  value.startedAt<=Math.floor(Date.now()/1000)+60&&
+  state.nextId>=value.baselineNextId&&
+  state.units.length<=value.baselineActive+(state.nextId-value.baselineNextId);
+}
+async function startAssistant(now){
+ // Load the current official world FIRST and replay its missed hours.
+ // A fresh assistant begins tracking from that moment, not from old history.
+ if(!IS_LIVE){assistant=newAssistant(now);return;}
+ let restored=null;
+ try{restored=await read(ASSISTANT_KEY);}catch(e){console.error('MYON assistant read:',e);}
+ if(validAssistant(restored)){assistant=restored;return;}
+ assistant=newAssistant(now);
+ try{
+  const db=await openDb();
+  await new Promise((resolve,reject)=>{
+   const tx=db.transaction(STORE,'readwrite');
+   tx.objectStore(STORE).put(assistant,ASSISTANT_KEY);
+   tx.oncomplete=resolve;
+   tx.onerror=()=>reject(tx.error||new Error('MYON assistant write failed'));
+  });
+ }catch(e){console.error('MYON assistant save:',e);}
+}
+function assistantCompleted(){
+ if(!assistant)return 0;
+ // Every mission creation increments nextId exactly once; replaying missed
+ // hours also updates it. No world save field or simulation branch is changed.
+ const monitored=assistant.baselineActive+state.nextId-assistant.baselineNextId;
+ return Math.max(0,monitored-state.units.length);
+}
+
 function element(tag,cls,value){
  const el=document.createElement(tag);
  if(cls)el.className=cls;
@@ -620,8 +659,76 @@ function makeRouteCard(v){
  return {card,title,status,interval,note,rows};
 }
 
-function reorder(){
- const list=state.units.slice().sort((a,b)=>taskEnd(a)-taskEnd(b)||a.id-b.id);
+
+function assistantMissionName(v){
+ if(v.kind==='route')return specs.get(v.routeKey)?.name||'노선 임무';
+ if(v.kind==='construction'){
+  const spec=constructionSpecs.find(s=>s.key===v.constructionKey);
+  return (spec?.name||'건설 임무')+(v.constructionKey==='newRail'?' · '+(v.trackCount===2?'복선':'단선'):'');
+ }
+ return unitNames[v.kind]||'기타 임무';
+}
+function makeAssistantCard(){
+ const card=element('article','slot assistant-card');
+ const head=element('div','slot-head'),name=element('div','slot-name');
+ name.append(element('strong','','관전임무 분석중'));
+ const status=element('span','slot-state');head.append(name,status);
+ const time=element('div','slot-details'),left=element('span','slot-metric assistant-timer-label');
+ const right=element('span','slot-metric slot-operations assistant-timer');
+ time.append(left,right);
+ const counts=element('div','assistant-counts');
+ const activeBox=element('div','assistant-stat'),completedBox=element('div','assistant-stat');
+ const active=element('strong','assistant-stat-number'),completed=element('strong','assistant-stat-number');
+ activeBox.append(element('span','assistant-stat-label','진행 중인 임무'),active);
+ completedBox.append(element('span','assistant-stat-label','분석 후 완료 임무'),completed);
+ counts.append(activeBox,completedBox);
+ const detail=element('details','assistant-detail'),summary=element('summary','assistant-summary');
+ summary.append(element('span','','진행 중인 임무 상세'),element('span','assistant-arrow','⌄'));
+ const detailList=element('div','assistant-detail-list');detail.append(summary,detailList);
+ const bar=element('div','slot-progress');
+ card.append(head,time,counts,detail,bar);
+ return {card,name:name.querySelector('strong'),status,left,right,active,completed,detail,detailList,detailRows:new Map(),detailsKey:null,bar};
+}
+function drawAssistant(now){
+ if(!assistant)return;
+ const slot=cards.get('assistant');if(!slot)return;
+ const readyAt=assistant.startedAt+DAY,pinned=now>=readyAt;
+ slot.name.textContent=pinned?'관전임무 분석':'관전임무 분석중';
+ slot.status.textContent=pinned?'상시 분석':'분석중';
+ slot.left.textContent=pinned?'임무 분석 지속중':'상단 고정까지';
+ slot.right.textContent=pinned?'상단 고정':hms(Math.ceil(Math.max(0,readyAt-now)));
+ slot.active.textContent=state.units.length+'건';
+ slot.completed.textContent=assistantCompleted()+'건';
+ slot.bar.hidden=pinned;
+ slot.bar.style.width=pinned?'100%':(100*Math.max(0,Math.min(1,(now-assistant.startedAt)/DAY))).toFixed(4)+'%';
+ const units=state.units.slice().sort((a,b)=>taskEnd(a)-taskEnd(b)||a.id-b.id);
+ const key=units.map(v=>v.id).join(',');
+ if(slot.detailsKey!==key){
+  const nodes=document.createDocumentFragment(),rows=new Map();
+  for(const v of units){
+   const row=element('div','assistant-detail-row');
+   const name=element('span','assistant-detail-name',assistantMissionName(v)+' #'+v.id);
+   const eta=element('span','assistant-detail-eta');
+   row.append(name,eta);nodes.appendChild(row);rows.set(v.id,eta);
+  }
+  if(!units.length)nodes.appendChild(element('div','assistant-empty','진행 중인 임무가 없습니다.'));
+  slot.detailList.replaceChildren(nodes);slot.detailRows=rows;slot.detailsKey=key;
+ }
+ if(slot.detail.open)for(const v of units)slot.detailRows.get(v.id).textContent=countdown(taskEnd(v)-now);
+}
+
+function reorder(now){
+ const readyAt=assistant?assistant.startedAt+DAY:Infinity,pinned=now>=readyAt;
+ const list=assistant?[...state.units,{id:'assistant',kind:'assistant',end:readyAt}]:state.units.slice();
+ list.sort((a,b)=>{
+  if(pinned){
+   if(a.kind==='assistant')return -1;
+   if(b.kind==='assistant')return 1;
+  }
+  const aEnd=a.kind==='assistant'?a.end:taskEnd(a);
+  const bEnd=b.kind==='assistant'?b.end:taskEnd(b);
+  return aEnd-bEnd||(a.kind==='assistant'?-1:b.kind==='assistant'?1:a.id-b.id);
+ });
  const key=list.map(v=>v.id).join(',');
  if(reorder.key===key)return;
  const nodes=document.createDocumentFragment(),seen=new Set();
@@ -629,7 +736,7 @@ function reorder(){
   seen.add(v.id);
   let slot=cards.get(v.id);
   if(!slot){
-   slot=v.kind==='route'?makeRouteCard(v):v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
+   slot=v.kind==='assistant'?makeAssistantCard():v.kind==='route'?makeRouteCard(v):v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
    cards.set(v.id,slot);
   }
   nodes.appendChild(slot.card);
@@ -755,7 +862,8 @@ function draw(now){
  ui.date.textContent=dateFmt.format(date).replace(/-/g,'.')+' ('+weekdayFmt.format(date)+')';
  ui.clock.textContent=timeFmt.format(date);
  if(!ready)return;
- reorder();
+ reorder(now);
+ drawAssistant(now);
  for(const v of state.units){
   const slot=cards.get(v.id);if(!slot)continue;
   if(v.kind==='route'){drawRoute(v,slot,now);continue;}
@@ -793,7 +901,7 @@ window.addEventListener('pagehide',()=>{if(ready&&dirty)save(Math.floor(Date.now
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(!IS_LIVE){state=initial(now);ready=true;tick();setInterval(tick,1000);return;}
+ if(!IS_LIVE){state=initial(now);await startAssistant(now);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
@@ -809,7 +917,11 @@ window.addEventListener('pagehide',()=>{if(ready&&dirty)save(Math.floor(Date.now
    }
   }
  }else{state=migrate(oldVehicles,oldConstruction,now);dirty=true;}
+ // Apply elapsed offline mission events before starting a NEW analysis period.
+ // This prevents existing users from retroactively counting old completions.
  ready=true;
+ advance(now);
+ await startAssistant(now);
  tick();
  if(dirty)save(now);
  setInterval(tick,1000);
