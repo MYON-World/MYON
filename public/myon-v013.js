@@ -1,4 +1,4 @@
-// MYON TEST 0.02 — real KST clock with smooth 24-tick/second mission progress.
+// MYON TEST 0.03 — asset-cache fix; real KST and smooth 24-tick/second missions.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
@@ -6,7 +6,7 @@ const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v0
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const IS_TEST=/(?:^|\/)test(?:\/|$)/.test(location.pathname);
-// TEST 0.02: keep the existing TEST 0.01 origin to preserve offline mission history.
+// TEST 0.03: preserve original TEST 0.01 epoch and offline mission history.
 const TEST_TICKS_PER_SECOND=24,TEST_REAL_START_AT=1794291766;
 const ASSISTANT_START_AT=TEST_REAL_START_AT,ASSISTANT_SEED=0x4d594f4e,ASSISTANT_READY_AT=ASSISTANT_START_AT+86400;
 // Fractional game seconds ensure smooth progress between whole-second mission events.
