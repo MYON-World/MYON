@@ -1,4 +1,4 @@
-// MYON v0.13.13 — stage-one assistant analysis with separate observer save.
+// MYON v0.13.14 — assistant development tag and full-width summary; game engine unchanged.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
@@ -660,18 +660,10 @@ function makeRouteCard(v){
 }
 
 
-function assistantMissionName(v){
- if(v.kind==='route')return specs.get(v.routeKey)?.name||'노선 임무';
- if(v.kind==='construction'){
-  const spec=constructionSpecs.find(s=>s.key===v.constructionKey);
-  return (spec?.name||'건설 임무')+(v.constructionKey==='newRail'?' · '+(v.trackCount===2?'복선':'단선'):'');
- }
- return unitNames[v.kind]||'기타 임무';
-}
 function makeAssistantCard(){
  const card=element('article','slot assistant-card');
  const head=element('div','slot-head'),name=element('div','slot-name');
- name.append(element('strong','','관전임무 분석중'));
+ name.append(element('strong','','관전임무 분석중'),element('span','assistant-dev-tag','개발중'));
  const status=element('span','slot-state');head.append(name,status);
  const time=element('div','slot-details'),left=element('span','slot-metric assistant-timer-label');
  const right=element('span','slot-metric slot-operations assistant-timer');
@@ -682,12 +674,9 @@ function makeAssistantCard(){
  activeBox.append(element('span','assistant-stat-label','진행 중인 임무'),active);
  completedBox.append(element('span','assistant-stat-label','분석 후 완료 임무'),completed);
  counts.append(activeBox,completedBox);
- const detail=element('details','assistant-detail'),summary=element('summary','assistant-summary');
- summary.append(element('span','','진행 중인 임무 상세'),element('span','assistant-arrow','⌄'));
- const detailList=element('div','assistant-detail-list');detail.append(summary,detailList);
  const bar=element('div','slot-progress');
- card.append(head,time,counts,detail,bar);
- return {card,name:name.querySelector('strong'),status,left,right,active,completed,detail,detailList,detailRows:new Map(),detailsKey:null,bar};
+ card.append(head,time,counts,bar);
+ return {card,name:name.querySelector('strong'),status,left,right,active,completed,bar};
 }
 function drawAssistant(now){
  if(!assistant)return;
@@ -701,20 +690,7 @@ function drawAssistant(now){
  slot.completed.textContent=assistantCompleted()+'건';
  slot.bar.hidden=pinned;
  slot.bar.style.width=pinned?'100%':(100*Math.max(0,Math.min(1,(now-assistant.startedAt)/DAY))).toFixed(4)+'%';
- const units=state.units.slice().sort((a,b)=>taskEnd(a)-taskEnd(b)||a.id-b.id);
- const key=units.map(v=>v.id).join(',');
- if(slot.detailsKey!==key){
-  const nodes=document.createDocumentFragment(),rows=new Map();
-  for(const v of units){
-   const row=element('div','assistant-detail-row');
-   const name=element('span','assistant-detail-name',assistantMissionName(v)+' #'+v.id);
-   const eta=element('span','assistant-detail-eta');
-   row.append(name,eta);nodes.appendChild(row);rows.set(v.id,eta);
-  }
-  if(!units.length)nodes.appendChild(element('div','assistant-empty','진행 중인 임무가 없습니다.'));
-  slot.detailList.replaceChildren(nodes);slot.detailRows=rows;slot.detailsKey=key;
- }
- if(slot.detail.open)for(const v of units)slot.detailRows.get(v.id).textContent=countdown(taskEnd(v)-now);
+
 }
 
 function reorder(now){
