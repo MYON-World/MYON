@@ -1,4 +1,4 @@
-// MYON v0.13.10 — main-only official game, unchanged simulation and save data.
+// MYON v0.13.11 — time speed button placeholder; simulation and save logic unchanged.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
