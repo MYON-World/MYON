@@ -1,4 +1,4 @@
-// MYON v0.13.11 — time speed button placeholder; simulation and save logic unchanged.
+// MYON v0.13.12 — speed icon preview only; simulation and save logic unchanged.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
