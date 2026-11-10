@@ -1,4 +1,4 @@
-// MYON TEST 0.01 — spectator missions + assistant; 24 game-second ticks per real second.
+// MYON TEST 0.02 — real KST clock with smooth 24-tick/second mission progress.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
@@ -6,10 +6,11 @@ const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v0
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const IS_TEST=/(?:^|\/)test(?:\/|$)/.test(location.pathname);
-// TEST 0.01: one tick is a game second; replay from test promotion epoch, no player saves.
+// TEST 0.02: keep the existing TEST 0.01 origin to preserve offline mission history.
 const TEST_TICKS_PER_SECOND=24,TEST_REAL_START_AT=1794291766;
 const ASSISTANT_START_AT=TEST_REAL_START_AT,ASSISTANT_SEED=0x4d594f4e,ASSISTANT_READY_AT=ASSISTANT_START_AT+86400;
-const gameNow=()=>IS_TEST?Math.floor(ASSISTANT_START_AT+Math.max(0,Date.now()/1000-TEST_REAL_START_AT)*TEST_TICKS_PER_SECOND):Math.floor(Date.now()/1000);
+// Fractional game seconds ensure smooth progress between whole-second mission events.
+const gameNow=()=>IS_TEST?ASSISTANT_START_AT+Math.max(0,Date.now()/1000-TEST_REAL_START_AT)*TEST_TICKS_PER_SECOND:Math.floor(Date.now()/1000);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply')};
@@ -18,7 +19,8 @@ const weekdayFmt=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:
 const timeFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
 const pad=n=>String(Math.max(0,Math.floor(n))).padStart(2,'0');
 const hms=n=>pad(n/3600)+':'+pad((n%3600)/60)+':'+pad(n%60);
-const countdown=n=>{n=Math.max(0,Math.ceil(n));return n>=DAY?Math.floor(n/DAY)+'일 '+pad((n%DAY)/HOUR)+':'+pad((n%HOUR)/60):n>2*HOUR?pad(n/HOUR)+':'+pad((n%HOUR)/60):hms(n);};
+// Display seconds for all mission lengths, including multi-day tasks.
+const countdown=n=>{n=Math.max(0,Math.ceil(n));return n>=DAY?Math.floor(n/DAY)+'일 '+hms(n%DAY):hms(n);};
 const km=n=>(Math.max(0,n)/1000).toLocaleString('ko-KR',{maximumFractionDigits:2,minimumFractionDigits:2})+'km';
 const seedNow=()=>((Math.random()*4294967296)>>>0)||1;
 function mix(n){n=(n^(n>>>16))>>>0;n=Math.imul(n,0x7feb352d)>>>0;n=(n^(n>>>15))>>>0;n=Math.imul(n,0x846ca68b)>>>0;return (n^(n>>>16))>>>0;}
@@ -662,11 +664,11 @@ function drawAssistant(now){
  const pinned=now>=ASSISTANT_READY_AT;
  slot.status.textContent=pinned?'상시 분석':'분석중';
  slot.left.textContent=pinned?'임무 분석 지속중':'상단 고정까지';
- slot.right.textContent=pinned?'상단 고정':hms(Math.max(0,ASSISTANT_READY_AT-now));
+ slot.right.textContent=pinned?'상단 고정':hms(Math.ceil(Math.max(0,ASSISTANT_READY_AT-now)));
  slot.active.textContent=state.units.length+'건';
  slot.completed.textContent=state.assistant.completed+'건';
  slot.bar.hidden=pinned;
- if(!pinned)slot.bar.style.width=(100*Math.max(0,Math.min(1,(now-ASSISTANT_START_AT)/DAY))).toFixed(2)+'%';
+ slot.bar.style.width=pinned?'100%':(100*Math.max(0,Math.min(1,(now-ASSISTANT_START_AT)/DAY))).toFixed(4)+'%';
  const units=state.units.slice().sort((a,b)=>taskEnd(a)-taskEnd(b)||a.id-b.id);
  const key=units.map(v=>v.id).join(',');
  if(slot.detailsKey!==key){
@@ -825,7 +827,8 @@ function drawRoute(v,slot,now){
  for(const id of store.keys())if(!keep.has(id))store.delete(id);
 }
 function draw(now){
- const date=new Date(now*1000);
+ // Standard Korean clock must not use accelerated mission time.
+ const date=new Date(Date.now());
  ui.date.textContent=dateFmt.format(date).replace(/-/g,'.')+' ('+weekdayFmt.format(date)+')';
  ui.clock.textContent=timeFmt.format(date);
  if(!ready)return;
@@ -845,14 +848,14 @@ function draw(now){
    slot.left.textContent=km(remainingMeters);
    slot.right.textContent=countdown(v.end-now);
    const p=Math.max(0,Math.min(1,(now-v.start)/(v.end-v.start)));
-   slot.bar.style.width=(100*p).toFixed(2)+'%';
+   slot.bar.style.width=(100*p).toFixed(4)+'%';
    continue;
   }
   const info=unitPresentation(v,now);
   slot.status.textContent=info.status;
   slot.left.textContent=info.value;
   slot.right.textContent=countdown(v.end-now);
-  slot.bar.style.width=(100*info.progress).toFixed(2)+'%';
+  slot.bar.style.width=(100*info.progress).toFixed(4)+'%';
  }
  if(IS_TEST)drawAssistant(now);
  ui.supply.textContent=state.units.length>=MAX?state.units.length+'개 · 공급 대기':
@@ -871,7 +874,7 @@ window.addEventListener('pagehide',()=>{if(ready&&dirty)save(gameNow());});
  if(!IS_LIVE){
    if(IS_TEST){state=initial(ASSISTANT_START_AT,ASSISTANT_SEED);state.assistant={observed:1,completed:0};}
    else state=initial(now);
-   ready=true;tick();setInterval(tick,1000);return;
+   ready=true;tick();setInterval(tick,IS_TEST?50:1000);return;
   }
  try{
   saved=await read(KEY);
