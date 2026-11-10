@@ -5,6 +5,8 @@
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
+const IS_DEV=/(?:^|\/)dev\/integrated(?:\/|$)/.test(location.pathname);
+const ASSISTANT_START_AT=1794290834,ASSISTANT_SEED=0x4d594f4e,ASSISTANT_READY_AT=ASSISTANT_START_AT+86400;
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply')};
@@ -433,7 +435,7 @@ function supply(at){
   job=createRoute(at,{routeKey:pick(candidates).key});
  }else if(mode==='construction')job=createConstruction(at);
  else job=createUnit(mode==='air'?pick(['domestic','international']):mode,at);
- state.units.push(job);dirty=true;return true;
+ state.units.push(job);if(state.assistant)state.assistant.observed++;dirty=true;return true;
 }
 function earliestFinish(){
  let result=Infinity;
@@ -450,7 +452,7 @@ function advance(now){
   if(at>now||!Number.isFinite(at))break;
   const prevLength=state.units.length;
   if(finished<=at)state.units=state.units.filter(v=>taskEnd(v)>at);
-  if(state.units.length!==prevLength)dirty=true;
+  if(state.units.length!==prevLength){if(state.assistant)state.assistant.completed+=prevLength-state.units.length;dirty=true;}
   if(due===at){
    if(state.pending){
     if(state.units.length<MAX&&supply(at))state.pending=false;
@@ -469,8 +471,8 @@ function validWorld(s){
  v.kind==='construction'?constructionSpecs.some(e=>e.key===v.constructionKey)&&v.dailyMeters>0:
  Array.isArray(v.stages)&&v.stages.length>0));
 }
-function initial(now){
- state={schema:2,nextId:1,nextSupplyAt:now+HOUR,pending:false,rng:seedNow(),units:[]};
+function initial(now,seed=seedNow()){
+ state={schema:2,nextId:1,nextSupplyAt:now+HOUR,pending:false,rng:seed,units:[]};
  state.units.push(createUnit('taxi',now));return state;
 }
 function migrate(oldVehicles,oldConstruction,now){
@@ -620,8 +622,77 @@ function makeRouteCard(v){
  return {card,title,status,interval,note,rows};
 }
 
-function reorder(){
- const list=state.units.slice().sort((a,b)=>taskEnd(a)-taskEnd(b)||a.id-b.id);
+
+function assistantMissionName(v){
+ if(v.kind==='route')return specs.get(v.routeKey)?.name||'노선 임무';
+ if(v.kind==='construction'){
+  const spec=constructionSpecs.find(s=>s.key===v.constructionKey);
+  return (spec?.name||'건설 임무')+(v.constructionKey==='newRail'?' · '+(v.trackCount===2?'복선':'단선'):'');
+ }
+ return unitNames[v.kind]||'기타 임무';
+}
+function makeAssistantCard(){
+ const card=element('article','slot assistant-card');
+ const head=element('div','slot-head'),name=element('div','slot-name');
+ name.append(element('strong','','관전임무 분석중'));
+ const status=element('span','slot-state');head.append(name,status);
+ const time=element('div','slot-details');
+ const left=element('span','slot-metric assistant-timer-label');
+ const right=element('span','slot-metric slot-operations assistant-timer');
+ time.append(left,right);
+ const counts=element('div','assistant-counts');
+ const activeBox=element('div','assistant-stat'),completedBox=element('div','assistant-stat');
+ const active=element('strong','assistant-stat-number'),completed=element('strong','assistant-stat-number');
+ activeBox.append(element('span','assistant-stat-label','진행 중인 임무'),active);
+ completedBox.append(element('span','assistant-stat-label','누적 완료 임무'),completed);
+ counts.append(activeBox,completedBox);
+ const detail=element('details','assistant-detail');
+ const summary=element('summary','assistant-summary');
+ summary.append(element('span','','진행 중인 임무 상세'),element('span','assistant-arrow','⌄'));
+ const detailList=element('div','assistant-detail-list');detail.append(summary,detailList);
+ const bar=element('div','slot-progress');
+ card.append(head,time,counts,detail,bar);
+ return {card,status,left,right,active,completed,detail,detailList,detailRows:new Map(),detailsKey:null,bar};
+}
+function drawAssistant(now){
+ const slot=cards.get('assistant');if(!slot)return;
+ const pinned=now>=ASSISTANT_READY_AT;
+ slot.status.textContent=pinned?'상시 분석':'분석중';
+ slot.left.textContent=pinned?'임무 분석 지속중':'상단 고정까지';
+ slot.right.textContent=pinned?'상단 고정':hms(Math.max(0,ASSISTANT_READY_AT-now));
+ slot.active.textContent=state.units.length+'건';
+ slot.completed.textContent=state.assistant.completed+'건';
+ slot.bar.hidden=pinned;
+ if(!pinned)slot.bar.style.width=(100*Math.max(0,Math.min(1,(now-ASSISTANT_START_AT)/DAY))).toFixed(2)+'%';
+ const units=state.units.slice().sort((a,b)=>taskEnd(a)-taskEnd(b)||a.id-b.id);
+ const key=units.map(v=>v.id).join(',');
+ if(slot.detailsKey!==key){
+  const nodes=document.createDocumentFragment(),rows=new Map();
+  for(const v of units){
+   const row=element('div','assistant-detail-row');
+   const name=element('span','assistant-detail-name',assistantMissionName(v)+' #'+v.id);
+   const eta=element('span','assistant-detail-eta');
+   row.append(name,eta);nodes.appendChild(row);rows.set(v.id,eta);
+  }
+  if(!units.length)nodes.appendChild(element('div','assistant-empty','진행 중인 임무가 없습니다.'));
+  slot.detailList.replaceChildren(nodes);slot.detailRows=rows;slot.detailsKey=key;
+ }
+ if(slot.detail.open)for(const v of units)slot.detailRows.get(v.id).textContent=countdown(taskEnd(v)-now);
+}
+
+function reorder(now){
+ const pinned=IS_DEV&&now>=ASSISTANT_READY_AT;
+ const assistant=IS_DEV?{id:'assistant',kind:'assistant',end:ASSISTANT_READY_AT}:null;
+ const list=assistant?[...state.units,assistant]:state.units.slice();
+ list.sort((a,b)=>{
+  if(pinned){
+   if(a.kind==='assistant')return -1;
+   if(b.kind==='assistant')return 1;
+  }
+  const aEnd=a.kind==='assistant'?a.end:taskEnd(a);
+  const bEnd=b.kind==='assistant'?b.end:taskEnd(b);
+  return aEnd-bEnd||(a.kind==='assistant'?-1:b.kind==='assistant'?1:a.id-b.id);
+ });
  const key=list.map(v=>v.id).join(',');
  if(reorder.key===key)return;
  const nodes=document.createDocumentFragment(),seen=new Set();
@@ -629,7 +700,7 @@ function reorder(){
   seen.add(v.id);
   let slot=cards.get(v.id);
   if(!slot){
-   slot=v.kind==='route'?makeRouteCard(v):v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
+   slot=v.kind==='assistant'?makeAssistantCard():v.kind==='route'?makeRouteCard(v):v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
    cards.set(v.id,slot);
   }
   nodes.appendChild(slot.card);
@@ -755,7 +826,7 @@ function draw(now){
  ui.date.textContent=dateFmt.format(date).replace(/-/g,'.')+' ('+weekdayFmt.format(date)+')';
  ui.clock.textContent=timeFmt.format(date);
  if(!ready)return;
- reorder();
+ reorder(now);
  for(const v of state.units){
   const slot=cards.get(v.id);if(!slot)continue;
   if(v.kind==='route'){drawRoute(v,slot,now);continue;}
@@ -780,6 +851,7 @@ function draw(now){
   slot.right.textContent=countdown(v.end-now);
   slot.bar.style.width=(100*info.progress).toFixed(2)+'%';
  }
+ if(IS_DEV)drawAssistant(now);
  ui.supply.textContent=state.units.length>=MAX?state.units.length+'개 · 공급 대기':
   state.pending?'대기 임무 배정 예정':countdown(state.nextSupplyAt-now);
 }
@@ -793,7 +865,11 @@ window.addEventListener('pagehide',()=>{if(ready&&dirty)save(Math.floor(Date.now
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(!IS_LIVE){state=initial(now);ready=true;tick();setInterval(tick,1000);return;}
+ if(!IS_LIVE){
+   if(IS_DEV){state=initial(ASSISTANT_START_AT,ASSISTANT_SEED);state.assistant={observed:1,completed:0};}
+   else state=initial(now);
+   ready=true;tick();setInterval(tick,1000);return;
+  }
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
