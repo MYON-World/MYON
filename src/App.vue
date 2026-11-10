@@ -5,11 +5,17 @@ const buildId = __MYON_BUILD_ID__
 const baseUrl = String(import.meta.env.BASE_URL)
 const frameUrl = baseUrl + 'myon.html?build=' + encodeURIComponent(buildId)
 const isDevelopment = /\/dev\/integrated\/?$/.test(baseUrl)
-const devVersion = 'DEV 0.0005'
+const devVersion = 'DEV 0.0006'
 
-const activePage = ref('menu')
-const integratedVisited = ref(false)
+const activePage = ref('integrated')
+const integratedVisited = ref(true)
 const history = [
+  {
+    version: 'DEV 0.0006',
+    date: '2026-11-10',
+    title: '개발 통합판을 기본 화면으로 복구',
+    description: '개발센터 접속 시 통합판 게임을 바로 보여주고, 상단 뒤로가기에서 개발 메뉴와 변경 기록으로 이동하도록 구성. 기존 임무 로직과 DEV 개발 이력은 유지',
+  },
   {
     version: 'DEV 0.0005',
     date: '2026-11-10',
@@ -45,13 +51,13 @@ const history = [
 function syncRoute() {
   if (!isDevelopment) return
   const hash = window.location.hash.slice(1)
-  activePage.value = hash === 'integrated' || hash === 'history' ? hash : 'menu'
+  activePage.value = hash === 'menu' || hash === 'history' ? hash : 'integrated'
   if (activePage.value === 'integrated') integratedVisited.value = true
 }
 
 function navigate(page) {
   if (page === 'integrated') integratedVisited.value = true
-  window.location.hash = page === 'menu' ? '' : page
+  window.location.hash = page === 'integrated' ? '' : page
   syncRoute()
 }
 
