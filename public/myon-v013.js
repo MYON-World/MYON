@@ -1,4 +1,4 @@
-// MYON TEST 0.03 — asset-cache fix; real KST and smooth 24-tick/second missions.
+// MYON TEST 0.04 — fresh no-save simulation on every reload; real KST and 24 ticks/sec.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
@@ -6,9 +6,10 @@ const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v0
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const IS_TEST=/(?:^|\/)test(?:\/|$)/.test(location.pathname);
-// TEST 0.03: preserve original TEST 0.01 epoch and offline mission history.
-const TEST_TICKS_PER_SECOND=24,TEST_REAL_START_AT=1794291766;
-const ASSISTANT_START_AT=TEST_REAL_START_AT,ASSISTANT_SEED=0x4d594f4e,ASSISTANT_READY_AT=ASSISTANT_START_AT+86400;
+// TEST 0.04: session-local simulation only, no saved or reconstructed mission history.
+// A refresh creates an independent world and starts the assistant's 24h timer anew.
+const TEST_TICKS_PER_SECOND=24,TEST_REAL_START_AT=Date.now()/1000;
+const ASSISTANT_START_AT=TEST_REAL_START_AT,ASSISTANT_READY_AT=ASSISTANT_START_AT+86400;
 // Fractional game seconds ensure smooth progress between whole-second mission events.
 const gameNow=()=>IS_TEST?ASSISTANT_START_AT+Math.max(0,Date.now()/1000-TEST_REAL_START_AT)*TEST_TICKS_PER_SECOND:Math.floor(Date.now()/1000);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
@@ -863,16 +864,16 @@ function draw(now){
 }
 function tick(){
  const now=gameNow();
- if(ready){advance(now);if(dirty&&now-lastSave>=20)save(now);}
+ if(ready){advance(now);if(IS_LIVE&&dirty&&now-lastSave>=20)save(now);}
  draw(now);
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
-window.addEventListener('pagehide',()=>{if(ready&&dirty)save(gameNow());});
+window.addEventListener('pagehide',()=>{if(IS_LIVE&&ready&&dirty)save(gameNow());});
 (async()=>{
  const now=gameNow();
  let saved=null,oldVehicles=null,oldConstruction=null;
  if(!IS_LIVE){
-   if(IS_TEST){state=initial(ASSISTANT_START_AT,ASSISTANT_SEED);state.assistant={observed:1,completed:0};}
+   if(IS_TEST){state=initial(now);state.assistant={observed:state.units.length,completed:0};}
    else state=initial(now);
    ready=true;tick();setInterval(tick,IS_TEST?50:1000);return;
   }
