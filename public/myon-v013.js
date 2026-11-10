@@ -5,9 +5,6 @@
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
-// A DEV-only query activates a single real mission as a memory-only preview.
-const PREVIEW_REQUEST=/(?:^|\/)dev(?:\/|$)/.test(location.pathname)?new URLSearchParams(location.search).get('preview'):null;
-const IS_PREVIEW=PREVIEW_REQUEST!==null;
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply')};
@@ -136,20 +133,6 @@ const constructionSpecs=[
  {key:'railRepair',name:'철도보수',dailyMeters:1500},
  {key:'roadRepair',name:'도로보수',dailyMeters:2000}
 ];
-const PREVIEW_SELECTION=(()=>{
- if(!PREVIEW_REQUEST||!/^(unit|route|construction)\/[a-zA-Z]+$/.test(PREVIEW_REQUEST))return null;
- const [type,key]=PREVIEW_REQUEST.split('/');
- if(type==='unit'&&Object.prototype.hasOwnProperty.call(unitNames,key))return {type,key};
- if(type==='route'&&specs.has(key))return {type,key};
- if(type==='construction'&&constructionSpecs.some(spec=>spec.key===key))return {type,key};
- return null;
-})();
-if(IS_PREVIEW){
- // A selected mission is the complete preview; do not show integrated-game
- // supply countdown or unrelated catalog. Remove both from the preview DOM.
- document.querySelector('.supply')?.remove();
- document.querySelector('.mission-catalog')?.remove();
-}
 // Official MYON game balance. Not manufacturer-certified equipment production.
 // Construction equipment uses an explicit MYON game assumption of 20km/h for transit;
 // outbound site travel is randomly 30 minutes to 8 hours. Return time follows distance.
@@ -303,12 +286,6 @@ function createConstruction(at,old=null){
  const start=old&&Number.isSafeInteger(old.startedAt)?old.startedAt:at;
  return scheduleConstruction({...base,kind:'construction',constructionKey:spec.key,targetMeters,dailyMeters,start,
   end:start+Math.ceil(targetMeters*DAY/dailyMeters)},Boolean(old&&Number.isSafeInteger(old.startedAt)));
-}
-function createPreviewMission(at){
- if(!PREVIEW_SELECTION)return null;
- if(PREVIEW_SELECTION.type==='route')return createRoute(at,{routeKey:PREVIEW_SELECTION.key});
- if(PREVIEW_SELECTION.type==='construction')return createConstruction(at,{kind:PREVIEW_SELECTION.key});
- return createUnit(PREVIEW_SELECTION.key,at);
 }
 function itinerary(route,depart){
  const key=route.id+':'+depart;
@@ -465,9 +442,6 @@ function earliestFinish(){
 }
 function advance(now){
  if(!ready)return;
- // An isolated preview is created only once; it never generates a follow-up
- // mission or consumes the integrated game's hourly supply schedule.
- if(IS_PREVIEW)return;
  // Chronological supply + retirement replay, including missed offline time.
  // A single pending supply is filled immediately once any mission completes.
  let count=0;
@@ -806,18 +780,6 @@ function draw(now){
   slot.right.textContent=countdown(v.end-now);
   slot.bar.style.width=(100*info.progress).toFixed(2)+'%';
  }
- if(IS_PREVIEW){
-  // Keep the completed card available to inspect until the user restarts it.
-  for(const v of state.units){
-   if(now<taskEnd(v))continue;
-   const slot=cards.get(v.id);
-   if(slot&&slot.status){
-    slot.status.textContent='임무 완료';
-    slot.status.classList.add('waiting');
-   }
-  }
-  return;
- }
  ui.supply.textContent=state.units.length>=MAX?state.units.length+'개 · 공급 대기':
   state.pending?'대기 임무 배정 예정':countdown(state.nextSupplyAt-now);
 }
@@ -831,11 +793,7 @@ window.addEventListener('pagehide',()=>{if(ready&&dirty)save(Math.floor(Date.now
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(!IS_LIVE){
-  state=initial(now);
-  if(PREVIEW_SELECTION)state.units.push(createPreviewMission(now));
-  ready=true;tick();setInterval(tick,1000);return;
- }
+ if(!IS_LIVE){state=initial(now);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
