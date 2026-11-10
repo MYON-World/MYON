@@ -124,7 +124,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     <a data-environment="develop" class="env-link" target="_top"><strong>개발통합 게임</strong><small>실험 기능을 통합할 페이지 · 저장 없음</small></a>
   </nav>
 </dialog>
-<script src="myon-v013.js?v=DEV0.0005"></script>
+<script src="myon-v013.js?v=DEV0.0007"></script>
 <script>
 (() => {
   const path=location.pathname;
@@ -144,7 +144,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     const indicator=document.getElementById('environment-indicator');
     indicator.textContent=environment==='test'?'TEST':'DEV';
     indicator.hidden=false;
-    document.title+=environment==='test'?' · TEST':' · DEV';
+    document.title=environment==='test'?document.title+' · TEST':'MYON DEV 0.0007';
   }
 })();
 </script>
