@@ -1,14 +1,15 @@
-// MYON v0.13.16 — on-the-hour observation missions, preserving existing countdowns.
+// MYON v0.13.17 — secretary research unlocks bottom navigation; observation remains unchanged.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
-const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression'; // Observer and unlocks have isolated saves.
+const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression',MENU_KEY='v01317-bottom-nav'; // Observer and unlocks have isolated saves.
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply'),gear:$('top-settings-toggle'),version:$('top-version'),settings:$('settings-panel'),notify:$('notification-toggle')};
+const nav={home:$('home-screen'),character:$('character-screen'),bar:$('bottom-nav'),homeButton:$('bottom-home'),characterButton:$('bottom-character')};
 const dateFmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
 const weekdayFmt=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'});
 const timeFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
@@ -149,6 +150,7 @@ const constructionTiers=[
 ];
 let state=null,assistant=null,progression=null,releaseManifest=null,dbPromise=null,ready=false,lastSave=0,saveChain=Promise.resolve(),dirty=false;
 let progressionDirty=false,progressionLastSave=0,progressionSaveChain=Promise.resolve();
+let menuStudy=null,menuDirty=false,menuLastSave=0,menuSaveChain=Promise.resolve();
 const cards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
 function pick(arr){return arr[nextRandom()%arr.length];}
@@ -696,6 +698,102 @@ function acceptResearch(){
  progression.completeAt=now+RESEARCH[progression.stage].duration;
  markProgression();saveProgression(now);draw(now);
 }
+
+ // Independent research: do not modify RESEARCH or v01315 saved stage=3.
+ function menuRandom(a,b){
+  menuStudy.rng=mix((menuStudy.rng+0x9e3779b9)>>>0)||1;
+  return a+menuStudy.rng%(b-a+1);
+ }
+ function menuWait(){return menuRandom(1,4)*HOUR;}
+ function menuExpiry(){return menuRandom(2,4)*HOUR;}
+ function makeMenuStudy(now){
+  const converted=Boolean(progression&&progression.convertedAt);
+  menuStudy={schema:1,mode:converted?'waiting':'locked',rng:seedNow(),nextOfferAt:0,offerAt:0,offerEndsAt:0,acceptedAt:0,completeAt:0,unlockedAt:0};
+  // Existing converted players receive the first offer after installing this update.
+  if(converted)menuStudy.nextOfferAt=now+menuWait();
+ }
+ function validMenuStudy(s){
+  if(!s||s.schema!==1||!['locked','waiting','offered','running','done'].includes(s.mode)||!Number.isInteger(s.rng))return false;
+  if(!['nextOfferAt','offerAt','offerEndsAt','acceptedAt','completeAt','unlockedAt'].every(k=>Number.isSafeInteger(s[k])&&s[k]>=0))return false;
+  if(s.mode==='offered'&&s.offerEndsAt<=s.offerAt)return false;
+  if(s.mode==='running'&&s.completeAt<=s.acceptedAt)return false;
+  if(s.mode==='done'&&!s.unlockedAt||s.unlockedAt&&s.mode!=='done')return false;
+  return true;
+ }
+ function markMenu(){menuDirty=true;}
+ function saveMenu(now){
+  if(!IS_LIVE||!menuStudy)return;
+  const snapshot=JSON.parse(JSON.stringify(menuStudy));
+  menuDirty=false;menuLastSave=now;
+  menuSaveChain=menuSaveChain.catch(()=>{}).then(async()=>{
+   const db=await openDb();
+   return new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).put(snapshot,MENU_KEY);
+    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('MYON menu save failed'));
+   });
+  }).catch(e=>{console.error('MYON menu save:',e);menuDirty=true;});
+ }
+ function advanceMenu(now){
+  if(!menuStudy||!progression||!progression.convertedAt)return;
+  for(let i=0;i<150000;i++){
+   if(menuStudy.mode==='done')break;
+   if(menuStudy.mode==='locked'){
+    menuStudy.mode='waiting';menuStudy.nextOfferAt=progression.convertedAt+menuWait();
+    markMenu();continue;
+   }
+   if(menuStudy.mode==='running'){
+    if(now<menuStudy.completeAt)break;
+    menuStudy.unlockedAt=menuStudy.completeAt;menuStudy.mode='done';
+    menuStudy.nextOfferAt=0;menuStudy.offerAt=0;menuStudy.offerEndsAt=0;
+    markMenu();continue;
+   }
+   if(menuStudy.mode==='waiting'){
+    if(now<menuStudy.nextOfferAt)break;
+    menuStudy.offerAt=menuStudy.nextOfferAt;menuStudy.offerEndsAt=menuStudy.offerAt+menuExpiry();
+    menuStudy.mode='offered';markMenu();continue;
+   }
+   if(menuStudy.mode==='offered'){
+    if(now<menuStudy.offerEndsAt)break;
+    menuStudy.nextOfferAt=menuStudy.offerEndsAt+menuWait();
+    menuStudy.offerAt=0;menuStudy.offerEndsAt=0;menuStudy.mode='waiting';markMenu();continue;
+   }
+   break;
+  }
+ }
+ async function startMenu(now){
+  if(!IS_LIVE){makeMenuStudy(now);advanceMenu(now);return;}
+  let saved=null;
+  try{saved=await read(MENU_KEY);}catch(e){console.error('MYON menu read:',e);}
+  if(validMenuStudy(saved))menuStudy=saved;else{makeMenuStudy(now);markMenu();}
+  advanceMenu(now);
+  if(menuDirty)saveMenu(now);
+ }
+ function acceptMenu(){
+  if(!ready||!menuStudy||!progression||!progression.convertedAt)return;
+  const now=Math.floor(Date.now()/1000);
+  advance(now);advanceProgression(now);advanceMenu(now);
+  if(menuStudy.mode!=='offered'||now>=menuStudy.offerEndsAt)return;
+  menuStudy.mode='running';menuStudy.acceptedAt=now;menuStudy.completeAt=now+HOUR;
+  markMenu();saveMenu(now);draw(now);
+ }
+ function showPage(target){
+  if(target==='character'&&!(menuStudy&&menuStudy.unlockedAt))return;
+  const isCharacter=target==='character';
+  nav.home.hidden=isCharacter;nav.character.hidden=!isCharacter;
+  nav.homeButton.classList.toggle('selected',!isCharacter);
+  nav.characterButton.classList.toggle('selected',isCharacter);
+  if(isCharacter){nav.homeButton.removeAttribute('aria-current');nav.characterButton.setAttribute('aria-current','page');}
+  else{nav.characterButton.removeAttribute('aria-current');nav.homeButton.setAttribute('aria-current','page');}
+ }
+ function updateNav(){
+  const unlocked=Boolean(menuStudy&&menuStudy.unlockedAt);
+  nav.bar.hidden=!unlocked;
+  if(!unlocked&&nav.home.hidden)showPage('home');
+ }
+ nav.homeButton.addEventListener('click',()=>showPage('home'));
+ nav.characterButton.addEventListener('click',()=>showPage('character'));
+
 function versionCompare(a,b){
  const x=a.split('.').map(Number),y=b.split('.').map(Number);
  for(let i=0;i<3;i++)if(x[i]!==y[i])return x[i]-y[i];
@@ -884,18 +982,31 @@ function makeAssistantCard(){
  return {card,name:name.querySelector('strong'),status,left,right,active,completed,bar};
 }
 
-function makeResearchCard(){
+function makeResearchCard(onAccept=acceptResearch){
  const card=element('article','slot research-card'),head=element('div','slot-head');
  const name=element('div','slot-name'),title=element('strong');
  name.appendChild(title);
  const status=element('span','slot-state'),accept=element('button','slot-button research-accept','수락');
- accept.type='button';accept.addEventListener('click',acceptResearch);
+ accept.type='button';accept.addEventListener('click',onAccept);
  const rightHead=element('div','slot-right');rightHead.append(status,accept);
  head.append(name,rightHead);
  const details=element('div','slot-details'),left=element('span','slot-metric assistant-timer-label');
  const right=element('span','slot-metric slot-operations assistant-timer');details.append(left,right);
  const bar=element('div','slot-progress');card.append(head,details,bar);
  return {card,title,status,accept,left,right,bar};
+}
+
+function drawMenu(now){
+ if(!menuStudy||!progression||!progression.convertedAt||!['offered','running'].includes(menuStudy.mode))return;
+ const card=cards.get('menu-study');if(!card)return;
+ const offered=menuStudy.mode==='offered';
+ card.title.textContent='하단 메뉴 추가';card.accept.hidden=!offered;card.status.hidden=offered;
+ card.status.textContent=offered?'':'연구중';
+ card.left.textContent=offered?'임무 폐기까지':'연구 완료까지';
+ const end=offered?menuStudy.offerEndsAt:menuStudy.completeAt;
+ const start=offered?menuStudy.offerAt:menuStudy.acceptedAt;
+ card.right.textContent=countdown(end-now);
+ card.bar.style.width=(100*Math.max(0,Math.min(1,(now-start)/(end-start)))).toFixed(2)+'%';
 }
 function drawResearch(now){
  if(!progression||progression.stage>=RESEARCH.length)return;
@@ -958,13 +1069,15 @@ function reorder(now){
   (progression.mode==='offered'||progression.mode==='running')){
   list.push({id:'research',kind:'research',end:progression.mode==='offered'?progression.offerEndsAt:progression.completeAt});
  }
+ if(pinned&&menuStudy&&(menuStudy.mode==='offered'||menuStudy.mode==='running'))
+  list.push({id:'menu-study',kind:'menu-study',end:menuStudy.mode==='offered'?menuStudy.offerEndsAt:menuStudy.completeAt});
  if(pinned&&noticeShown(now))list.push({id:'release',kind:'notice',end:progression.noticeAt+DAY});
- const priority=v=>pinned?(v.kind==='assistant'?0:v.kind==='research'?1:v.kind==='notice'?2:3):0;
+ const priority=v=>pinned?(v.kind==='assistant'?0:v.kind==='research'?1:v.kind==='menu-study'?2:v.kind==='notice'?3:4):0;
  list.sort((a,b)=>{
   const difference=priority(a)-priority(b);
   if(difference)return difference;
-  const aEnd=['assistant','research','notice'].includes(a.kind)?a.end:taskEnd(a);
-  const bEnd=['assistant','research','notice'].includes(b.kind)?b.end:taskEnd(b);
+  const aEnd=['assistant','research','menu-study','notice'].includes(a.kind)?a.end:taskEnd(a);
+  const bEnd=['assistant','research','menu-study','notice'].includes(b.kind)?b.end:taskEnd(b);
   return aEnd-bEnd||(a.kind==='assistant'?-1:b.kind==='assistant'?1:a.id-b.id);
  });
  const key=list.map(v=>v.id).join(',');
@@ -975,7 +1088,7 @@ function reorder(now){
   let slot=cards.get(v.id);
   if(!slot){
    slot=v.kind==='assistant'?makeAssistantCard():v.kind==='research'?makeResearchCard():
-    v.kind==='notice'?makeNoticeCard():v.kind==='route'?makeRouteCard(v):
+    v.kind==='menu-study'?makeResearchCard(acceptMenu):v.kind==='notice'?makeNoticeCard():v.kind==='route'?makeRouteCard(v):
     v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
    cards.set(v.id,slot);
   }
@@ -1105,7 +1218,9 @@ function draw(now){
  reorder(now);
  drawAssistant(now);
  drawResearch(now);
+ drawMenu(now);
  drawNotice(now);
+ updateNav();
  updateSettings(now);
  for(const v of state.units){
   const slot=cards.get(v.id);if(!slot)continue;
@@ -1136,16 +1251,17 @@ function draw(now){
 }
 function tick(){
  const now=Math.floor(Date.now()/1000);
- if(ready){advance(now);advanceProgression(now);if(dirty&&now-lastSave>=20)save(now);
-  if(progressionDirty&&now-progressionLastSave>=2)saveProgression(now);}
+ if(ready){advance(now);advanceProgression(now);advanceMenu(now);if(dirty&&now-lastSave>=20)save(now);
+  if(progressionDirty&&now-progressionLastSave>=2)saveProgression(now);
+  if(menuDirty&&now-menuLastSave>=2)saveMenu(now);}
  draw(now);
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
-window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if(ready&&dirty)save(now);if(ready&&progressionDirty)saveProgression(now);});
+window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if(ready&&dirty)save(now);if(ready&&progressionDirty)saveProgression(now);if(ready&&menuDirty)saveMenu(now);});
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(!IS_LIVE){state=initial(now);await startAssistant(now);await startProgression(now);ready=true;tick();setInterval(tick,1000);return;}
+ if(!IS_LIVE){state=initial(now);await startAssistant(now);await startProgression(now);await startMenu(now);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
@@ -1167,6 +1283,7 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
  advance(now);
  await startAssistant(now);
  await startProgression(now);
+ await startMenu(now);
  tick();
  refreshRelease();
  setInterval(refreshRelease,5*60*1000);
