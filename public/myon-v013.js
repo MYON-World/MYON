@@ -1,5 +1,5 @@
-// MYON v0.13.15 — sequential assistant research, release notifications and settings unlock.
-// One hourly mission; transport and space return to origin before disposal.
+// MYON v0.13.16 — on-the-hour observation missions, preserving existing countdowns.
+// Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
@@ -14,6 +14,8 @@ const weekdayFmt=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:
 const timeFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
 const pad=n=>String(Math.max(0,Math.floor(n))).padStart(2,'0');
 const hms=n=>pad(n/3600)+':'+pad((n%3600)/60)+':'+pad(n%60);
+// The next HH:00:00, shared by UTC and KST (UTC+9h).
+const nextClockHour=at=>Math.floor(at/HOUR)*HOUR+HOUR;
 const countdown=n=>{n=Math.max(0,Math.ceil(n));return n>=DAY?Math.floor(n/DAY)+'일 '+pad((n%DAY)/HOUR)+':'+pad((n%HOUR)/60):n>2*HOUR?pad(n/HOUR)+':'+pad((n%HOUR)/60):hms(n);};
 const km=n=>(Math.max(0,n)/1000).toLocaleString('ko-KR',{maximumFractionDigits:2,minimumFractionDigits:2})+'km';
 const seedNow=()=>((Math.random()*4294967296)>>>0)||1;
@@ -458,7 +460,8 @@ function advance(now){
     if(state.units.length<MAX&&supply(at))state.pending=false;
    }else if(state.units.length<MAX)supply(at);
    else state.pending=true;
-   state.nextSupplyAt+=HOUR;dirty=true;
+   // Do not shift the saved first countdown; align only the next supply after it fires.
+   state.nextSupplyAt=nextClockHour(at);dirty=true;
   }else if(state.pending&&state.units.length<MAX&&supply(at))state.pending=false;
  }
 }
@@ -472,11 +475,11 @@ function validWorld(s){
  Array.isArray(v.stages)&&v.stages.length>0));
 }
 function initial(now){
- state={schema:2,nextId:1,nextSupplyAt:now+HOUR,pending:false,rng:seedNow(),units:[]};
+ state={schema:2,nextId:1,nextSupplyAt:nextClockHour(now),pending:false,rng:seedNow(),units:[]};
  state.units.push(createUnit('taxi',now));return state;
 }
 function migrate(oldVehicles,oldConstruction,now){
- state={schema:2,nextId:1,nextSupplyAt:now+HOUR,pending:false,rng:oldVehicles&&Number.isInteger(oldVehicles.rng)?oldVehicles.rng:seedNow(),units:[]};
+ state={schema:2,nextId:1,nextSupplyAt:nextClockHour(now),pending:false,rng:oldVehicles&&Number.isInteger(oldVehicles.rng)?oldVehicles.rng:seedNow(),units:[]};
  if(oldVehicles&&oldVehicles.schema===1&&Array.isArray(oldVehicles.units)){
   const oldIds=new Set();
   for(const v of oldVehicles.units.slice(0,100)){
@@ -487,7 +490,8 @@ function migrate(oldVehicles,oldConstruction,now){
   }
   if(Number.isSafeInteger(oldVehicles.nextId))state.nextId=Math.max(state.nextId,oldVehicles.nextId);
   if(oldVehicles.pending)state.pending=true;
-  if(Number.isSafeInteger(oldVehicles.nextSupplyAt)&&oldVehicles.nextSupplyAt>now&&oldVehicles.nextSupplyAt<=now+HOUR)state.nextSupplyAt=oldVehicles.nextSupplyAt;
+  // Keep an existing countdown when migrating earlier save formats.
+   if(Number.isSafeInteger(oldVehicles.nextSupplyAt)&&oldVehicles.nextSupplyAt>now&&oldVehicles.nextSupplyAt<=now+HOUR)state.nextSupplyAt=oldVehicles.nextSupplyAt;
  }
  const legacy=oldConstruction&&oldConstruction.mission;
  if(legacy&&constructionSpecs.some(e=>e.key===legacy.kind)&&Number.isSafeInteger(legacy.startedAt)&&legacy.startedAt>0&&
