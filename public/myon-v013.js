@@ -1,4 +1,4 @@
-// MYON v0.13.17 — secretary research unlocks bottom navigation; observation remains unchanged.
+// MYON v0.13.18 — assistant pinned from day one, auto-conversion at 24 hours; new research offers paused.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -606,7 +606,7 @@ function offerLifetime(){return progressionRandom(2,4)*HOUR;}
 function makeProgression(now){
  progression={schema:1,stage:0,mode:'waiting',rng:seedNow(),nextOfferAt:0,offerAt:0,offerEndsAt:0,acceptedAt:0,completeAt:0,
   convertedAt:0,changelogAt:0,settingsAt:0,notifyEnabled:true,noticeVersion:'',noticeAt:0};
- progression.nextOfferAt=Math.max(now,assistant.startedAt+DAY)+offerWait();
+ progression.nextOfferAt=0; // No research offers until the secretary research system resumes.
  return progression;
 }
 function validProgression(p){
@@ -639,44 +639,29 @@ function saveProgression(now){
 }
 function advanceProgression(now){
  if(!progression||!assistant)return;
- // Deterministic replay of overdue offer/expiry/research events for offline periods.
- // Once accepted, a research can never expire and must finish at the original timestamp.
- for(let steps=0;steps<150000;steps++){
-  if(progression.stage>=RESEARCH.length)break;
-  if(progression.mode==='running'){
-   if(now<progression.completeAt)break;
-   const completed=progression.completeAt;
-   if(progression.stage===0)progression.convertedAt=completed;
-   if(progression.stage===1)progression.changelogAt=completed;
-   if(progression.stage===2)progression.settingsAt=completed;
-   progression.stage++;
-   progression.acceptedAt=0;progression.completeAt=0;
-   progression.offerAt=0;progression.offerEndsAt=0;
-   if(progression.stage===RESEARCH.length){
-    progression.mode='done';progression.nextOfferAt=0;
-   }else{
-    progression.mode='waiting';progression.nextOfferAt=completed+offerWait();
-   }
-   markProgression();
-   continue;
-  }
-  if(progression.stage===0&&now<assistant.startedAt+DAY)break;
-  if(progression.mode==='waiting'){
-   if(now<progression.nextOfferAt)break;
-   progression.offerAt=progression.nextOfferAt;
-   progression.offerEndsAt=progression.offerAt+offerLifetime();
-   progression.mode='offered';markProgression();
-   continue;
-  }
-  if(progression.mode==='offered'){
-   if(now<progression.offerEndsAt)break;
-   const expired=progression.offerEndsAt;
-   progression.mode='waiting';progression.offerAt=0;progression.offerEndsAt=0;
-   progression.nextOfferAt=expired+offerWait();
-   markProgression();
-   continue;
-  }
-  break;
+ const analysisEndsAt=assistant.startedAt+DAY;
+ // On or after the actual 24h boundary, convert EVERY old observer,
+ // including saved waiting/offered/running v0.13.15 conversion research.
+ if(now>=analysisEndsAt&&progression.stage===0){
+  progression.stage=1;
+  progression.mode='waiting';
+  progression.convertedAt=analysisEndsAt;
+  progression.nextOfferAt=0;progression.offerAt=0;progression.offerEndsAt=0;
+  progression.acceptedAt=0;progression.completeAt=0;
+  markProgression();
+ }
+ // Secretary research offers are temporarily paused.
+ // Previously accepted, running non-conversion research still finishes on time.
+ for(let steps=0;steps<RESEARCH.length;steps++){
+  if(progression.stage>=RESEARCH.length||progression.mode!=='running'||now<progression.completeAt)break;
+  const completed=progression.completeAt;
+  if(progression.stage===1)progression.changelogAt=completed;
+  if(progression.stage===2)progression.settingsAt=completed;
+  progression.stage++;
+  progression.acceptedAt=0;progression.completeAt=0;
+  progression.offerAt=0;progression.offerEndsAt=0;progression.nextOfferAt=0;
+  progression.mode=progression.stage===RESEARCH.length?'done':'waiting';
+  markProgression();
  }
  syncNotice(now);
 }
@@ -690,13 +675,7 @@ async function startProgression(now){
  if(progressionDirty)saveProgression(now);
 }
 function acceptResearch(){
- if(!ready||!progression)return;
- const now=Math.floor(Date.now()/1000);
- advance(now);advanceProgression(now);
- if(progression.stage>=RESEARCH.length||progression.mode!=='offered'||now>=progression.offerEndsAt)return;
- progression.mode='running';progression.acceptedAt=now;
- progression.completeAt=now+RESEARCH[progression.stage].duration;
- markProgression();saveProgression(now);draw(now);
+ // No new assistant research can be accepted in v0.13.18.
 }
 
  // Independent research: do not modify RESEARCH or v01315 saved stage=3.
@@ -708,9 +687,8 @@ function acceptResearch(){
  function menuExpiry(){return menuRandom(2,4)*HOUR;}
  function makeMenuStudy(now){
   const converted=Boolean(progression&&progression.convertedAt);
-  menuStudy={schema:1,mode:converted?'waiting':'locked',rng:seedNow(),nextOfferAt:0,offerAt:0,offerEndsAt:0,acceptedAt:0,completeAt:0,unlockedAt:0};
-  // Existing converted players receive the first offer after installing this update.
-  if(converted)menuStudy.nextOfferAt=now+menuWait();
+  menuStudy={schema:1,mode:'locked',rng:seedNow(),nextOfferAt:0,offerAt:0,offerEndsAt:0,acceptedAt:0,completeAt:0,unlockedAt:0};
+  // New research offers are paused; existing menu unlocks are restored from saved data.
  }
  function validMenuStudy(s){
   if(!s||s.schema!==1||!['locked','waiting','offered','running','done'].includes(s.mode)||!Number.isInteger(s.rng))return false;
@@ -735,31 +713,13 @@ function acceptResearch(){
   }).catch(e=>{console.error('MYON menu save:',e);menuDirty=true;});
  }
  function advanceMenu(now){
-  if(!menuStudy||!progression||!progression.convertedAt)return;
-  for(let i=0;i<150000;i++){
-   if(menuStudy.mode==='done')break;
-   if(menuStudy.mode==='locked'){
-    menuStudy.mode='waiting';menuStudy.nextOfferAt=progression.convertedAt+menuWait();
-    markMenu();continue;
-   }
-   if(menuStudy.mode==='running'){
-    if(now<menuStudy.completeAt)break;
-    menuStudy.unlockedAt=menuStudy.completeAt;menuStudy.mode='done';
-    menuStudy.nextOfferAt=0;menuStudy.offerAt=0;menuStudy.offerEndsAt=0;
-    markMenu();continue;
-   }
-   if(menuStudy.mode==='waiting'){
-    if(now<menuStudy.nextOfferAt)break;
-    menuStudy.offerAt=menuStudy.nextOfferAt;menuStudy.offerEndsAt=menuStudy.offerAt+menuExpiry();
-    menuStudy.mode='offered';markMenu();continue;
-   }
-   if(menuStudy.mode==='offered'){
-    if(now<menuStudy.offerEndsAt)break;
-    menuStudy.nextOfferAt=menuStudy.offerEndsAt+menuWait();
-    menuStudy.offerAt=0;menuStudy.offerEndsAt=0;menuStudy.mode='waiting';markMenu();continue;
-   }
-   break;
-  }
+  // Preserve prior offers without displaying them or generating new offers.
+  // Only accepted work may complete while research is suspended.
+  if(!menuStudy||menuStudy.mode!=='running'||now<menuStudy.completeAt)return;
+  menuStudy.unlockedAt=menuStudy.completeAt;
+  menuStudy.mode='done';
+  menuStudy.nextOfferAt=0;menuStudy.offerAt=0;menuStudy.offerEndsAt=0;
+  markMenu();
  }
  async function startMenu(now){
   if(!IS_LIVE){makeMenuStudy(now);advanceMenu(now);return;}
@@ -770,12 +730,7 @@ function acceptResearch(){
   if(menuDirty)saveMenu(now);
  }
  function acceptMenu(){
-  if(!ready||!menuStudy||!progression||!progression.convertedAt)return;
-  const now=Math.floor(Date.now()/1000);
-  advance(now);advanceProgression(now);advanceMenu(now);
-  if(menuStudy.mode!=='offered'||now>=menuStudy.offerEndsAt)return;
-  menuStudy.mode='running';menuStudy.acceptedAt=now;menuStudy.completeAt=now+HOUR;
-  markMenu();saveMenu(now);draw(now);
+  // Temporarily disabled while the new menu study is not offered.
  }
  function showPage(target){
   if(target==='character'&&!(menuStudy&&menuStudy.unlockedAt))return;
@@ -979,7 +934,7 @@ function makeAssistantCard(){
  counts.append(activeBox,completedBox);
  const bar=element('div','slot-progress');
  card.append(head,time,counts,bar);
- return {card,name:name.querySelector('strong'),status,left,right,active,completed,bar};
+ return {card,name:name.querySelector('strong'),tag:name.querySelector('.assistant-dev-tag'),status,left,right,active,completed,bar};
 }
 
 function makeResearchCard(onAccept=acceptResearch){
@@ -1050,35 +1005,32 @@ function drawNotice(now){
 function drawAssistant(now){
  if(!assistant)return;
  const slot=cards.get('assistant');if(!slot)return;
- const readyAt=assistant.startedAt+DAY,pinned=now>=readyAt;
- slot.name.textContent=pinned?(progression&&progression.convertedAt?'비서':'관전임무 분석'):'관전임무 분석중';
- slot.status.textContent=pinned?'상시 분석':'분석중';
- slot.left.textContent=pinned?'임무 분석 지속중':'상단 고정까지';
- slot.right.textContent=pinned?'상단 고정':hms(Math.ceil(Math.max(0,readyAt-now)));
+ const readyAt=assistant.startedAt+DAY,converted=now>=readyAt;
+ slot.name.textContent=converted?'비서':'관전임무 분석중';
+ // Developer tag applies to initial analysis only. '개선중' is a temporary
+ // development notice and will be removed manually after improvement is done.
+ slot.tag.textContent=converted?'개선중':'개발중';
+ slot.status.textContent=converted?'상시 분석':'분석중';
+ slot.left.textContent=converted?'임무 분석 지속중':'분석 완료까지';
+ slot.right.textContent=converted?'상단 고정':hms(Math.ceil(Math.max(0,readyAt-now)));
  slot.active.textContent=state.units.length+'건';
  slot.completed.textContent=assistantCompleted()+'건';
- slot.bar.hidden=pinned;
- slot.bar.style.width=pinned?'100%':(100*Math.max(0,Math.min(1,(now-assistant.startedAt)/DAY))).toFixed(4)+'%';
-
+ slot.bar.hidden=converted;
+ slot.bar.style.width=converted?'100%':(100*Math.max(0,Math.min(1,(now-assistant.startedAt)/DAY))).toFixed(4)+'%';
 }
-
 function reorder(now){
- const readyAt=assistant?assistant.startedAt+DAY:Infinity,pinned=now>=readyAt;
+ const readyAt=assistant?assistant.startedAt+DAY:Infinity;
  const list=assistant?[...state.units,{id:'assistant',kind:'assistant',end:readyAt}]:state.units.slice();
- if(pinned&&progression&&progression.stage<RESEARCH.length&&
-  (progression.mode==='offered'||progression.mode==='running')){
-  list.push({id:'research',kind:'research',end:progression.mode==='offered'?progression.offerEndsAt:progression.completeAt});
- }
- if(pinned&&menuStudy&&(menuStudy.mode==='offered'||menuStudy.mode==='running'))
-  list.push({id:'menu-study',kind:'menu-study',end:menuStudy.mode==='offered'?menuStudy.offerEndsAt:menuStudy.completeAt});
- if(pinned&&noticeShown(now))list.push({id:'release',kind:'notice',end:progression.noticeAt+DAY});
- const priority=v=>pinned?(v.kind==='assistant'?0:v.kind==='research'?1:v.kind==='menu-study'?2:v.kind==='notice'?3:4):0;
+ // Existing system change notices remain visible for users who unlocked them.
+ if(now>=readyAt&&noticeShown(now))list.push({id:'release',kind:'notice',end:progression.noticeAt+DAY});
+ // Assistant stays pinned even before its first 24h analysis has finished.
+ const priority=v=>v.kind==='assistant'?0:v.kind==='notice'?1:2;
  list.sort((a,b)=>{
-  const difference=priority(a)-priority(b);
-  if(difference)return difference;
-  const aEnd=['assistant','research','menu-study','notice'].includes(a.kind)?a.end:taskEnd(a);
-  const bEnd=['assistant','research','menu-study','notice'].includes(b.kind)?b.end:taskEnd(b);
-  return aEnd-bEnd||(a.kind==='assistant'?-1:b.kind==='assistant'?1:a.id-b.id);
+  const diff=priority(a)-priority(b);
+  if(diff)return diff;
+  const aEnd=['assistant','notice'].includes(a.kind)?a.end:taskEnd(a);
+  const bEnd=['assistant','notice'].includes(b.kind)?b.end:taskEnd(b);
+  return aEnd-bEnd||(a.id-b.id);
  });
  const key=list.map(v=>v.id).join(',');
  if(reorder.key===key)return;
@@ -1087,9 +1039,8 @@ function reorder(now){
   seen.add(v.id);
   let slot=cards.get(v.id);
   if(!slot){
-   slot=v.kind==='assistant'?makeAssistantCard():v.kind==='research'?makeResearchCard():
-    v.kind==='menu-study'?makeResearchCard(acceptMenu):v.kind==='notice'?makeNoticeCard():v.kind==='route'?makeRouteCard(v):
-    v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
+   slot=v.kind==='assistant'?makeAssistantCard():v.kind==='notice'?makeNoticeCard():
+    v.kind==='route'?makeRouteCard(v):v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
    cards.set(v.id,slot);
   }
   nodes.appendChild(slot.card);
@@ -1217,8 +1168,6 @@ function draw(now){
  if(!ready)return;
  reorder(now);
  drawAssistant(now);
- drawResearch(now);
- drawMenu(now);
  drawNotice(now);
  updateNav();
  updateSettings(now);
