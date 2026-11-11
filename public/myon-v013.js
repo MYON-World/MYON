@@ -1,14 +1,14 @@
-// MYON v0.13.14 — assistant development tag and full-width summary; game engine unchanged.
+// MYON v0.13.15 — sequential assistant research, release notifications and settings unlock.
 // One hourly mission; transport and space return to origin before disposal.
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
-const ASSISTANT_KEY='v01313-assistant'; // Isolated observer record; world schema and KEY stay unchanged.
+const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression'; // Observer and unlocks have isolated saves.
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
 const $=id=>document.getElementById(id);
-const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply')};
+const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply'),gear:$('top-settings-toggle'),version:$('top-version'),settings:$('settings-panel'),notify:$('notification-toggle')};
 const dateFmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
 const weekdayFmt=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'});
 const timeFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
@@ -145,7 +145,8 @@ const constructionTiers=[
  {weight:90,min:1001,max:5000},  // 100.1–500km 0.9%
  {weight:10,min:5001,max:10000}  // 500.1–1000km 0.1%
 ];
-let state=null,assistant=null,dbPromise=null,ready=false,lastSave=0,saveChain=Promise.resolve(),dirty=false;
+let state=null,assistant=null,progression=null,releaseManifest=null,dbPromise=null,ready=false,lastSave=0,saveChain=Promise.resolve(),dirty=false;
+let progressionDirty=false,progressionLastSave=0,progressionSaveChain=Promise.resolve();
 const cards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
 function pick(arr){return arr[nextRandom()%arr.length];}
@@ -570,6 +571,206 @@ function assistantCompleted(){
  return Math.max(0,monitored-state.units.length);
 }
 
+
+// Assistant-gated research is kept separate from the immutable 23-type world engine.
+// Offers use a separate seeded stream, so they never consume world RNG or real mission slots.
+const RESEARCH=[
+ {title:'비서전환',duration:HOUR,remaining:'전환 완료까지'},
+ {title:'변경기록 알림서비스 연구',duration:HOUR,remaining:'연구 완료까지'},
+ {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
+];
+const RELEASE_DEFAULT={
+ version:'0.13.15',title:'비서 시스템의 첫 번째 연구',
+ entries:[
+  '관전 분석이 끝나면 비서전환 임무가 랜덤으로 등장합니다.',
+  '비서전환 완료 후 변경기록 알림서비스와 설정 시스템을 순서대로 연구할 수 있습니다.',
+  '변경기록 알림서비스 연구 완료 시 최신 버전과 24시간 업데이트 알림이 열립니다.',
+  '설정 시스템 연구를 완료하면 톱니바퀴에서 변경기록 알림을 켜고 끌 수 있습니다.'
+ ]
+};
+releaseManifest=RELEASE_DEFAULT;
+const OFFERS_MIN_WAIT=HOUR,OFFERS_MAX_WAIT=4*HOUR;
+const OFFERS_MIN_EXPIRY=2*HOUR,OFFERS_MAX_EXPIRY=4*HOUR;
+function progressionRandom(min,max){
+ progression.rng=mix((progression.rng+0x9e3779b9)>>>0)||1;
+ return min+progression.rng%(max-min+1);
+}
+function offerWait(){return progressionRandom(1,4)*HOUR;}
+function offerLifetime(){return progressionRandom(2,4)*HOUR;}
+function makeProgression(now){
+ progression={schema:1,stage:0,mode:'waiting',rng:seedNow(),nextOfferAt:0,offerAt:0,offerEndsAt:0,acceptedAt:0,completeAt:0,
+  convertedAt:0,changelogAt:0,settingsAt:0,notifyEnabled:true,noticeVersion:'',noticeAt:0};
+ progression.nextOfferAt=Math.max(now,assistant.startedAt+DAY)+offerWait();
+ return progression;
+}
+function validProgression(p){
+ if(!p||p.schema!==1||!Number.isInteger(p.stage)||p.stage<0||p.stage>3||
+   !['waiting','offered','running','done'].includes(p.mode)||!Number.isInteger(p.rng)||
+   typeof p.notifyEnabled!=='boolean'||typeof p.noticeVersion!=='string')return false;
+ const numbers=['nextOfferAt','offerAt','offerEndsAt','acceptedAt','completeAt','convertedAt','changelogAt','settingsAt','noticeAt'];
+ if(!numbers.every(key=>Number.isSafeInteger(p[key])&&p[key]>=0))return false;
+ if(p.stage===3&&p.mode!=='done'||p.stage<3&&p.mode==='done')return false;
+ if(p.stage>0&&!p.convertedAt||p.stage>1&&!p.changelogAt||p.stage>2&&!p.settingsAt)return false;
+ if(p.mode==='offered'&&!(p.offerEndsAt>p.offerAt))return false;
+ if(p.mode==='running'&&!(p.completeAt>p.acceptedAt))return false;
+ if(p.noticeVersion&&!/^\d+\.\d{2}\.\d{2}$/.test(p.noticeVersion))return false;
+ return true;
+}
+function markProgression(){progressionDirty=true;}
+function saveProgression(now){
+ if(!IS_LIVE||!progression)return;
+ const snapshot=JSON.parse(JSON.stringify(progression));
+ progressionDirty=false;progressionLastSave=now;
+ progressionSaveChain=progressionSaveChain.catch(()=>{}).then(async()=>{
+  const db=await openDb();
+  return new Promise((resolve,reject)=>{
+   const tx=db.transaction(STORE,'readwrite');
+   tx.objectStore(STORE).put(snapshot,PROGRESSION_KEY);
+   tx.oncomplete=resolve;
+   tx.onerror=()=>reject(tx.error||new Error('MYON progression write failed'));
+  });
+ }).catch(e=>{console.error('MYON progression save:',e);progressionDirty=true;});
+}
+function advanceProgression(now){
+ if(!progression||!assistant)return;
+ // Deterministic replay of overdue offer/expiry/research events for offline periods.
+ // Once accepted, a research can never expire and must finish at the original timestamp.
+ for(let steps=0;steps<150000;steps++){
+  if(progression.stage>=RESEARCH.length)break;
+  if(progression.mode==='running'){
+   if(now<progression.completeAt)break;
+   const completed=progression.completeAt;
+   if(progression.stage===0)progression.convertedAt=completed;
+   if(progression.stage===1)progression.changelogAt=completed;
+   if(progression.stage===2)progression.settingsAt=completed;
+   progression.stage++;
+   progression.acceptedAt=0;progression.completeAt=0;
+   progression.offerAt=0;progression.offerEndsAt=0;
+   if(progression.stage===RESEARCH.length){
+    progression.mode='done';progression.nextOfferAt=0;
+   }else{
+    progression.mode='waiting';progression.nextOfferAt=completed+offerWait();
+   }
+   markProgression();
+   continue;
+  }
+  if(progression.stage===0&&now<assistant.startedAt+DAY)break;
+  if(progression.mode==='waiting'){
+   if(now<progression.nextOfferAt)break;
+   progression.offerAt=progression.nextOfferAt;
+   progression.offerEndsAt=progression.offerAt+offerLifetime();
+   progression.mode='offered';markProgression();
+   continue;
+  }
+  if(progression.mode==='offered'){
+   if(now<progression.offerEndsAt)break;
+   const expired=progression.offerEndsAt;
+   progression.mode='waiting';progression.offerAt=0;progression.offerEndsAt=0;
+   progression.nextOfferAt=expired+offerWait();
+   markProgression();
+   continue;
+  }
+  break;
+ }
+ syncNotice(now);
+}
+async function startProgression(now){
+ if(!IS_LIVE){makeProgression(now);advanceProgression(now);return;}
+ let restored=null;
+ try{restored=await read(PROGRESSION_KEY);}catch(e){console.error('MYON progression read:',e);}
+ if(validProgression(restored))progression=restored;
+ else{makeProgression(now);markProgression();}
+ advanceProgression(now);
+ if(progressionDirty)saveProgression(now);
+}
+function acceptResearch(){
+ if(!ready||!progression)return;
+ const now=Math.floor(Date.now()/1000);
+ advance(now);advanceProgression(now);
+ if(progression.stage>=RESEARCH.length||progression.mode!=='offered'||now>=progression.offerEndsAt)return;
+ progression.mode='running';progression.acceptedAt=now;
+ progression.completeAt=now+RESEARCH[progression.stage].duration;
+ markProgression();saveProgression(now);draw(now);
+}
+function versionCompare(a,b){
+ const x=a.split('.').map(Number),y=b.split('.').map(Number);
+ for(let i=0;i<3;i++)if(x[i]!==y[i])return x[i]-y[i];
+ return 0;
+}
+function validRelease(v){
+ return v&&typeof v.version==='string'&&/^\d+\.\d{2}\.\d{2}$/.test(v.version)&&
+ typeof v.title==='string'&&v.title.length>0&&v.title.length<=120&&
+ Array.isArray(v.entries)&&v.entries.length>0&&v.entries.length<=12&&
+ v.entries.every(x=>typeof x==='string'&&x.length>0&&x.length<=240);
+}
+function syncNotice(now){
+ if(!progression||!progression.changelogAt)return;
+ if(!progression.noticeVersion){
+  progression.noticeVersion=releaseManifest.version;
+  // The first notice begins when the research actually finished, even offline.
+  progression.noticeAt=progression.changelogAt;
+  markProgression();
+ }else if(versionCompare(releaseManifest.version,progression.noticeVersion)>0){
+  // A newly detected release supersedes an unfinished previous notification.
+  progression.noticeVersion=releaseManifest.version;
+  progression.noticeAt=now;
+  markProgression();
+ }
+}
+function applyRelease(candidate,now){
+ if(!validRelease(candidate)||versionCompare(candidate.version,releaseManifest.version)<0)return;
+ releaseManifest={version:candidate.version,title:candidate.title,entries:candidate.entries.slice()};
+ syncNotice(now);
+ if(progressionDirty&&now-progressionLastSave>=1)saveProgression(now);
+ if(ready)draw(now);
+}
+async function refreshRelease(){
+ if(!IS_LIVE||typeof fetch!=='function')return;
+ try{
+  const url='myon-release.json?check='+Date.now();
+  const response=await fetch(url,{cache:'no-store'});
+  if(!response.ok)return;
+  const data=await response.json();
+  applyRelease(data,Math.floor(Date.now()/1000));
+ }catch(e){console.warn('MYON release check:',e);}
+}
+function noticeShown(now){
+ return Boolean(progression&&progression.changelogAt&&progression.notifyEnabled&&
+  progression.noticeVersion===releaseManifest.version&&progression.noticeAt>0&&
+  now<progression.noticeAt+DAY);
+}
+function updateSettings(now){
+ if(!progression)return;
+ const unlocked=Boolean(progression.settingsAt);
+ ui.gear.disabled=!unlocked;
+ ui.gear.setAttribute('aria-label',unlocked?'설정 열기':'설정 시스템 연구 후 해금');
+ if(!unlocked){ui.settings.hidden=true;ui.gear.setAttribute('aria-expanded','false');}
+ ui.version.hidden=!progression.changelogAt;
+ if(progression.changelogAt){
+  const latest=progression.noticeVersion&&versionCompare(progression.noticeVersion,releaseManifest.version)>0?
+   progression.noticeVersion:releaseManifest.version;
+  ui.version.textContent='v'+latest;
+ }
+ ui.notify.textContent=progression.notifyEnabled?'켜짐':'꺼짐';
+ ui.notify.setAttribute('aria-pressed',String(progression.notifyEnabled));
+}
+ui.gear.addEventListener('click',()=>{
+ if(!progression||!progression.settingsAt)return;
+ ui.settings.hidden=!ui.settings.hidden;
+ ui.gear.setAttribute('aria-expanded',String(!ui.settings.hidden));
+});
+ui.notify.addEventListener('click',()=>{
+ if(!progression||!progression.settingsAt)return;
+ progression.notifyEnabled=!progression.notifyEnabled;
+ const now=Math.floor(Date.now()/1000);
+ markProgression();saveProgression(now);draw(now);
+});
+document.addEventListener('keydown',event=>{
+ if(event.key==='Escape'&&!ui.settings.hidden){
+  ui.settings.hidden=true;ui.gear.setAttribute('aria-expanded','false');ui.gear.focus();
+ }
+});
+
 function element(tag,cls,value){
  const el=document.createElement(tag);
  if(cls)el.className=cls;
@@ -678,11 +879,64 @@ function makeAssistantCard(){
  card.append(head,time,counts,bar);
  return {card,name:name.querySelector('strong'),status,left,right,active,completed,bar};
 }
+
+function makeResearchCard(){
+ const card=element('article','slot research-card'),head=element('div','slot-head');
+ const name=element('div','slot-name'),title=element('strong');
+ name.appendChild(title);
+ const status=element('span','slot-state'),accept=element('button','slot-button research-accept','수락');
+ accept.type='button';accept.addEventListener('click',acceptResearch);
+ const rightHead=element('div','slot-right');rightHead.append(status,accept);
+ head.append(name,rightHead);
+ const details=element('div','slot-details'),left=element('span','slot-metric assistant-timer-label');
+ const right=element('span','slot-metric slot-operations assistant-timer');details.append(left,right);
+ const bar=element('div','slot-progress');card.append(head,details,bar);
+ return {card,title,status,accept,left,right,bar};
+}
+function drawResearch(now){
+ if(!progression||progression.stage>=RESEARCH.length)return;
+ const slot=cards.get('research');if(!slot)return;
+ const kind=RESEARCH[progression.stage],offered=progression.mode==='offered';
+ slot.title.textContent=kind.title;
+ slot.accept.hidden=!offered;
+ slot.status.hidden=offered;
+ slot.status.textContent=offered?'':'진행중';
+ slot.left.textContent=offered?'임무 폐기까지':kind.remaining;
+ const end=offered?progression.offerEndsAt:progression.completeAt;
+ const begin=offered?progression.offerAt:progression.acceptedAt;
+ slot.right.textContent=countdown(end-now);
+ slot.bar.style.width=(100*Math.max(0,Math.min(1,(now-begin)/(end-begin)))).toFixed(2)+'%';
+}
+function makeNoticeCard(){
+ const card=element('article','slot notice-card'),head=element('div','slot-head');
+ const name=element('div','slot-name'),title=element('strong');
+ const tag=element('span','system-tag','시스템');name.append(title,tag);
+ const status=element('span','slot-state','알림중');head.append(name,status);
+ const subtitle=element('div','notice-subtitle'),list=element('ul','notice-list');
+ const details=element('div','slot-details'),left=element('span','slot-metric assistant-timer-label','알림 종료까지');
+ const right=element('span','slot-metric slot-operations assistant-timer');
+ details.append(left,right);
+ const bar=element('div','slot-progress');card.append(head,subtitle,list,details,bar);
+ return {card,title,subtitle,list,right,bar,renderedVersion:null};
+}
+function drawNotice(now){
+ const slot=cards.get('release');if(!slot)return;
+ slot.title.textContent='변경기록 · v'+releaseManifest.version;
+ if(slot.renderedVersion!==releaseManifest.version){
+  slot.subtitle.textContent=releaseManifest.title;
+  const nodes=document.createDocumentFragment();
+  for(const item of releaseManifest.entries)nodes.appendChild(element('li','',item));
+  slot.list.replaceChildren(nodes);slot.renderedVersion=releaseManifest.version;
+ }
+ slot.right.textContent=countdown(progression.noticeAt+DAY-now);
+ slot.bar.style.width=(100*Math.max(0,Math.min(1,(now-progression.noticeAt)/DAY))).toFixed(2)+'%';
+}
+
 function drawAssistant(now){
  if(!assistant)return;
  const slot=cards.get('assistant');if(!slot)return;
  const readyAt=assistant.startedAt+DAY,pinned=now>=readyAt;
- slot.name.textContent=pinned?'관전임무 분석':'관전임무 분석중';
+ slot.name.textContent=pinned?(progression&&progression.convertedAt?'비서':'관전임무 분석'):'관전임무 분석중';
  slot.status.textContent=pinned?'상시 분석':'분석중';
  slot.left.textContent=pinned?'임무 분석 지속중':'상단 고정까지';
  slot.right.textContent=pinned?'상단 고정':hms(Math.ceil(Math.max(0,readyAt-now)));
@@ -696,13 +950,17 @@ function drawAssistant(now){
 function reorder(now){
  const readyAt=assistant?assistant.startedAt+DAY:Infinity,pinned=now>=readyAt;
  const list=assistant?[...state.units,{id:'assistant',kind:'assistant',end:readyAt}]:state.units.slice();
+ if(pinned&&progression&&progression.stage<RESEARCH.length&&
+  (progression.mode==='offered'||progression.mode==='running')){
+  list.push({id:'research',kind:'research',end:progression.mode==='offered'?progression.offerEndsAt:progression.completeAt});
+ }
+ if(pinned&&noticeShown(now))list.push({id:'release',kind:'notice',end:progression.noticeAt+DAY});
+ const priority=v=>pinned?(v.kind==='assistant'?0:v.kind==='research'?1:v.kind==='notice'?2:3):0;
  list.sort((a,b)=>{
-  if(pinned){
-   if(a.kind==='assistant')return -1;
-   if(b.kind==='assistant')return 1;
-  }
-  const aEnd=a.kind==='assistant'?a.end:taskEnd(a);
-  const bEnd=b.kind==='assistant'?b.end:taskEnd(b);
+  const difference=priority(a)-priority(b);
+  if(difference)return difference;
+  const aEnd=['assistant','research','notice'].includes(a.kind)?a.end:taskEnd(a);
+  const bEnd=['assistant','research','notice'].includes(b.kind)?b.end:taskEnd(b);
   return aEnd-bEnd||(a.kind==='assistant'?-1:b.kind==='assistant'?1:a.id-b.id);
  });
  const key=list.map(v=>v.id).join(',');
@@ -712,7 +970,9 @@ function reorder(now){
   seen.add(v.id);
   let slot=cards.get(v.id);
   if(!slot){
-   slot=v.kind==='assistant'?makeAssistantCard():v.kind==='route'?makeRouteCard(v):v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
+   slot=v.kind==='assistant'?makeAssistantCard():v.kind==='research'?makeResearchCard():
+    v.kind==='notice'?makeNoticeCard():v.kind==='route'?makeRouteCard(v):
+    v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
    cards.set(v.id,slot);
   }
   nodes.appendChild(slot.card);
@@ -840,6 +1100,9 @@ function draw(now){
  if(!ready)return;
  reorder(now);
  drawAssistant(now);
+ drawResearch(now);
+ drawNotice(now);
+ updateSettings(now);
  for(const v of state.units){
   const slot=cards.get(v.id);if(!slot)continue;
   if(v.kind==='route'){drawRoute(v,slot,now);continue;}
@@ -869,15 +1132,16 @@ function draw(now){
 }
 function tick(){
  const now=Math.floor(Date.now()/1000);
- if(ready){advance(now);if(dirty&&now-lastSave>=20)save(now);}
+ if(ready){advance(now);advanceProgression(now);if(dirty&&now-lastSave>=20)save(now);
+  if(progressionDirty&&now-progressionLastSave>=2)saveProgression(now);}
  draw(now);
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
-window.addEventListener('pagehide',()=>{if(ready&&dirty)save(Math.floor(Date.now()/1000));});
+window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if(ready&&dirty)save(now);if(ready&&progressionDirty)saveProgression(now);});
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(!IS_LIVE){state=initial(now);await startAssistant(now);ready=true;tick();setInterval(tick,1000);return;}
+ if(!IS_LIVE){state=initial(now);await startAssistant(now);await startProgression(now);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
@@ -898,7 +1162,10 @@ window.addEventListener('pagehide',()=>{if(ready&&dirty)save(Math.floor(Date.now
  ready=true;
  advance(now);
  await startAssistant(now);
+ await startProgression(now);
  tick();
+ refreshRelease();
+ setInterval(refreshRelease,5*60*1000);
  if(dirty)save(now);
  setInterval(tick,1000);
 })();

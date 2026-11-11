@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.14</title>
+<title>MYON v0.13.15</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -14,7 +14,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .viewport{min-height:100dvh;display:flex;justify-content:center}
 .app{background:#0e171b;width:100%;max-width:450px;height:100dvh;height:100svh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 @media(min-width:600px){.viewport{padding:20px 0}.app{height:calc(100dvh - 40px);border:1px solid #304448;border-radius:16px;box-shadow:0 0 35px #0005}}
-.topbar{background:#14242a;border-bottom:1px solid #2c4346;height:77px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 17px}
+.topbar{position:relative;background:#14242a;border-bottom:1px solid #2c4346;height:77px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 17px}
 .brand{font-size:20px;font-weight:800;letter-spacing:.01em}
 .clock{display:flex;flex-direction:column;align-items:flex-end;gap:0;font-variant-numeric:tabular-nums;white-space:nowrap}
 .clock-date{color:#9bb9af;font:400 11px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.055em}
@@ -79,7 +79,9 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 @media(max-width:380px){.mission-catalog-items{grid-template-columns:minmax(0,1fr)}}
 
 .env-brand{display:flex;align-items:center;gap:7px;min-width:0}
-.env-settings{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #3a5459;background:#1b3239;border-radius:8px;color:#b8dcd2;padding:0;pointer-events:none}
+.env-settings{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #3a5459;background:#1b3239;border-radius:8px;color:#b8dcd2;padding:0}
+.env-settings:disabled{cursor:default;opacity:.76}
+.env-settings:not(:disabled):active{background:#29474a}
 .env-settings svg{height:17px;width:17px}
 @media(max-width:380px){.topbar{padding:0 9px;gap:6px}.clock-time{font-size:23px}.clock-date{font-size:9px}.brand{font-size:16px}.env-brand{gap:5px}.env-settings{width:26px;height:26px}}
 
@@ -93,11 +95,33 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .assistant-stat-label{color:#b9d1c8;font-size:10px;line-height:1.4}
 .assistant-stat-number{color:#d9f3e8;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .assistant-dev-tag{display:inline-flex;align-items:center;justify-content:center;flex:none;border:1px solid #806a43;background:#403525;color:#f3cb84;border-radius:4px;padding:2px 5px;font-size:10px;font-weight:700;line-height:1.25;white-space:nowrap}
+
+/* v0.13.15: assistant-gated research offers, update notices, and settings. */
+.research-card .slot-progress,.notice-card .slot-progress{background:#67c2a5}
+.research-card .slot-name strong,.notice-card .slot-name strong{font-size:13px}
+.research-card .slot-button[hidden],.research-card .slot-state[hidden]{display:none}
+.research-card .slot-name,.notice-card .slot-name{white-space:normal}
+.system-tag{display:inline-flex;align-items:center;flex:none;border:1px solid #45677e;background:#253d51;color:#aed8f6;border-radius:4px;padding:2px 5px;font-size:10px;font-weight:700;line-height:1.25;white-space:nowrap}
+.notice-subtitle{font-size:12px;color:#d9f3e8;font-weight:700;margin-top:9px}
+.notice-list{margin:6px 0;padding-left:18px;color:#b9d1c8;font-size:11px;line-height:1.7;overflow-wrap:anywhere}
+.top-version{color:#9ae7c6;font-size:11px;font-weight:750;white-space:nowrap}
+.top-version[hidden]{display:none}
+.settings-panel{position:absolute;top:68px;left:12px;right:12px;z-index:30;background:#19292e;border:1px solid #456269;box-shadow:0 12px 24px #0009;border-radius:9px;padding:13px}
+.settings-panel[hidden]{display:none}
+.settings-title{font-size:13px;font-weight:750;margin-bottom:11px}
+.settings-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.settings-label{display:flex;flex-direction:column;gap:5px;min-width:0}
+.settings-label strong{font-size:12px;color:#e3f3eb}
+.settings-label small{font-size:10px;color:#9bb9af}
+.settings-toggle{flex:none;border:1px solid #477c6a;background:#20513f;color:#c6f3d9;padding:7px 11px;border-radius:7px;font-size:11px;font-weight:750}
+.settings-toggle[aria-pressed="false"]{border-color:#52626a;background:#293a40;color:#b9c4c5}
+@media(max-width:360px){.top-version{font-size:10px}.research-card .slot-name strong,.notice-card .slot-name strong{font-size:12px}}
+
 </style>
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><span class="env-settings" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div></header>
+<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version" hidden></span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림카드 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
 <main class="content">
   <div id="slot-list" class="slot-list"></div>
   <div class="supply"><span class="supply-label">다음 임무 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
@@ -111,7 +135,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </main>
 </div></div>
 
-<script src="myon-v013.js?v=0.13.14"></script>
+<script src="myon-v013.js?v=0.13.15"></script>
 
 </body>
 </html>
