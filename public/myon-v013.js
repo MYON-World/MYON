@@ -1,4 +1,4 @@
-// MYON v0.13.20 — secretary cleanup, hierarchical management, involvement capacity planning.
+// MYON v0.13.21 — secretary cleanup, hierarchical management, involvement capacity planning.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -610,7 +610,7 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.20',title:'비서 간소화·관리 계층형 메뉴·관여형 설계 정리',
+ version:'0.13.21',title:'비서 간소화·관리 계층형 메뉴·관여형 설계 정리',
  entries:[
   '비서 전환 후 중복 분석 문구와 개선중 태그를 제거했습니다.',
   '관리 화면을 내 정보·비서·임무판 계층형 메뉴로 구분했습니다.',
@@ -757,7 +757,7 @@ function acceptResearch(){
  function acceptMenu(){
   // Temporarily disabled while the new menu study is not offered.
  }
- const MANAGEMENT_SECTIONS={player:'내 정보',assistant:'비서',board:'임무판'};
+ const MANAGEMENT_SECTIONS={player:'내 정보',assistant:'비서',board:'임무판',finance:'재정',vehicles:'차량'};
 function showManagement(section=null){
  const selected=Object.prototype.hasOwnProperty.call(MANAGEMENT_SECTIONS,section)?section:null;
  $('management-menu').hidden=Boolean(selected);
@@ -1131,7 +1131,7 @@ function makeAssistantCard(){
  completedBox.append(element('span','assistant-stat-label','분석 후 완료 임무'),completed);
  counts.append(activeBox,completedBox);
  const notes=element('details','assistant-release'),summary=element('summary','assistant-release-summary');
- const version=element('span','','v0.13.20'),update=element('span','release-new','NEW'),arrow=element('span','assistant-release-arrow','⌄');
+ const version=element('span','','v0.13.21'),update=element('span','release-new','NEW'),arrow=element('span','assistant-release-arrow','⌄');
  update.hidden=true;
  const rightSummary=element('span','slot-right');rightSummary.append(update,arrow);summary.append(version,rightSummary);
  const content=element('div','assistant-release-content'),subtitle=element('div','notice-subtitle'),list=element('ul','notice-list');

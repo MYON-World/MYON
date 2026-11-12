@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.20</title>
+<title>MYON v0.13.21</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -126,7 +126,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .character-screen{padding-top:12px}
 .character-card .slot-name{gap:9px}
 
-/* v0.13.20: management, profile, style settings and secretary change log */
+/* v0.13.21: management, profile, style settings and secretary change log */
 .manage-screen{display:flex;flex-direction:column;gap:9px;padding-top:12px}
 .manage-screen .slot{min-height:0}
 .manage-form,.manage-fields,.preference-detail{display:flex;flex-direction:column;gap:10px}
@@ -172,7 +172,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .release-new{background:#235640;border-radius:4px;color:#9ae7c6;padding:2px 5px;font-size:10px}
 .release-new[hidden]{display:none}
 
-/* v0.13.20: hierarchical management and post-analysis cleanup */
+/* v0.13.21: hierarchical management and post-analysis cleanup */
 .manage-menu,.manage-detail,.manage-pane{display:flex;flex-direction:column;gap:9px;min-width:0}
 .manage-menu[hidden],.manage-detail[hidden],.manage-pane[hidden]{display:none}
 .manage-title{margin:0 0 3px;color:#dff3e9;font-size:15px;font-weight:800}
@@ -180,6 +180,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .manage-link:active{background:#203b3c}
 .manage-link-copy{display:flex;flex-direction:column;gap:5px}
 .manage-link-copy strong{font-size:13px}
+.manage-link-heading{display:flex;align-items:center;gap:6px}
 .manage-link-copy small{font-size:11px;color:#9cb9ad}
 .manage-link-arrow{font-size:24px;font-weight:300;color:#9cb9ad}
 .manage-back{align-self:flex-start;background:none;color:#b3dbc9;border:0;font-size:13px;font-weight:750;padding:7px 4px;margin:0 0 2px}
@@ -188,7 +189,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.20</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
+<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.21</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
 <main id="home-screen" class="content" aria-label="진행 중인 임무">
   <div id="slot-list" class="slot-list"></div>
 </main>
@@ -198,6 +199,8 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     <button type="button" class="manage-link" data-manage-target="player"><span class="manage-link-copy"><strong>내 정보</strong><small>프로필 · 플레이 스타일</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
     <button type="button" class="manage-link" data-manage-target="assistant"><span class="manage-link-copy"><strong>비서</strong><small>임무 분석 · 변경기록</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
     <button type="button" class="manage-link" data-manage-target="board"><span class="manage-link-copy"><strong>임무판</strong><small>임무 등록 현황 · 다음 임무 등장</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
+    <button type="button" class="manage-link" data-manage-target="finance"><span class="manage-link-copy"><span class="manage-link-heading"><strong>재정</strong><span class="assistant-dev-tag">개발중</span></span></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
+    <button type="button" class="manage-link" data-manage-target="vehicles"><span class="manage-link-copy"><span class="manage-link-heading"><strong>차량</strong><span class="assistant-dev-tag">개발중</span></span></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
   </div>
   <div id="management-detail" class="manage-detail" hidden>
     <button type="button" id="management-back" class="manage-back">‹ 관리</button>
@@ -274,6 +277,16 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     </div>
   </details>
     </div>
+    <div id="management-finance" class="manage-pane" hidden>
+      <article class="slot">
+        <div class="slot-head"><div class="slot-name"><strong>재정</strong><span class="assistant-dev-tag">개발중</span></div></div>
+      </article>
+    </div>
+    <div id="management-vehicles" class="manage-pane" hidden>
+      <article class="slot">
+        <div class="slot-head"><div class="slot-name"><strong>차량</strong><span class="assistant-dev-tag">개발중</span></div></div>
+      </article>
+    </div>
   </div>
 </section>
 <nav id="bottom-nav" class="bottom-nav" aria-label="하단 메뉴">
@@ -282,7 +295,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </nav>
 </div></div>
 
-<script src="myon-v013.js?v=0.13.20"></script>
+<script src="myon-v013.js?v=0.13.21"></script>
 
 </body>
 </html>
