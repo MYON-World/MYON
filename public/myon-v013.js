@@ -1,10 +1,10 @@
-// MYON v0.13.21 — secretary cleanup, hierarchical management, involvement capacity planning.
+// MYON v0.13.22 — new-player immediate access, M funds and finance unit.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
 const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression',MENU_KEY='v01317-bottom-nav'; // Original saves unchanged.
-const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style';
+const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style',FINANCE_KEY='v01322-common-funds';
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
@@ -160,7 +160,7 @@ const constructionTiers=[
 let state=null,assistant=null,progression=null,releaseManifest=null,dbPromise=null,ready=false,lastSave=0,saveChain=Promise.resolve(),dirty=false;
 let progressionDirty=false,progressionLastSave=0,progressionSaveChain=Promise.resolve();
 let menuStudy=null,menuDirty=false,menuLastSave=0,menuSaveChain=Promise.resolve();
-let profile=null,preferences=null,observerDraft=null,resetBusy=false;
+let profile=null,preferences=null,observerDraft=null,resetBusy=false,commonFunds=null;
 let profileSaveChain=Promise.resolve(),preferencesSaveChain=Promise.resolve();
 const cards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
@@ -563,8 +563,9 @@ function save(now){
 }
 
 
-function newAssistant(now){
- return {schema:1,startedAt:now,baselineNextId:state.nextId,baselineActive:state.units.length,discardedCount:0};
+function newAssistant(now,firstVisit=false){
+ // Fresh players see the current secretary immediately, without rewriting any previous records.
+ return {schema:1,startedAt:firstVisit?now-DAY:now,baselineNextId:state.nextId,baselineActive:state.units.length,discardedCount:0};
 }
 function validAssistant(value){
  return value&&value.schema===1&&Number.isSafeInteger(value.startedAt)&&value.startedAt>0&&
@@ -575,14 +576,14 @@ function validAssistant(value){
   state.units.length<=value.baselineActive+(state.nextId-value.baselineNextId)&&
    (value.discardedCount===undefined||(Number.isSafeInteger(value.discardedCount)&&value.discardedCount>=0));
 }
-async function startAssistant(now){
+async function startAssistant(now,firstVisit=false){
  // Load the current official world FIRST and replay its missed hours.
- // A fresh assistant begins tracking from that moment, not from old history.
- if(!IS_LIVE){assistant=newAssistant(now);return;}
+ // Every assistant tracks completed missions from now; only the display state skips the old wait.
+ if(!IS_LIVE){assistant=newAssistant(now,firstVisit);return;}
  let restored=null;
  try{restored=await read(ASSISTANT_KEY);}catch(e){console.error('MYON assistant read:',e);}
  if(validAssistant(restored)){assistant=restored;return;}
- assistant=newAssistant(now);
+ assistant=newAssistant(now,firstVisit);
  try{
   const db=await openDb();
   await new Promise((resolve,reject)=>{
@@ -610,13 +611,13 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.21',title:'비서 간소화·관리 계층형 메뉴·관여형 설계 정리',
+ version:'0.13.22',title:'신규 플레이어 즉시 이용·공용자금 M 표시',
  entries:[
-  '비서 전환 후 중복 분석 문구와 개선중 태그를 제거했습니다.',
-  '관리 화면을 내 정보·비서·임무판 계층형 메뉴로 구분했습니다.',
-  '관여형의 기존 상세 설정을 제거했습니다.',
-  '관여형 목표 100건의 차량/무차량 임무 배분 규칙을 정리했습니다.',
-  '혼합형 개선 임무와 관여형 분야별 임무는 추후 설계합니다.'
+  '새 플레이어는 기존 24시간 비서 분석과 설정·메뉴 연구 대기 없이 현재 기능을 바로 이용합니다.',
+  '상단에 공용자금 표시를 추가했으며 시작 금액은 0 M입니다.',
+  '1 M = 10,000원 기준으로 소수점 최대 4자리까지 표시하고 끝자리 0은 생략합니다.',
+  '재정 메뉴에서 화폐 기준을 안내하며, 재정·차량의 실제 거래와 수익 로직은 아직 개발중입니다.',
+  '기존 플레이어의 진행 임무와 연구·프로필 등의 저장 정보는 유지됩니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -628,10 +629,10 @@ function progressionRandom(min,max){
 }
 function offerWait(){return progressionRandom(1,4)*HOUR;}
 function offerLifetime(){return progressionRandom(2,4)*HOUR;}
-function makeProgression(now){
- progression={schema:1,stage:0,mode:'waiting',rng:seedNow(),nextOfferAt:0,offerAt:0,offerEndsAt:0,acceptedAt:0,completeAt:0,
-  convertedAt:0,changelogAt:0,settingsAt:0,notifyEnabled:true,noticeVersion:'',noticeAt:0};
- progression.nextOfferAt=0; // No research offers until the secretary research system resumes.
+function makeProgression(now,firstVisit=false){
+ progression={schema:1,stage:firstVisit?3:0,mode:firstVisit?'done':'waiting',rng:seedNow(),nextOfferAt:0,offerAt:0,offerEndsAt:0,acceptedAt:0,completeAt:0,
+  convertedAt:firstVisit?now:0,changelogAt:firstVisit?now:0,settingsAt:firstVisit?now:0,notifyEnabled:true,noticeVersion:'',noticeAt:0};
+ // New players start with all currently released settings; previously saved research remains as-is.
  return progression;
 }
 function validProgression(p){
@@ -690,12 +691,12 @@ function advanceProgression(now){
  }
  syncNotice(now);
 }
-async function startProgression(now){
- if(!IS_LIVE){makeProgression(now);advanceProgression(now);return;}
+async function startProgression(now,firstVisit=false){
+ if(!IS_LIVE){makeProgression(now,firstVisit);advanceProgression(now);return;}
  let restored=null;
  try{restored=await read(PROGRESSION_KEY);}catch(e){console.error('MYON progression read:',e);}
  if(validProgression(restored))progression=restored;
- else{makeProgression(now);markProgression();}
+ else{makeProgression(now,firstVisit);markProgression();}
  advanceProgression(now);
  if(progressionDirty)saveProgression(now);
 }
@@ -710,10 +711,9 @@ function acceptResearch(){
  }
  function menuWait(){return menuRandom(1,4)*HOUR;}
  function menuExpiry(){return menuRandom(2,4)*HOUR;}
- function makeMenuStudy(now){
-  const converted=Boolean(progression&&progression.convertedAt);
-  menuStudy={schema:1,mode:'locked',rng:seedNow(),nextOfferAt:0,offerAt:0,offerEndsAt:0,acceptedAt:0,completeAt:0,unlockedAt:0};
-  // New research offers are paused; existing menu unlocks are restored from saved data.
+ function makeMenuStudy(now,firstVisit=false){
+  menuStudy={schema:1,mode:firstVisit?'done':'locked',rng:seedNow(),nextOfferAt:0,offerAt:0,offerEndsAt:0,acceptedAt:0,completeAt:0,unlockedAt:firstVisit?now:0};
+  // Latest menu is immediately available to newcomers; saved studies remain unchanged.
  }
  function validMenuStudy(s){
   if(!s||s.schema!==1||!['locked','waiting','offered','running','done'].includes(s.mode)||!Number.isInteger(s.rng))return false;
@@ -746,11 +746,11 @@ function acceptResearch(){
   menuStudy.nextOfferAt=0;menuStudy.offerAt=0;menuStudy.offerEndsAt=0;
   markMenu();
  }
- async function startMenu(now){
-  if(!IS_LIVE){makeMenuStudy(now);advanceMenu(now);return;}
+ async function startMenu(now,firstVisit=false){
+  if(!IS_LIVE){makeMenuStudy(now,firstVisit);advanceMenu(now);return;}
   let saved=null;
   try{saved=await read(MENU_KEY);}catch(e){console.error('MYON menu read:',e);}
-  if(validMenuStudy(saved))menuStudy=saved;else{makeMenuStudy(now);markMenu();}
+  if(validMenuStudy(saved))menuStudy=saved;else{makeMenuStudy(now,firstVisit);markMenu();}
   advanceMenu(now);
   if(menuDirty)saveMenu(now);
  }
@@ -1367,10 +1367,35 @@ function drawRoute(v,slot,now){
  const keep=new Set(identities);
  for(const id of store.keys())if(!keep.has(id))store.delete(id);
 }
+// Shared funds use an isolated save record; legacy missions and progression remain untouched.
+function validCommonFunds(value){
+ return Boolean(value&&value.schema===1&&Number.isSafeInteger(value.balance)&&value.balance>=0);
+}
+async function startCommonFunds(){
+ commonFunds={schema:1,balance:0};
+ if(!IS_LIVE)return;
+ try{
+  const saved=await read(FINANCE_KEY);
+  if(validCommonFunds(saved)){commonFunds=saved;return;}
+  await putRecord(FINANCE_KEY,commonFunds);
+ }catch(error){console.error('MYON common funds:',error);}
+}
+// 1 M corresponds to 10,000 smallest currency units; store integral units to avoid float drift.
+const M_UNITS=10000;
+function formatCommonFunds(balance){
+ const whole=Math.floor(balance/M_UNITS).toLocaleString('ko-KR');
+ const fraction=String(balance%M_UNITS).padStart(4,'0').replace(/0+$/,'');
+ return whole+(fraction?'.'+fraction:'')+' M';
+}
+function drawCommonFunds(){
+ if(!commonFunds)return;
+ $('common-funds-amount').textContent=formatCommonFunds(commonFunds.balance);
+}
 function draw(now){
  const date=new Date(now*1000);
  ui.date.textContent=dateFmt.format(date).replace(/-/g,'.')+' ('+weekdayFmt.format(date)+')';
  ui.clock.textContent=timeFmt.format(date);
+ drawCommonFunds();
  if(!ready)return;
  reorder(now);
  drawAssistant(now);
@@ -1417,11 +1442,12 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startAssistant(now);await startProgression(now);await startMenu(now);ready=true;tick();setInterval(tick,1000);return;}
+ if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startCommonFunds();await startAssistant(now,true);await startProgression(now,true);await startMenu(now,true);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
  }catch(e){console.error('MYON mission load:',e);}
+ const firstVisit=!saved&&!oldVehicles&&!oldConstruction;
  if(saved&&validWorld(saved)){
   state=saved;
   // Upgrade existing in-progress contracts in place: preserve already worked
@@ -1436,11 +1462,12 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
  // Apply elapsed offline mission events before starting a NEW analysis period.
  // This prevents existing users from retroactively counting old completions.
  await startPlayerSettings();
+ await startCommonFunds();
  ready=true;
  advance(now);
- await startAssistant(now);
- await startProgression(now);
- await startMenu(now);
+ await startAssistant(now,firstVisit);
+ await startProgression(now,firstVisit);
+ await startMenu(now,firstVisit);
  tick();
  refreshRelease();
  setInterval(refreshRelease,5*60*1000);
