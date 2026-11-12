@@ -1,4 +1,4 @@
-// MYON v0.13.19 — home/management, observer quotas, player profile and deferred involvement.
+// MYON v0.13.20 — secretary cleanup, hierarchical management, involvement capacity planning.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -52,6 +52,12 @@ function charterSlot(seed){
 }
 const modes=['taxi','truck','bus','rail','air','ship','space','construction'];
 const SECTOR_NAMES=['택시','화물','버스','철도','항공','해양','우주','건설'];
+// Capacity blueprint only: owned-vehicle inventory and improved missions are not yet implemented.
+const INVOLVED_MAX_MISSIONS=100,MAX_OWNED_VEHICLES=50;
+function involvementAllocation(ownedVehicles){
+ const vehicle=Math.max(0,Math.min(MAX_OWNED_VEHICLES,Number.isSafeInteger(ownedVehicles)?ownedVehicles:0));
+ return {total:INVOLVED_MAX_MISSIONS,vehicle,withoutVehicle:INVOLVED_MAX_MISSIONS-vehicle};
+}
 const unitNames={taxi:'택시',truck:'화물차',domestic:'국내선',international:'국제선',ship:'선박',space:'우주임무'};
 const unitIcons={taxi:'🚕',truck:'🚚',domestic:'✈️',international:'✈️',ship:'🚢',space:'🚀'};
 function kstMidnight(t){return Math.floor((t+KST)/DAY)*DAY-KST;}
@@ -154,7 +160,7 @@ const constructionTiers=[
 let state=null,assistant=null,progression=null,releaseManifest=null,dbPromise=null,ready=false,lastSave=0,saveChain=Promise.resolve(),dirty=false;
 let progressionDirty=false,progressionLastSave=0,progressionSaveChain=Promise.resolve();
 let menuStudy=null,menuDirty=false,menuLastSave=0,menuSaveChain=Promise.resolve();
-let profile=null,preferences=null,observerDraft=null,involvedDraft='without',resetBusy=false;
+let profile=null,preferences=null,observerDraft=null,resetBusy=false;
 let profileSaveChain=Promise.resolve(),preferencesSaveChain=Promise.resolve();
 const cards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
@@ -604,13 +610,13 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.19',title:'홈·관리 화면 및 플레이 스타일 설정',
+ version:'0.13.20',title:'비서 간소화·관리 계층형 메뉴·관여형 설계 정리',
  entries:[
-  '홈에는 진행 중인 임무만 표시하고 관리 메뉴로 내 정보·비서·임무판을 이동했습니다.',
-  '비서 완료 건수 아래 변경기록을 접었다 펼칠 수 있습니다.',
-  '플레이어 이름·성별·나이를 저장·수정할 수 있습니다.',
-  '관람형은 8개 분야별 임무 배정 상한을 설정하고 임무를 초기화할 수 있습니다.',
-  '관여형 임무 등장·수락 기능은 아직 구현하지 않았습니다.'
+  '비서 전환 후 중복 분석 문구와 개선중 태그를 제거했습니다.',
+  '관리 화면을 내 정보·비서·임무판 계층형 메뉴로 구분했습니다.',
+  '관여형의 기존 상세 설정을 제거했습니다.',
+  '관여형 목표 100건의 차량/무차량 임무 배분 규칙을 정리했습니다.',
+  '혼합형 개선 임무와 관여형 분야별 임무는 추후 설계합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -751,26 +757,42 @@ function acceptResearch(){
  function acceptMenu(){
   // Temporarily disabled while the new menu study is not offered.
  }
- function showPage(target){
-  const isCharacter=target==='character';
-  nav.home.hidden=isCharacter;nav.character.hidden=!isCharacter;
-  nav.homeButton.classList.toggle('selected',!isCharacter);
-  nav.characterButton.classList.toggle('selected',isCharacter);
-  if(isCharacter){nav.homeButton.removeAttribute('aria-current');nav.characterButton.setAttribute('aria-current','page');}
-  else{nav.characterButton.removeAttribute('aria-current');nav.homeButton.setAttribute('aria-current','page');}
+ const MANAGEMENT_SECTIONS={player:'내 정보',assistant:'비서',board:'임무판'};
+function showManagement(section=null){
+ const selected=Object.prototype.hasOwnProperty.call(MANAGEMENT_SECTIONS,section)?section:null;
+ $('management-menu').hidden=Boolean(selected);
+ $('management-detail').hidden=!selected;
+ for(const name of Object.keys(MANAGEMENT_SECTIONS))$('management-'+name).hidden=name!==selected;
+ $('management-page-label').textContent=selected?MANAGEMENT_SECTIONS[selected]:'';
+ nav.character.scrollTop=0;
+}
+function showPage(target){
+ const isManagement=target==='character';
+ nav.home.hidden=isManagement;nav.character.hidden=!isManagement;
+ nav.homeButton.classList.toggle('selected',!isManagement);
+ nav.characterButton.classList.toggle('selected',isManagement);
+ if(isManagement){
+  nav.homeButton.removeAttribute('aria-current');nav.characterButton.setAttribute('aria-current','page');
+  showManagement();
+ }else{
+  nav.characterButton.removeAttribute('aria-current');nav.homeButton.setAttribute('aria-current','page');
  }
- function updateNav(){nav.bar.hidden=false;}
- nav.homeButton.addEventListener('click',()=>showPage('home'));
- nav.characterButton.addEventListener('click',()=>showPage('character'));
-
+}
+function updateNav(){nav.bar.hidden=false;}
+nav.homeButton.addEventListener('click',()=>showPage('home'));
+nav.characterButton.addEventListener('click',()=>showPage('character'));
+for(const button of document.querySelectorAll('[data-manage-target]')){
+ button.addEventListener('click',()=>showManagement(button.getAttribute('data-manage-target')));
+}
+$('management-back').addEventListener('click',()=>showManagement());
 
 // v0.13.19 player profile and style preferences are stored separately from world jobs.
-function defaultPreferences(){return {schema:1,style:'observe',total:8,counts:[1,1,1,1,1,1,1,1],involvement:'without'};}
+function defaultPreferences(){return {schema:1,style:'observe',total:8,counts:[1,1,1,1,1,1,1,1]};}
 function validPreferences(p){
  return Boolean(p&&p.schema===1&&['observe','active','mixed'].includes(p.style)&&
   Number.isInteger(p.total)&&p.total>=8&&p.total<=MAX&&
   Array.isArray(p.counts)&&p.counts.length===8&&p.counts.every(n=>Number.isInteger(n)&&n>=0&&n<=MAX)&&
-  p.counts.reduce((a,b)=>a+b,0)<=p.total&&['without','owned'].includes(p.involvement));
+  p.counts.reduce((a,b)=>a+b,0)<=p.total);
 }
 function validProfile(p){
  return Boolean(p&&p.schema===1&&typeof p.name==='string'&&p.name.trim()===p.name&&p.name.length>=1&&p.name.length<=30&&
@@ -837,7 +859,6 @@ function drawPreferenceUi(){
  if(!preferences)return;
  for(const r of document.querySelectorAll('input[name="play-style"]'))r.checked=r.value===preferences.style;
  $('observer-settings').hidden=preferences.style!=='observe';
- $('involved-settings').hidden=preferences.style!=='active';
  const allocated=allocatedDraft(),slider=$('observer-total');
  slider.min=String(Math.max(8,allocated));slider.value=String(observerDraft.total);
  $('observer-total-text').textContent=observerDraft.total+'건';
@@ -850,8 +871,6 @@ function drawPreferenceUi(){
   row.plus.title='최대 '+(n+observerDraft.total-allocated)+'건';
  }
  $('observer-save').disabled=preferences.total===observerDraft.total&&preferences.counts.every((n,i)=>n===observerDraft.counts[i]);
- for(const r of document.querySelectorAll('input[name="involved-mode"]'))r.checked=r.value===involvedDraft;
- $('involved-save').disabled=preferences.involvement===involvedDraft;
 }
 function initPreferenceUi(){
  const holder=$('observer-sectors');
@@ -885,16 +904,6 @@ function initPreferenceUi(){
   preferences={...preferences,total:observerDraft.total,counts:observerDraft.counts.slice()};
   try{await savePreferences();$('preference-feedback').textContent='관람형 임무 수량을 저장했습니다.';}
   catch(e){console.error('MYON observer:',e);preferences=previous;$('preference-feedback').textContent='저장에 실패했습니다.';}
-  drawPreferenceUi();
- });
- for(const r of document.querySelectorAll('input[name="involved-mode"]')){
-  r.addEventListener('change',()=>{if(r.checked){involvedDraft=r.value;drawPreferenceUi();}});
- }
- $('involved-save').addEventListener('click',async()=>{
-  const previous=preferences;
-  preferences={...preferences,involvement:involvedDraft};
-  try{await savePreferences();$('preference-feedback').textContent='관여형 수행 방식을 저장했습니다. 임무 등장은 추후 연결됩니다.';}
-  catch(e){console.error('MYON involvement:',e);preferences=previous;$('preference-feedback').textContent='저장에 실패했습니다.';}
   drawPreferenceUi();
  });
  $('observer-reset').addEventListener('click',()=>{$('observer-reset-confirm').hidden=false;});
@@ -936,11 +945,10 @@ async function startPlayerSettings(){
   try{
    const [savedProfile,savedPreferences]=await Promise.all([read(PROFILE_KEY),read(PREF_KEY)]);
    if(validProfile(savedProfile))profile=savedProfile;
-   if(validPreferences(savedPreferences))preferences=savedPreferences;
+   if(validPreferences(savedPreferences))preferences={schema:1,style:savedPreferences.style,total:savedPreferences.total,counts:savedPreferences.counts.slice()};
   }catch(e){console.error('MYON player settings load:',e);}
  }
  observerDraft={total:preferences.total,counts:preferences.counts.slice()};
- involvedDraft=preferences.involvement;
  initProfileUi();initPreferenceUi();
 }
 
@@ -1123,13 +1131,13 @@ function makeAssistantCard(){
  completedBox.append(element('span','assistant-stat-label','분석 후 완료 임무'),completed);
  counts.append(activeBox,completedBox);
  const notes=element('details','assistant-release'),summary=element('summary','assistant-release-summary');
- const version=element('span','','v0.13.19'),update=element('span','release-new','NEW'),arrow=element('span','assistant-release-arrow','⌄');
+ const version=element('span','','v0.13.20'),update=element('span','release-new','NEW'),arrow=element('span','assistant-release-arrow','⌄');
  update.hidden=true;
  const rightSummary=element('span','slot-right');rightSummary.append(update,arrow);summary.append(version,rightSummary);
  const content=element('div','assistant-release-content'),subtitle=element('div','notice-subtitle'),list=element('ul','notice-list');
  content.append(subtitle,list);notes.append(summary,content);
  const bar=element('div','slot-progress');card.append(head,time,counts,notes,bar);
- return {card,name:name.querySelector('strong'),tag:name.querySelector('.assistant-dev-tag'),status,left,right,active,completed,bar,
+ return {card,name:name.querySelector('strong'),tag:name.querySelector('.assistant-dev-tag'),status,time,left,right,active,completed,bar,
   releaseVersion:version,releaseNew:update,releaseTitle:subtitle,releaseList:list,renderedVersion:null};
 }
 function makeResearchCard(onAccept=acceptResearch){
@@ -1202,12 +1210,14 @@ function drawAssistant(now){
  const slot=cards.get('assistant');if(!slot)return;
  const readyAt=assistant.startedAt+DAY,converted=now>=readyAt;
  slot.name.textContent=converted?'비서':'관전임무 분석중';
- // Developer tag applies to initial analysis only. '개선중' is a temporary
- // development notice and will be removed manually after improvement is done.
- slot.tag.textContent=converted?'개선중':'개발중';
- slot.status.textContent=converted?'상시 분석':'분석중';
- slot.left.textContent=converted?'임무 분석 지속중':'분석 완료까지';
- slot.right.textContent=converted?'상시 분석':hms(Math.ceil(Math.max(0,readyAt-now)));
+ // Keep initial 24-hour timer and tag; hide these redundant labels once secretary is active.
+ slot.tag.hidden=converted;
+ slot.status.hidden=converted;
+ slot.time.hidden=converted;
+ slot.tag.textContent='개발중';
+ slot.status.textContent=converted?'':'분석중';
+ slot.left.textContent=converted?'':'분석 완료까지';
+ slot.right.textContent=converted?'':hms(Math.ceil(Math.max(0,readyAt-now)));
  slot.active.textContent=state.units.length+'건';
  slot.completed.textContent=assistantCompleted()+'건';
  slot.releaseVersion.textContent='v'+releaseManifest.version;
