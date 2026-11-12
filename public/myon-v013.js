@@ -1,15 +1,17 @@
-// MYON v0.13.18 — assistant pinned from day one, auto-conversion at 24 hours; new research offers paused.
+// MYON v0.13.19 — home/management, observer quotas, player profile and deferred involvement.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
-const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression',MENU_KEY='v01317-bottom-nav'; // Observer and unlocks have isolated saves.
+const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression',MENU_KEY='v01317-bottom-nav'; // Original saves unchanged.
+const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style';
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply'),gear:$('top-settings-toggle'),version:$('top-version'),settings:$('settings-panel'),notify:$('notification-toggle')};
 const nav={home:$('home-screen'),character:$('character-screen'),bar:$('bottom-nav'),homeButton:$('bottom-home'),characterButton:$('bottom-character')};
+const assistantContainer=$('assistant-slot');
 const dateFmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
 const weekdayFmt=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'});
 const timeFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
@@ -49,6 +51,7 @@ function charterSlot(seed){
  return range(seed,32,0,4); // One of five half-hour rush-hour departures.
 }
 const modes=['taxi','truck','bus','rail','air','ship','space','construction'];
+const SECTOR_NAMES=['택시','화물','버스','철도','항공','해양','우주','건설'];
 const unitNames={taxi:'택시',truck:'화물차',domestic:'국내선',international:'국제선',ship:'선박',space:'우주임무'};
 const unitIcons={taxi:'🚕',truck:'🚚',domestic:'✈️',international:'✈️',ship:'🚢',space:'🚀'};
 function kstMidnight(t){return Math.floor((t+KST)/DAY)*DAY-KST;}
@@ -151,6 +154,8 @@ const constructionTiers=[
 let state=null,assistant=null,progression=null,releaseManifest=null,dbPromise=null,ready=false,lastSave=0,saveChain=Promise.resolve(),dirty=false;
 let progressionDirty=false,progressionLastSave=0,progressionSaveChain=Promise.resolve();
 let menuStudy=null,menuDirty=false,menuLastSave=0,menuSaveChain=Promise.resolve();
+let profile=null,preferences=null,observerDraft=null,involvedDraft='without',resetBusy=false;
+let profileSaveChain=Promise.resolve(),preferencesSaveChain=Promise.resolve();
 const cards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
 function pick(arr){return arr[nextRandom()%arr.length];}
@@ -427,9 +432,20 @@ function taskEnd(v){return v.kind==='route'?routeEnd(v):v.end;}
 function availableModes(){
  return modes.filter(m=>m!=='bus'&&m!=='rail'||routeTypes.some(s=>s.mode===m&&!state.units.some(v=>v.kind==='route'&&v.routeKey===s.key)));
 }
+function missionMode(v){
+ return v.kind==='route'?specs.get(v.routeKey).mode:
+  v.kind==='domestic'||v.kind==='international'?'air':
+  v.kind==='construction'?'construction':v.kind;
+}
+function eligibleModes(){
+ if(!preferences||preferences.style==='active')return [];
+ if(state.units.length>=Math.min(MAX,preferences.total))return [];
+ const counts=new Map(modes.map(mode=>[mode,0]));
+ for(const v of state.units){const mode=missionMode(v);counts.set(mode,(counts.get(mode)||0)+1);}
+ return availableModes().filter(mode=>counts.get(mode)<preferences.counts[modes.indexOf(mode)]);
+}
 function supply(at){
- if(state.units.length>=MAX)return false;
- const choices=availableModes();
+ const choices=eligibleModes();
  if(!choices.length)return false;
  const mode=pick(choices);
  let job;
@@ -458,13 +474,14 @@ function advance(now){
   if(finished<=at)state.units=state.units.filter(v=>taskEnd(v)>at);
   if(state.units.length!==prevLength)dirty=true;
   if(due===at){
-   if(state.pending){
+   if(preferences&&preferences.style==='active'){state.pending=false;}
+    else if(state.pending){
     if(state.units.length<MAX&&supply(at))state.pending=false;
    }else if(state.units.length<MAX)supply(at);
    else state.pending=true;
    // Do not shift the saved first countdown; align only the next supply after it fires.
    state.nextSupplyAt=nextClockHour(at);dirty=true;
-  }else if(state.pending&&state.units.length<MAX&&supply(at))state.pending=false;
+  }else if(state.pending&&(!preferences||preferences.style!=='active')&&state.units.length<MAX&&supply(at))state.pending=false;
  }
 }
 function validWorld(s){
@@ -541,7 +558,7 @@ function save(now){
 
 
 function newAssistant(now){
- return {schema:1,startedAt:now,baselineNextId:state.nextId,baselineActive:state.units.length};
+ return {schema:1,startedAt:now,baselineNextId:state.nextId,baselineActive:state.units.length,discardedCount:0};
 }
 function validAssistant(value){
  return value&&value.schema===1&&Number.isSafeInteger(value.startedAt)&&value.startedAt>0&&
@@ -549,7 +566,8 @@ function validAssistant(value){
   Number.isSafeInteger(value.baselineActive)&&value.baselineActive>=0&&
   value.startedAt<=Math.floor(Date.now()/1000)+60&&
   state.nextId>=value.baselineNextId&&
-  state.units.length<=value.baselineActive+(state.nextId-value.baselineNextId);
+  state.units.length<=value.baselineActive+(state.nextId-value.baselineNextId)&&
+   (value.discardedCount===undefined||(Number.isSafeInteger(value.discardedCount)&&value.discardedCount>=0));
 }
 async function startAssistant(now){
  // Load the current official world FIRST and replay its missed hours.
@@ -574,7 +592,7 @@ function assistantCompleted(){
  // Every mission creation increments nextId exactly once; replaying missed
  // hours also updates it. No world save field or simulation branch is changed.
  const monitored=assistant.baselineActive+state.nextId-assistant.baselineNextId;
- return Math.max(0,monitored-state.units.length);
+ return Math.max(0,monitored-state.units.length-(assistant.discardedCount||0));
 }
 
 
@@ -586,12 +604,13 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.15',title:'비서 시스템의 첫 번째 연구',
+ version:'0.13.19',title:'홈·관리 화면 및 플레이 스타일 설정',
  entries:[
-  '관전 분석이 끝나면 비서전환 임무가 랜덤으로 등장합니다.',
-  '비서전환 완료 후 변경기록 알림서비스와 설정 시스템을 순서대로 연구할 수 있습니다.',
-  '변경기록 알림서비스 연구 완료 시 최신 버전과 24시간 업데이트 알림이 열립니다.',
-  '설정 시스템 연구를 완료하면 톱니바퀴에서 변경기록 알림을 켜고 끌 수 있습니다.'
+  '홈에는 진행 중인 임무만 표시하고 관리 메뉴로 내 정보·비서·임무판을 이동했습니다.',
+  '비서 완료 건수 아래 변경기록을 접었다 펼칠 수 있습니다.',
+  '플레이어 이름·성별·나이를 저장·수정할 수 있습니다.',
+  '관람형은 8개 분야별 임무 배정 상한을 설정하고 임무를 초기화할 수 있습니다.',
+  '관여형 임무 등장·수락 기능은 아직 구현하지 않았습니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -733,7 +752,6 @@ function acceptResearch(){
   // Temporarily disabled while the new menu study is not offered.
  }
  function showPage(target){
-  if(target==='character'&&!(menuStudy&&menuStudy.unlockedAt))return;
   const isCharacter=target==='character';
   nav.home.hidden=isCharacter;nav.character.hidden=!isCharacter;
   nav.homeButton.classList.toggle('selected',!isCharacter);
@@ -741,13 +759,190 @@ function acceptResearch(){
   if(isCharacter){nav.homeButton.removeAttribute('aria-current');nav.characterButton.setAttribute('aria-current','page');}
   else{nav.characterButton.removeAttribute('aria-current');nav.homeButton.setAttribute('aria-current','page');}
  }
- function updateNav(){
-  const unlocked=Boolean(menuStudy&&menuStudy.unlockedAt);
-  nav.bar.hidden=!unlocked;
-  if(!unlocked&&nav.home.hidden)showPage('home');
- }
+ function updateNav(){nav.bar.hidden=false;}
  nav.homeButton.addEventListener('click',()=>showPage('home'));
  nav.characterButton.addEventListener('click',()=>showPage('character'));
+
+
+// v0.13.19 player profile and style preferences are stored separately from world jobs.
+function defaultPreferences(){return {schema:1,style:'observe',total:8,counts:[1,1,1,1,1,1,1,1],involvement:'without'};}
+function validPreferences(p){
+ return Boolean(p&&p.schema===1&&['observe','active','mixed'].includes(p.style)&&
+  Number.isInteger(p.total)&&p.total>=8&&p.total<=MAX&&
+  Array.isArray(p.counts)&&p.counts.length===8&&p.counts.every(n=>Number.isInteger(n)&&n>=0&&n<=MAX)&&
+  p.counts.reduce((a,b)=>a+b,0)<=p.total&&['without','owned'].includes(p.involvement));
+}
+function validProfile(p){
+ return Boolean(p&&p.schema===1&&typeof p.name==='string'&&p.name.trim()===p.name&&p.name.length>=1&&p.name.length<=30&&
+  ['male','female'].includes(p.gender)&&Number.isInteger(p.age)&&p.age>=1&&p.age<=120);
+}
+async function putRecord(key,value){
+ if(!IS_LIVE)return;
+ const db=await openDb();
+ await new Promise((resolve,reject)=>{
+  const tx=db.transaction(STORE,'readwrite');
+  tx.objectStore(STORE).put(value,key);
+  tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('MYON settings write failed'));
+ });
+}
+function savePreferences(){
+ const snapshot=JSON.parse(JSON.stringify(preferences));
+ preferencesSaveChain=preferencesSaveChain.catch(()=>{}).then(()=>putRecord(PREF_KEY,snapshot));
+ return preferencesSaveChain;
+}
+function saveProfile(snapshot){
+ profileSaveChain=profileSaveChain.catch(()=>{}).then(()=>putRecord(PROFILE_KEY,snapshot));
+ return profileSaveChain;
+}
+function drawProfile(){
+ const form=$('profile-form'),view=$('profile-view');
+ form.hidden=Boolean(profile);view.hidden=!profile;
+ $('profile-cancel').hidden=!profile;
+ if(profile){
+  $('profile-display-name').textContent=profile.name;
+  $('profile-display-gender').textContent=profile.gender==='male'?'남성':'여성';
+  $('profile-display-age').textContent=profile.age+'세';
+ }
+}
+function openProfile(){
+ $('profile-name').value=profile?profile.name:'';
+ $('profile-age').value=profile?String(profile.age):'';
+ for(const r of document.querySelectorAll('input[name="profile-gender"]'))r.checked=Boolean(profile&&r.value===profile.gender);
+ $('profile-form').hidden=false;$('profile-view').hidden=true;
+ $('profile-cancel').hidden=!profile;$('profile-feedback').textContent='';
+}
+function initProfileUi(){
+ const form=$('profile-form');
+ $('profile-edit').addEventListener('click',openProfile);
+ $('profile-cancel').addEventListener('click',()=>{
+  form.hidden=true;$('profile-view').hidden=false;$('profile-feedback').textContent='';
+ });
+ form.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const selected=document.querySelector('input[name="profile-gender"]:checked');
+  const draft={schema:1,name:$('profile-name').value.trim(),gender:selected?selected.value:null,age:Number($('profile-age').value)};
+  if(!validProfile(draft)){$('profile-feedback').textContent='이름, 성별, 나이를 확인해 주세요.';return;}
+  const button=form.querySelector('button[type="submit"]');button.disabled=true;
+  try{
+   await saveProfile(draft);profile=draft;drawProfile();
+   $('profile-feedback').textContent='내 정보를 저장했습니다.';
+  }catch(e){console.error('MYON player profile:',e);$('profile-feedback').textContent='저장에 실패했습니다. 다시 시도해 주세요.';}
+  finally{button.disabled=false;}
+ });
+ drawProfile();
+}
+const observerRows=[];
+function allocatedDraft(){return observerDraft.counts.reduce((a,b)=>a+b,0);}
+function drawPreferenceUi(){
+ if(!preferences)return;
+ for(const r of document.querySelectorAll('input[name="play-style"]'))r.checked=r.value===preferences.style;
+ $('observer-settings').hidden=preferences.style!=='observe';
+ $('involved-settings').hidden=preferences.style!=='active';
+ const allocated=allocatedDraft(),slider=$('observer-total');
+ slider.min=String(Math.max(8,allocated));slider.value=String(observerDraft.total);
+ $('observer-total-text').textContent=observerDraft.total+'건';
+ $('observer-allocated').textContent=allocated+' / '+observerDraft.total+'건';
+ $('observer-remaining').textContent=(observerDraft.total-allocated)+'건';
+ for(let i=0;i<observerRows.length;i++){
+  const row=observerRows[i],n=observerDraft.counts[i];
+  row.value.textContent=n+'건';row.minus.disabled=n<=0;
+  row.plus.disabled=allocated>=observerDraft.total;
+  row.plus.title='최대 '+(n+observerDraft.total-allocated)+'건';
+ }
+ $('observer-save').disabled=preferences.total===observerDraft.total&&preferences.counts.every((n,i)=>n===observerDraft.counts[i]);
+ for(const r of document.querySelectorAll('input[name="involved-mode"]'))r.checked=r.value===involvedDraft;
+ $('involved-save').disabled=preferences.involvement===involvedDraft;
+}
+function initPreferenceUi(){
+ const holder=$('observer-sectors');
+ for(let i=0;i<SECTOR_NAMES.length;i++){
+  const row=element('div','preference-sector'),title=element('span','',SECTOR_NAMES[i]);
+  const counter=element('div','preference-counter'),minus=element('button','manage-button','−'),plus=element('button','manage-button','+'),value=element('output','','1건');
+  minus.type=plus.type='button';
+  minus.setAttribute('aria-label',SECTOR_NAMES[i]+' 수량 줄이기');
+  plus.setAttribute('aria-label',SECTOR_NAMES[i]+' 수량 늘리기');
+  minus.addEventListener('click',()=>{if(observerDraft.counts[i]>0){observerDraft.counts[i]--;drawPreferenceUi();}});
+  plus.addEventListener('click',()=>{if(allocatedDraft()<observerDraft.total){observerDraft.counts[i]++;drawPreferenceUi();}});
+  counter.append(minus,value,plus);row.append(title,counter);holder.appendChild(row);
+  observerRows.push({value,minus,plus});
+ }
+ for(const r of document.querySelectorAll('input[name="play-style"]')){
+  r.addEventListener('change',async()=>{
+   if(!r.checked)return;
+   const previous=preferences.style;preferences.style=r.value;
+   $('preference-feedback').textContent='';$('observer-reset-confirm').hidden=true;
+   drawPreferenceUi();
+   try{await savePreferences();$('preference-feedback').textContent='플레이 스타일을 저장했습니다.';}
+   catch(e){console.error('MYON style:',e);preferences.style=previous;drawPreferenceUi();$('preference-feedback').textContent='저장에 실패했습니다.';}
+  });
+ }
+ $('observer-total').addEventListener('input',event=>{
+  observerDraft.total=Math.max(8,allocatedDraft(),Math.min(MAX,Number(event.target.value)));
+  drawPreferenceUi();
+ });
+ $('observer-save').addEventListener('click',async()=>{
+  const previous=preferences;
+  preferences={...preferences,total:observerDraft.total,counts:observerDraft.counts.slice()};
+  try{await savePreferences();$('preference-feedback').textContent='관람형 임무 수량을 저장했습니다.';}
+  catch(e){console.error('MYON observer:',e);preferences=previous;$('preference-feedback').textContent='저장에 실패했습니다.';}
+  drawPreferenceUi();
+ });
+ for(const r of document.querySelectorAll('input[name="involved-mode"]')){
+  r.addEventListener('change',()=>{if(r.checked){involvedDraft=r.value;drawPreferenceUi();}});
+ }
+ $('involved-save').addEventListener('click',async()=>{
+  const previous=preferences;
+  preferences={...preferences,involvement:involvedDraft};
+  try{await savePreferences();$('preference-feedback').textContent='관여형 수행 방식을 저장했습니다. 임무 등장은 추후 연결됩니다.';}
+  catch(e){console.error('MYON involvement:',e);preferences=previous;$('preference-feedback').textContent='저장에 실패했습니다.';}
+  drawPreferenceUi();
+ });
+ $('observer-reset').addEventListener('click',()=>{$('observer-reset-confirm').hidden=false;});
+ $('observer-reset-cancel').addEventListener('click',()=>{$('observer-reset-confirm').hidden=true;});
+ $('observer-reset-accept').addEventListener('click',resetMissionsAtNextSupply);
+ drawPreferenceUi();
+}
+async function resetMissionsAtNextSupply(){
+ if(resetBusy)return;
+ resetBusy=true;
+ const accept=$('observer-reset-accept');accept.disabled=true;
+ $('preference-feedback').textContent='';
+ try{
+  const now=Math.floor(Date.now()/1000);
+  advance(now);
+  if(dirty)save(now);
+  await saveChain.catch(()=>{});
+  const nextState={...state,units:[],pending:false,nextSupplyAt:state.nextSupplyAt>now?state.nextSupplyAt:nextClockHour(now)};
+  const nextAssistant={...assistant,discardedCount:(assistant.discardedCount||0)+state.units.length};
+  if(IS_LIVE){
+   const db=await openDb();
+   await new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).put(nextState,KEY);
+    tx.objectStore(STORE).put(nextAssistant,ASSISTANT_KEY);
+    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('MYON mission reset failed'));
+   });
+  }
+  state=nextState;assistant=nextAssistant;dirty=false;lastSave=now;
+  tripCache.clear();routeRows.clear();routeEndCache.clear();reorder.key=null;
+  $('observer-reset-confirm').hidden=true;
+  $('preference-feedback').textContent='기존 임무를 초기화했습니다. 다음 예정된 배정 시각부터 새 임무가 등장합니다.';
+ }catch(e){console.error('MYON reset:',e);$('preference-feedback').textContent='초기화에 실패했습니다. 다시 시도해 주세요.';}
+ finally{resetBusy=false;accept.disabled=false;tick();}
+}
+async function startPlayerSettings(){
+ profile=null;preferences=defaultPreferences();
+ if(IS_LIVE){
+  try{
+   const [savedProfile,savedPreferences]=await Promise.all([read(PROFILE_KEY),read(PREF_KEY)]);
+   if(validProfile(savedProfile))profile=savedProfile;
+   if(validPreferences(savedPreferences))preferences=savedPreferences;
+  }catch(e){console.error('MYON player settings load:',e);}
+ }
+ observerDraft={total:preferences.total,counts:preferences.counts.slice()};
+ involvedDraft=preferences.involvement;
+ initProfileUi();initPreferenceUi();
+}
 
 function versionCompare(a,b){
  const x=a.split('.').map(Number),y=b.split('.').map(Number);
@@ -802,12 +997,8 @@ function updateSettings(now){
  ui.gear.disabled=!unlocked;
  ui.gear.setAttribute('aria-label',unlocked?'설정 열기':'설정 시스템 연구 후 해금');
  if(!unlocked){ui.settings.hidden=true;ui.gear.setAttribute('aria-expanded','false');}
- ui.version.hidden=!progression.changelogAt;
- if(progression.changelogAt){
-  const latest=progression.noticeVersion&&versionCompare(progression.noticeVersion,releaseManifest.version)>0?
-   progression.noticeVersion:releaseManifest.version;
-  ui.version.textContent='v'+latest;
- }
+ ui.version.hidden=false;
+ ui.version.textContent='v'+releaseManifest.version;
  ui.notify.textContent=progression.notifyEnabled?'켜짐':'꺼짐';
  ui.notify.setAttribute('aria-pressed',String(progression.notifyEnabled));
 }
@@ -924,19 +1115,23 @@ function makeAssistantCard(){
  name.append(element('strong','','관전임무 분석중'),element('span','assistant-dev-tag','개발중'));
  const status=element('span','slot-state');head.append(name,status);
  const time=element('div','slot-details'),left=element('span','slot-metric assistant-timer-label');
- const right=element('span','slot-metric slot-operations assistant-timer');
- time.append(left,right);
+ const right=element('span','slot-metric slot-operations assistant-timer');time.append(left,right);
  const counts=element('div','assistant-counts');
  const activeBox=element('div','assistant-stat'),completedBox=element('div','assistant-stat');
  const active=element('strong','assistant-stat-number'),completed=element('strong','assistant-stat-number');
  activeBox.append(element('span','assistant-stat-label','진행 중인 임무'),active);
  completedBox.append(element('span','assistant-stat-label','분석 후 완료 임무'),completed);
  counts.append(activeBox,completedBox);
- const bar=element('div','slot-progress');
- card.append(head,time,counts,bar);
- return {card,name:name.querySelector('strong'),tag:name.querySelector('.assistant-dev-tag'),status,left,right,active,completed,bar};
+ const notes=element('details','assistant-release'),summary=element('summary','assistant-release-summary');
+ const version=element('span','','v0.13.19'),update=element('span','release-new','NEW'),arrow=element('span','assistant-release-arrow','⌄');
+ update.hidden=true;
+ const rightSummary=element('span','slot-right');rightSummary.append(update,arrow);summary.append(version,rightSummary);
+ const content=element('div','assistant-release-content'),subtitle=element('div','notice-subtitle'),list=element('ul','notice-list');
+ content.append(subtitle,list);notes.append(summary,content);
+ const bar=element('div','slot-progress');card.append(head,time,counts,notes,bar);
+ return {card,name:name.querySelector('strong'),tag:name.querySelector('.assistant-dev-tag'),status,left,right,active,completed,bar,
+  releaseVersion:version,releaseNew:update,releaseTitle:subtitle,releaseList:list,renderedVersion:null};
 }
-
 function makeResearchCard(onAccept=acceptResearch){
  const card=element('article','slot research-card'),head=element('div','slot-head');
  const name=element('div','slot-name'),title=element('strong');
@@ -1012,35 +1207,36 @@ function drawAssistant(now){
  slot.tag.textContent=converted?'개선중':'개발중';
  slot.status.textContent=converted?'상시 분석':'분석중';
  slot.left.textContent=converted?'임무 분석 지속중':'분석 완료까지';
- slot.right.textContent=converted?'상단 고정':hms(Math.ceil(Math.max(0,readyAt-now)));
+ slot.right.textContent=converted?'상시 분석':hms(Math.ceil(Math.max(0,readyAt-now)));
  slot.active.textContent=state.units.length+'건';
  slot.completed.textContent=assistantCompleted()+'건';
+ slot.releaseVersion.textContent='v'+releaseManifest.version;
+ slot.releaseNew.hidden=!noticeShown(now);
+ if(slot.renderedVersion!==releaseManifest.version){
+  slot.releaseTitle.textContent=releaseManifest.title;
+  const entries=document.createDocumentFragment();
+  for(const entry of releaseManifest.entries)entries.appendChild(element('li','',entry));
+  slot.releaseList.replaceChildren(entries);
+  slot.renderedVersion=releaseManifest.version;
+ }
  slot.bar.hidden=converted;
  slot.bar.style.width=converted?'100%':(100*Math.max(0,Math.min(1,(now-assistant.startedAt)/DAY))).toFixed(4)+'%';
 }
 function reorder(now){
- const readyAt=assistant?assistant.startedAt+DAY:Infinity;
- const list=assistant?[...state.units,{id:'assistant',kind:'assistant',end:readyAt}]:state.units.slice();
- // Existing system change notices remain visible for users who unlocked them.
- if(now>=readyAt&&noticeShown(now))list.push({id:'release',kind:'notice',end:progression.noticeAt+DAY});
- // Assistant stays pinned even before its first 24h analysis has finished.
- const priority=v=>v.kind==='assistant'?0:v.kind==='notice'?1:2;
- list.sort((a,b)=>{
-  const diff=priority(a)-priority(b);
-  if(diff)return diff;
-  const aEnd=['assistant','notice'].includes(a.kind)?a.end:taskEnd(a);
-  const bEnd=['assistant','notice'].includes(b.kind)?b.end:taskEnd(b);
-  return aEnd-bEnd||(a.id-b.id);
- });
+ if(assistant&&!cards.has('assistant')){
+  const card=makeAssistantCard();cards.set('assistant',card);
+  assistantContainer.appendChild(card.card);
+ }
+ // Home is reserved for currently running real missions. Secretary stays in management.
+ const list=state.units.slice().sort((a,b)=>taskEnd(a)-taskEnd(b)||a.id-b.id);
  const key=list.map(v=>v.id).join(',');
  if(reorder.key===key)return;
- const nodes=document.createDocumentFragment(),seen=new Set();
+ const nodes=document.createDocumentFragment(),seen=new Set(['assistant']);
  for(const v of list){
   seen.add(v.id);
   let slot=cards.get(v.id);
   if(!slot){
-   slot=v.kind==='assistant'?makeAssistantCard():v.kind==='notice'?makeNoticeCard():
-    v.kind==='route'?makeRouteCard(v):v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
+   slot=v.kind==='route'?makeRouteCard(v):v.kind==='construction'?makeConstructionCard(v):makeUnitCard(v);
    cards.set(v.id,slot);
   }
   nodes.appendChild(slot.card);
@@ -1197,10 +1393,11 @@ function draw(now){
  }
  ui.supply.textContent=state.units.length>=MAX?state.units.length+'개 · 공급 대기':
   state.pending?'대기 임무 배정 예정':countdown(state.nextSupplyAt-now);
+ $('observer-running').textContent=state.units.length+'건';
 }
 function tick(){
  const now=Math.floor(Date.now()/1000);
- if(ready){advance(now);advanceProgression(now);advanceMenu(now);if(dirty&&now-lastSave>=20)save(now);
+ if(ready&&!resetBusy){advance(now);advanceProgression(now);advanceMenu(now);if(dirty&&now-lastSave>=20)save(now);
   if(progressionDirty&&now-progressionLastSave>=2)saveProgression(now);
   if(menuDirty&&now-menuLastSave>=2)saveMenu(now);}
  draw(now);
@@ -1210,7 +1407,7 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(!IS_LIVE){state=initial(now);await startAssistant(now);await startProgression(now);await startMenu(now);ready=true;tick();setInterval(tick,1000);return;}
+ if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startAssistant(now);await startProgression(now);await startMenu(now);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
@@ -1228,6 +1425,7 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
  }else{state=migrate(oldVehicles,oldConstruction,now);dirty=true;}
  // Apply elapsed offline mission events before starting a NEW analysis period.
  // This prevents existing users from retroactively counting old completions.
+ await startPlayerSettings();
  ready=true;
  advance(now);
  await startAssistant(now);

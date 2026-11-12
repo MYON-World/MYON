@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.18</title>
+<title>MYON v0.13.19</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -125,13 +125,126 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .bottom-tab svg{height:19px;width:19px;stroke:currentColor}
 .character-screen{padding-top:12px}
 .character-card .slot-name{gap:9px}
+
+/* v0.13.19: management, profile, style settings and secretary change log */
+.manage-screen{display:flex;flex-direction:column;gap:9px;padding-top:12px}
+.manage-screen .slot{min-height:0}
+.manage-form,.manage-fields,.preference-detail{display:flex;flex-direction:column;gap:10px}
+.manage-form{margin-top:11px}.manage-fields{gap:8px}
+.manage-label{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#aac3b9}
+.manage-input{border:1px solid #426269;border-radius:7px;background:#20353a;color:#edf5f0;padding:10px;font:inherit;font-size:13px;width:100%;min-width:0}
+.manage-choice{display:flex;gap:9px;align-items:center;font-size:12px;color:#edf5f0}
+.manage-choice input,.style-choice input{accent-color:#75d1ad}
+.manage-fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:12px}
+.manage-fieldset legend{padding:0;margin:0 0 7px;font-size:11px;color:#aac3b9}
+.manage-actions{display:flex;gap:7px;justify-content:flex-end}
+.manage-button{border:1px solid #467585;border-radius:7px;background:#253942;color:#d1eff1;font-size:11px;font-weight:700;padding:9px 12px}
+.manage-button:disabled{opacity:.45;cursor:not-allowed}
+.manage-button.primary{background:#20513f;border-color:#477c6a;color:#c6f3d9}
+.manage-button.danger{background:#452a2b;border-color:#9c6668;color:#f3cece}
+.manage-value{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:7px;background:#20353a;font-size:12px}
+.manage-value span:first-child{color:#aac3b9}
+.manage-status{font-size:11px;color:#a7cfbd;min-height:15px;margin:6px 0 0}
+.preference-card .slot-head{margin-bottom:8px}
+.style-choice{display:flex;align-items:flex-start;gap:9px;border:1px solid #354e50;border-radius:8px;background:#20353a;padding:10px;cursor:pointer}
+.style-choice input{margin-top:3px}.style-choice strong{display:block;font-size:12px;color:#edf5f0}
+.style-choice small{display:block;font-size:10px;color:#aac3b9;line-height:1.5;margin-top:3px}
+.preference-detail{border-top:1px solid #30484a;margin-top:12px;padding-top:12px}
+.preference-detail[hidden],.manage-form[hidden],.manage-view[hidden],.manage-confirm[hidden]{display:none}
+.preference-subtitle{font-size:12px;color:#d9f3e8;font-weight:750}
+.preference-line{display:flex;align-items:center;justify-content:space-between;gap:9px;font-size:12px}
+.preference-line input[type=range]{accent-color:#79d4b3;width:100%}
+.preference-sector{display:flex;justify-content:space-between;align-items:center;gap:9px;padding:8px 10px;background:#20353a;border-radius:7px;font-size:12px}
+.preference-sector .manage-button{padding:5px 8px;min-width:27px}
+.preference-counter{display:flex;align-items:center;gap:6px}
+.preference-counter output{min-width:34px;text-align:center;font-variant-numeric:tabular-nums}
+.preference-foot{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#aac3b9}
+.preference-note{color:#91b4a7;font-size:10px;line-height:1.55}
+.manage-confirm{border:1px solid #875a5e;border-radius:8px;padding:10px;background:#322729;display:flex;flex-direction:column;gap:8px;font-size:11px;color:#f3d3d3}
+.assistant-release{margin-top:9px;border-radius:7px;background:#20353a;overflow:hidden}
+.assistant-release-summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 11px;font-size:12px;font-weight:750;color:#d9f3e8}
+.assistant-release-summary::-webkit-details-marker{display:none}
+.assistant-release-summary:focus-visible{outline:2px solid #8bdec3;outline-offset:-2px}
+.assistant-release-arrow{font-size:15px}
+.assistant-release[open] .assistant-release-arrow{transform:rotate(180deg)}
+.assistant-release-content{padding:0 10px 8px;border-top:1px solid #304448}
+.assistant-release .notice-list{margin-bottom:3px}
+.release-new{background:#235640;border-radius:4px;color:#9ae7c6;padding:2px 5px;font-size:10px}
+.release-new[hidden]{display:none}
 </style>
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version" hidden></span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림카드 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
-<main id="home-screen" class="content">
+<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.19</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
+<main id="home-screen" class="content" aria-label="진행 중인 임무">
   <div id="slot-list" class="slot-list"></div>
+</main>
+<section id="character-screen" class="content manage-screen" aria-label="관리" hidden>
+  <article class="slot">
+    <div class="slot-head"><div class="slot-name"><strong>내 정보</strong></div></div>
+    <form id="profile-form" class="manage-form" autocomplete="off">
+      <label class="manage-label">플레이어 이름<input id="profile-name" class="manage-input" type="text" maxlength="30" required placeholder="이름을 입력하세요"></label>
+      <fieldset class="manage-fieldset"><legend>성별</legend>
+        <label class="manage-choice"><input type="radio" name="profile-gender" value="male" required> 남성</label>
+        <label class="manage-choice"><input type="radio" name="profile-gender" value="female" required> 여성</label>
+      </fieldset>
+      <label class="manage-label">나이<input id="profile-age" class="manage-input" type="number" min="1" max="120" step="1" required placeholder="나이를 입력하세요"></label>
+      <div class="manage-actions"><button type="button" class="manage-button" id="profile-cancel" hidden>취소</button><button type="submit" class="manage-button primary">저장</button></div>
+    </form>
+    <div id="profile-view" class="manage-view" hidden>
+      <div class="manage-fields">
+        <div class="manage-value"><span>이름</span><strong id="profile-display-name"></strong></div>
+        <div class="manage-value"><span>성별</span><strong id="profile-display-gender"></strong></div>
+        <div class="manage-value"><span>나이</span><strong id="profile-display-age"></strong></div>
+      </div>
+      <div class="manage-actions" style="margin-top:10px"><button id="profile-edit" class="manage-button" type="button">수정</button></div>
+    </div>
+    <p class="manage-status" id="profile-feedback" role="status"></p>
+  </article>
+  <article class="slot preference-card">
+    <div class="slot-head"><div class="slot-name"><strong>플레이 스타일</strong></div></div>
+    <div class="manage-fields">
+      <label class="style-choice"><input type="radio" name="play-style" value="observe"><span><strong>관람형</strong><small>임무가 자동으로 진행되며 세계의 활동을 관람합니다.</small></span></label>
+      <label class="style-choice"><input type="radio" name="play-style" value="active"><span><strong>관여형</strong><small>임무를 직접 수락하며 활동에 참여합니다.</small></span></label>
+      <label class="style-choice"><input type="radio" name="play-style" value="mixed"><span><strong>혼합형</strong><small>자동 관람과 직접 참여 방식을 함께 사용합니다.</small></span></label>
+    </div>
+    <section id="observer-settings" class="preference-detail" hidden>
+      <strong class="preference-subtitle">관람형 세부 설정</strong>
+      <div class="preference-line"><span>전체 동시 임무수</span><strong id="observer-total-text">8건</strong></div>
+      <div class="preference-line"><input id="observer-total" type="range" min="8" max="30" step="1" value="8" aria-label="전체 동시 임무수"></div>
+      <div class="preference-foot"><span>최소 8건</span><span>최대 30건</span></div>
+      <strong class="preference-subtitle">분야별 임무수</strong>
+      <div id="observer-sectors" class="manage-fields"></div>
+      <div class="preference-foot"><span>분야별 합계</span><strong id="observer-allocated">8 / 8건</strong></div>
+      <div class="preference-foot"><span>남은 배정 가능 수량</span><strong id="observer-remaining">0건</strong></div>
+      <p class="preference-note">분야별 0건은 신규 임무를 배정하지 않습니다. 기존 진행 임무는 설정을 바꾸어도 유지됩니다.</p>
+      <button type="button" id="observer-save" class="manage-button primary">수량 설정 저장</button>
+      <div class="preference-detail">
+        <strong class="preference-subtitle">기존 임무 초기화</strong>
+        <div class="preference-foot"><span>현재 진행 중</span><strong id="observer-running">0건</strong></div>
+        <p class="preference-note">확인하면 현재 임무를 모두 종료하고, 다음 예정된 정각 배정 시각부터 새 설정으로 등장합니다.</p>
+        <button type="button" id="observer-reset" class="manage-button danger">기존 임무 초기화</button>
+        <div class="manage-confirm" id="observer-reset-confirm" hidden>
+          <strong>진행 중인 임무를 모두 초기화할까요?</strong>
+          <span>초기화된 임무는 복구할 수 없습니다. 즉시 새 임무를 생성하지 않습니다.</span>
+          <div class="manage-actions"><button id="observer-reset-cancel" type="button" class="manage-button">취소</button><button id="observer-reset-accept" type="button" class="manage-button danger">초기화 확인</button></div>
+        </div>
+      </div>
+    </section>
+    <section id="involved-settings" class="preference-detail" hidden>
+      <strong class="preference-subtitle">관여형 세부 설정</strong>
+      <label class="manage-choice"><input type="radio" name="involved-mode" value="without"> 차량 없이 임무 수행</label>
+      <label class="manage-choice"><input type="radio" name="involved-mode" value="owned"> 보유 차량으로 임무 수행</label>
+      <button id="involved-save" class="manage-button primary" type="button">설정 저장</button>
+      <p class="preference-note">관여형 임무의 등장·수락 방식은 추후 결정됩니다.</p>
+    </section>
+    <p class="manage-status" id="preference-feedback" role="status"></p>
+  </article>
+  <div id="assistant-slot" class="slot-list"></div>
+  <article class="slot" id="mission-board">
+    <div class="slot-head"><div class="slot-name"><strong>임무판</strong><span class="assistant-dev-tag">개발중</span></div></div>
+    <div class="preference-note" style="margin-top:8px">등록된 임무가 없습니다.</div>
+  </article>
   <div class="supply"><span class="supply-label">다음 임무 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
   <details class="mission-catalog">
     <summary class="mission-catalog-summary"><span>등장 가능한 임무</span><span class="mission-catalog-meta"><span id="mission-catalog-count">목록</span><span class="mission-catalog-arrow" aria-hidden="true">⌄</span></span></summary>
@@ -140,17 +253,14 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
       <p class="mission-catalog-help">임무는 매시간 랜덤으로 등장해요. 진행 중인 버스·철도 노선은 중복 배정되지 않으며, 전체 임무는 최대 30개예요.</p>
     </div>
   </details>
-</main>
-<section id="character-screen" class="content character-screen" aria-label="캐릭터" hidden>
- <article class="slot character-card"><div class="slot-head"><div class="slot-name"><strong>캐릭터</strong><span class="assistant-dev-tag">개발중</span></div></div></article>
 </section>
-<nav id="bottom-nav" class="bottom-nav" aria-label="하단 메뉴" hidden>
+<nav id="bottom-nav" class="bottom-nav" aria-label="하단 메뉴">
  <button type="button" id="bottom-home" class="bottom-tab selected" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/></svg><span>홈</span></button>
- <button type="button" id="bottom-character" class="bottom-tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 3.5-8 8-8s8 3 8 8"/></svg><span>캐릭터</span></button>
+ <button type="button" id="bottom-character" class="bottom-tab"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 3.5-8 8-8s8 3 8 8"/></svg><span>관리</span></button>
 </nav>
 </div></div>
 
-<script src="myon-v013.js?v=0.13.18"></script>
+<script src="myon-v013.js?v=0.13.19"></script>
 
 </body>
 </html>
