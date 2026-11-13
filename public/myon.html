@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.25</title>
+<title>MYON v0.13.26</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -199,6 +199,9 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 @keyframes taxi-offer-expiry{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
 .owned-taxi-note{font-size:10px;color:#adcbc2;margin-top:7px;line-height:1.5;overflow-wrap:anywhere;padding-bottom:3px}
+.board-style-group{display:flex;flex-direction:column;gap:8px;min-width:0}
+.board-style-group .supply,.board-style-group .mission-catalog{margin-top:0}
+.board-style-note{margin:0 2px 3px}
 /* v0.13.25 vehicle ownership */
 [hidden]{display:none!important}
 .vehicle-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -261,7 +264,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.25</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
+<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.26</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
 <div class="common-funds" aria-label="공용자금">
   <span class="common-funds-label">공용자금</span>
   <strong id="common-funds-amount" class="common-funds-value">0 M</strong>
@@ -306,9 +309,9 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
   <article class="slot preference-card">
     <div class="slot-head"><div class="slot-name"><strong>플레이 스타일</strong></div></div>
     <div class="manage-fields">
-      <label class="style-choice"><input type="radio" name="play-style" value="observe"><span><strong>관람형</strong><small>임무가 자동으로 진행되며 세계의 활동을 관람합니다.</small></span></label>
-      <label class="style-choice"><input type="radio" name="play-style" value="active"><span><strong>관여형</strong><small>직접 참여 · 총 100건(차량 투입 최대 50건, 나머지는 무차량). 임무 제공은 추후 설계합니다.</small></span></label>
-      <label class="style-choice"><input type="radio" name="play-style" value="mixed"><span><strong>혼합형</strong><small>자동 진행 방식으로 관여형의 개선 임무를 적용합니다. 개선 임무는 추후 제공됩니다.</small></span></label>
+      <label class="style-choice"><input type="radio" name="play-style" value="observe"><span><strong>관람형</strong><small>관람형 자동 임무만 등장합니다. 수락형 임무는 등장하지 않습니다.</small></span></label>
+      <label class="style-choice"><input type="radio" name="play-style" value="active"><span><strong>관여형</strong><small>수락형 임무만 등장합니다. 외주 택시 수락과 보유 택시 운행을 포함해 최대 100건입니다.</small></span></label>
+      <label class="style-choice"><input type="radio" name="play-style" value="mixed"><span><strong>혼합형</strong><small>관람형 자동 임무와 수락형 임무가 모두 등장합니다. 합계 최대 130건입니다.</small></span></label>
     </div>
     <section id="observer-settings" class="preference-detail" hidden>
       <strong class="preference-subtitle">관람형 세부 설정</strong>
@@ -327,7 +330,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
         <p class="preference-note">관전형 임무만 종료하며 수락형·보유 차량 임무는 유지됩니다. 다음 정각부터 새 설정으로 등장합니다.</p>
         <button type="button" id="observer-reset" class="manage-button danger">기존 임무 초기화</button>
         <div class="manage-confirm" id="observer-reset-confirm" hidden>
-          <strong>진행 중인 임무를 모두 초기화할까요?</strong>
+          <strong>진행 중인 관람형 임무를 초기화할까요?</strong>
           <span>초기화된 관전형 임무는 복구할 수 없습니다. 수락형·보유 차량 임무는 유지됩니다.</span>
           <div class="manage-actions"><button id="observer-reset-cancel" type="button" class="manage-button">취소</button><button id="observer-reset-accept" type="button" class="manage-button danger">초기화 확인</button></div>
         </div>
@@ -340,16 +343,21 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
   <div id="assistant-slot" class="slot-list"></div>
     </div>
     <div id="management-board" class="manage-pane" hidden>
-  <div id="taxi-offer-list" class="slot-list"></div>
-  <p id="taxi-offer-empty" class="preference-note" style="margin:8px 2px">현재 수락 가능한 택시 임무가 없습니다.</p>
-  <div class="supply"><span class="supply-label">다음 자동 임무 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
-  <details class="mission-catalog">
-    <summary class="mission-catalog-summary"><span>등장 가능한 임무</span><span class="mission-catalog-meta"><span id="mission-catalog-count">목록</span><span class="mission-catalog-arrow" aria-hidden="true">⌄</span></span></summary>
-    <div class="mission-catalog-body">
-      <div id="mission-catalog-list"></div>
-      <p class="mission-catalog-help">관람형 자동 임무는 매시간 정각에 랜덤으로 배정됩니다. 수락형 택시는 10분마다 등장하고, 수락하지 않으면 1시간 뒤 자동 폐기됩니다.</p>
-    </div>
-  </details>
+      <div id="board-accept-area" class="board-style-group" hidden>
+        <div id="taxi-offer-list" class="slot-list"></div>
+        <p id="taxi-offer-empty" class="preference-note">현재 수락 가능한 택시 임무가 없습니다.</p>
+        <p class="preference-note board-style-note">수락형 택시 임무는 10분마다 등장하고, 미수락 시 1시간 뒤 자동 폐기됩니다.</p>
+      </div>
+      <div id="board-observer-area" class="board-style-group" hidden>
+        <div class="supply"><span class="supply-label">다음 자동 임무 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
+        <details class="mission-catalog">
+          <summary class="mission-catalog-summary"><span>관람형 등장 가능 임무</span><span class="mission-catalog-meta"><span id="mission-catalog-count">목록</span><span class="mission-catalog-arrow" aria-hidden="true">⌄</span></span></summary>
+          <div class="mission-catalog-body">
+            <div id="mission-catalog-list"></div>
+            <p class="mission-catalog-help">관람형 자동 임무는 매시간 정각에 랜덤으로 배정됩니다. 혼합형에서도 동일한 자동 임무 설정을 사용합니다.</p>
+          </div>
+        </details>
+      </div>
     </div>
     <div id="management-finance" class="manage-pane" hidden>
       <article class="slot finance-balance-card">
@@ -471,7 +479,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </nav>
 </div></div>
 
-<script src="myon-v013.js?v=0.13.25"></script>
+<script src="myon-v013.js?v=0.13.26"></script>
 
 </body>
 </html>
