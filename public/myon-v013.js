@@ -1,13 +1,13 @@
-// MYON v0.13.22 — new-player immediate access, M funds and finance unit.
+// MYON v0.13.23 — outsource taxi offers, observer taxi fares and common-funds settlement.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
 const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression',MENU_KEY='v01317-bottom-nav'; // Original saves unchanged.
-const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style',FINANCE_KEY='v01322-common-funds';
+const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style',FINANCE_KEY='v01322-common-funds',TAXI_OFFERS_KEY='v01323-taxi-offers';
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
-const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY;
+const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY,TAXI_OFFER_INTERVAL=600;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply'),gear:$('top-settings-toggle'),version:$('top-version'),settings:$('settings-panel'),notify:$('notification-toggle')};
 const nav={home:$('home-screen'),character:$('character-screen'),bar:$('bottom-nav'),homeButton:$('bottom-home'),characterButton:$('bottom-character')};
@@ -160,9 +160,9 @@ const constructionTiers=[
 let state=null,assistant=null,progression=null,releaseManifest=null,dbPromise=null,ready=false,lastSave=0,saveChain=Promise.resolve(),dirty=false;
 let progressionDirty=false,progressionLastSave=0,progressionSaveChain=Promise.resolve();
 let menuStudy=null,menuDirty=false,menuLastSave=0,menuSaveChain=Promise.resolve();
-let profile=null,preferences=null,observerDraft=null,resetBusy=false,commonFunds=null;
+let profile=null,preferences=null,observerDraft=null,resetBusy=false,commonFunds=null,taxiOffers=null,offersDirty=false;
 let profileSaveChain=Promise.resolve(),preferencesSaveChain=Promise.resolve();
-const cards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
+const cards=new Map(),offerCards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
 function pick(arr){return arr[nextRandom()%arr.length];}
 function addKstMonths(at,months){
@@ -175,7 +175,13 @@ function jobIdentity(at,old){
  if(id>=state.nextId)state.nextId=id+1;
  return {id,seed:old&&Number.isInteger(old.seed)?old.seed>>>0:nextRandom(),acquired:at};
 }
-function createUnit(kind,at,old=null){
+// Passenger fare: 0.48 M for the first 1.6km, then 0.01 M per started 131m.
+// Distances are meters and money uses integral smallest units (1 M = 10,000 units).
+function taxiFareUnits(distanceMeters){
+ return 4800+Math.ceil(Math.max(0,distanceMeters-1600)/131)*100;
+}
+function taxiOutsourceShare(fareUnits){return fareUnits*40/100;}
+function createUnit(kind,at,old=null,offer=null){
  const base=jobIdentity(at,old),seed=base.seed,stages=[];let cursor=at;
  const timed=(phase,duration)=>{const end=cursor+duration;stages.push({phase,start:cursor,end});cursor=end;};
  const drive=(phase,distance)=>{const end=roadEnd(seed,cursor,distance);stages.push({phase,start:cursor,end,distance});cursor=end;};
@@ -210,8 +216,16 @@ function createUnit(kind,at,old=null){
    return {...base,kind,start:old.start,end:cursor,stages};
   }
  }
+ let taxiContract=null;
  if(kind==='taxi'){
-  const distance=range(seed,0,30,100)*100;
+  const distance=offer?offer.distanceMeters:range(seed,0,30,100)*100;
+  // A migrated or already-running taxi keeps its legacy no-settlement rules.
+  if(!old){
+   const fareUnits=offer?offer.fareUnits:taxiFareUnits(distance);
+   const shareUnits=offer?offer.shareUnits:taxiOutsourceShare(fareUnits);
+   taxiContract={taxiContractVersion:1,passengerMeters:distance,fareUnits,shareUnits,
+    dispatch:offer?'accepted':'automatic',contractType:'outsource'};
+  }
   drive('outbound',distance);drive('return',distance);
  }else if(kind==='truck'){
   const distance=range(seed,0,50,150)*100;
@@ -229,7 +243,7 @@ function createUnit(kind,at,old=null){
   const outbound=Math.floor(total/2);
   timed('outbound',outbound);timed('return',total-outbound);
  }else throw new Error('Unknown mission kind: '+kind);
- return {...base,kind,start:at,end:cursor,stages};
+ return {...base,kind,start:at,end:cursor,stages,...(taxiContract||{})};
 }
 function createRoute(at,old=null){
  const base=jobIdentity(at,old);
@@ -445,9 +459,10 @@ function missionMode(v){
 }
 function eligibleModes(){
  if(!preferences||preferences.style==='active')return [];
- if(state.units.length>=Math.min(MAX,preferences.total))return [];
+ // Accepted jobs do not occupy the player's configured automatic observer allowance.
+ if(state.units.length>=MAX||state.units.filter(v=>v.dispatch!=='accepted').length>=preferences.total)return [];
  const counts=new Map(modes.map(mode=>[mode,0]));
- for(const v of state.units){const mode=missionMode(v);counts.set(mode,(counts.get(mode)||0)+1);}
+ for(const v of state.units){if(v.dispatch==='accepted')continue;const mode=missionMode(v);counts.set(mode,(counts.get(mode)||0)+1);}
  return availableModes().filter(mode=>counts.get(mode)<preferences.counts[modes.indexOf(mode)]);
 }
 function supply(at){
@@ -477,7 +492,17 @@ function advance(now){
   const due=state.nextSupplyAt,finished=earliestFinish(),at=Math.min(due,finished);
   if(at>now||!Number.isFinite(at))break;
   const prevLength=state.units.length;
-  if(finished<=at)state.units=state.units.filter(v=>taskEnd(v)>at);
+  if(finished<=at){
+   const retiring=state.units.filter(v=>taskEnd(v)<=at);
+   for(const v of retiring){
+    if(v.kind==='taxi'&&v.taxiContractVersion===1&&v.contractType==='outsource'&&
+       Number.isSafeInteger(v.shareUnits)&&v.shareUnits>0&&commonFunds){
+     const newBalance=commonFunds.balance+v.shareUnits;
+     if(Number.isSafeInteger(newBalance))commonFunds.balance=newBalance;
+    }
+   }
+   state.units=state.units.filter(v=>taskEnd(v)>at);
+  }
   if(state.units.length!==prevLength)dirty=true;
   if(due===at){
    if(preferences&&preferences.style==='active'){state.pending=false;}
@@ -489,6 +514,97 @@ function advance(now){
    state.nextSupplyAt=nextClockHour(at);dirty=true;
   }else if(state.pending&&(!preferences||preferences.style!=='active')&&state.units.length<MAX&&supply(at))state.pending=false;
  }
+}
+
+// Offers are real-time KST ten-minute slots. UTC epoch works because KST
+// has a whole-hour offset; the seed never consumes the world mission RNG.
+function nextTenMinute(at){return Math.floor(at/TAXI_OFFER_INTERVAL)*TAXI_OFFER_INTERVAL+TAXI_OFFER_INTERVAL;}
+function newTaxiOffers(now){return {schema:1,seed:seedNow(),nextOfferAt:nextTenMinute(now),offers:[]};}
+function validTaxiOffers(value){
+ return Boolean(value&&value.schema===1&&Number.isInteger(value.seed)&&
+  Number.isSafeInteger(value.nextOfferAt)&&value.nextOfferAt>0&&
+  Array.isArray(value.offers)&&value.offers.length<=7&&value.offers.every(o=>
+   o&&Number.isSafeInteger(o.at)&&o.at>0&&o.at%TAXI_OFFER_INTERVAL===0&&
+   o.expiresAt===o.at+HOUR&&Number.isSafeInteger(o.distanceMeters)&&
+   o.distanceMeters>=3000&&o.distanceMeters<=10000&&o.distanceMeters%100===0&&
+   Number.isSafeInteger(o.fareUnits)&&o.fareUnits>=4800&&
+   Number.isSafeInteger(o.shareUnits)&&o.shareUnits>=0));
+}
+async function startTaxiOffers(now){
+ taxiOffers=newTaxiOffers(now);
+ if(!IS_LIVE)return;
+ try{
+  const saved=await read(TAXI_OFFERS_KEY);
+  if(validTaxiOffers(saved)){taxiOffers=saved;return;}
+  offersDirty=true;
+ }catch(error){console.error('MYON taxi offers:',error);offersDirty=true;}
+}
+function advanceTaxiOffers(now){
+ if(!taxiOffers)return;
+ const previous=taxiOffers.offers.length;
+ taxiOffers.offers=taxiOffers.offers.filter(o=>now<o.expiresAt);
+ if(previous!==taxiOffers.offers.length)offersDirty=true;
+ if(now<taxiOffers.nextOfferAt)return;
+ // Never generate already-expired offers after an offline return.
+ const first=Math.max(taxiOffers.nextOfferAt,nextTenMinute(now-HOUR));
+ for(let at=first;at<=now;at+=TAXI_OFFER_INTERVAL){
+  const seed=mix((taxiOffers.seed^Math.imul(Math.floor(at/TAXI_OFFER_INTERVAL),0x9e3779b9))>>>0);
+  const distanceMeters=range(seed,0,30,100)*100;
+  const fareUnits=taxiFareUnits(distanceMeters);
+  taxiOffers.offers.push({at,expiresAt:at+HOUR,distanceMeters,fareUnits,
+   shareUnits:taxiOutsourceShare(fareUnits)});
+ }
+ taxiOffers.nextOfferAt=nextTenMinute(now);
+ offersDirty=true;
+}
+async function acceptTaxiOffer(at){
+ if(!ready||resetBusy||!taxiOffers)return;
+ const now=Math.floor(Date.now()/1000);
+ advance(now);advanceTaxiOffers(now);
+ const offer=taxiOffers.offers.find(v=>v.at===at);
+ if(!offer||now>=offer.expiresAt||state.units.length>=MAX){draw(now);return;}
+ state.units.push(createUnit('taxi',now,null,offer));
+ taxiOffers.offers=taxiOffers.offers.filter(v=>v.at!==at);
+ dirty=true;offersDirty=true;
+ draw(now);
+ await save(now);
+}
+function renderTaxiOffers(now){
+ const holder=$('taxi-offer-list'),empty=$('taxi-offer-empty');
+ if(!holder||!empty||!taxiOffers)return;
+ const list=taxiOffers.offers.slice().sort((a,b)=>b.at-a.at);
+ const order=list.map(x=>x.at).join(',');
+ if(renderTaxiOffers.order!==order){
+  const nodes=document.createDocumentFragment(),keep=new Set();
+  for(const offer of list){
+   keep.add(offer.at);
+   let slot=offerCards.get(offer.at);
+   if(!slot){
+    const card=element('article','slot taxi-offer');
+    const head=element('div','slot-head'),name=element('div','slot-name');
+    name.append(element('span','slot-icon','🚕'),element('strong','','택시 승객 운송'));
+    const amount=element('strong','taxi-offer-amount',formatCommonFunds(offer.shareUnits));
+    head.append(name,amount);
+    const details=element('div','slot-details'),description=element('span','taxi-offer-description',
+     (offer.distanceMeters/1000).toFixed(1)+'km · 외주 40%');
+    const accept=element('button','slot-button','수락');accept.type='button';
+    accept.addEventListener('click',()=>acceptTaxiOffer(offer.at));
+    details.append(description,accept);
+    const progress=element('div','slot-progress');
+    // Smooth, wall-clock-aligned animation; elapsed time is deliberately not displayed.
+    progress.style.animation='taxi-offer-expiry '+HOUR+'s linear both';
+    progress.style.animationDelay='-'+Math.max(0,Date.now()/1000-offer.at)+'s';
+    card.append(head,details,progress);
+    slot={card,accept};offerCards.set(offer.at,slot);
+   }
+   nodes.appendChild(slot.card);
+  }
+  holder.replaceChildren(nodes);
+  for(const key of offerCards.keys())if(!keep.has(key))offerCards.delete(key);
+  renderTaxiOffers.order=order;
+ }
+ empty.hidden=list.length>0;
+ for(const offer of list)offerCards.get(offer.at).accept.disabled=state.units.length>=MAX;
 }
 function validWorld(s){
  return s&&s.schema===2&&Array.isArray(s.units)&&s.units.length<=101&&
@@ -550,16 +666,23 @@ async function read(key){
 function save(now){
  if(!IS_LIVE||!ready)return;
  const snapshot=JSON.parse(JSON.stringify(state));
- lastSave=now;dirty=false;
+ const fundsSnapshot=commonFunds?JSON.parse(JSON.stringify(commonFunds)):null;
+ const offersSnapshot=taxiOffers?JSON.parse(JSON.stringify(taxiOffers)):null;
+ lastSave=now;dirty=false;offersDirty=false;
  saveChain=saveChain.catch(()=>{}).then(async()=>{
   const db=await openDb();
   return new Promise((resolve,reject)=>{
    const tx=db.transaction(STORE,'readwrite');
-   tx.objectStore(STORE).put(snapshot,KEY);
+   const store=tx.objectStore(STORE);
+   // Commit mission retirements, credited funds and accepted/expired offers together.
+   store.put(snapshot,KEY);
+   if(fundsSnapshot)store.put(fundsSnapshot,FINANCE_KEY);
+   if(offersSnapshot)store.put(offersSnapshot,TAXI_OFFERS_KEY);
    tx.oncomplete=resolve;
-   tx.onerror=()=>reject(tx.error||new Error('MYON write failed'));
+   tx.onerror=()=>reject(tx.error||new Error('MYON world/finance/offers write failed'));
   });
- }).catch(e=>{console.error('MYON save:',e);dirty=true;});
+ }).catch(e=>{console.error('MYON save:',e);dirty=true;offersDirty=true;});
+ return saveChain;
 }
 
 
@@ -611,13 +734,14 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.22',title:'신규 플레이어 즉시 이용·공용자금 M 표시',
+ version:'0.13.23',title:'택시 외주 임무판·거리별 운임 정산',
  entries:[
-  '새 플레이어는 기존 24시간 비서 분석과 설정·메뉴 연구 대기 없이 현재 기능을 바로 이용합니다.',
-  '상단에 공용자금 표시를 추가했으며 시작 금액은 0 M입니다.',
-  '1 M = 10,000원 기준으로 소수점 최대 4자리까지 표시하고 끝자리 0은 생략합니다.',
-  '재정 메뉴에서 화폐 기준을 안내하며, 재정·차량의 실제 거래와 수익 로직은 아직 개발중입니다.',
-  '기존 플레이어의 진행 임무와 연구·프로필 등의 저장 정보는 유지됩니다.'
+  '관리 → 임무판에서 10분마다 새로운 수락형 택시 임무가 등장합니다.',
+  '수락형 택시는 1시간 뒤 자동 폐기되며 빨간 3px 진행바로 경과 상태를 보여줍니다.',
+  '자동 관전 택시는 기존 매시간 배정·관람형 분야별 수량 설정을 유지합니다.',
+  '신규 택시 운임은 기본 0.48 M(1.6km), 추가 131m당 0.01 M이며 외주 수령액은 40%입니다.',
+  '수락 또는 자동 운행이 완료되면 공용자금에 정산하며 기존 진행 임무는 예전 규칙으로 완료합니다.',
+  '차량을 소유한 택시의 임무·구매·정비·시 지원 상환은 이후 차량 메뉴에서 별도로 설계합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -1131,7 +1255,7 @@ function makeAssistantCard(){
  completedBox.append(element('span','assistant-stat-label','분석 후 완료 임무'),completed);
  counts.append(activeBox,completedBox);
  const notes=element('details','assistant-release'),summary=element('summary','assistant-release-summary');
- const version=element('span','','v0.13.21'),update=element('span','release-new','NEW'),arrow=element('span','assistant-release-arrow','⌄');
+ const version=element('span','','v0.13.23'),update=element('span','release-new','NEW'),arrow=element('span','assistant-release-arrow','⌄');
  update.hidden=true;
  const rightSummary=element('span','slot-right');rightSummary.append(update,arrow);summary.append(version,rightSummary);
  const content=element('div','assistant-release-content'),subtitle=element('div','notice-subtitle'),list=element('ul','notice-list');
@@ -1397,6 +1521,7 @@ function draw(now){
  ui.clock.textContent=timeFmt.format(date);
  drawCommonFunds();
  if(!ready)return;
+ renderTaxiOffers(now);
  reorder(now);
  drawAssistant(now);
  drawNotice(now);
@@ -1432,17 +1557,17 @@ function draw(now){
 }
 function tick(){
  const now=Math.floor(Date.now()/1000);
- if(ready&&!resetBusy){advance(now);advanceProgression(now);advanceMenu(now);if(dirty&&now-lastSave>=20)save(now);
+ if(ready&&!resetBusy){advance(now);advanceTaxiOffers(now);advanceProgression(now);advanceMenu(now);if((dirty||offersDirty)&&now-lastSave>=20)save(now);
   if(progressionDirty&&now-progressionLastSave>=2)saveProgression(now);
   if(menuDirty&&now-menuLastSave>=2)saveMenu(now);}
  draw(now);
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
-window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if(ready&&dirty)save(now);if(ready&&progressionDirty)saveProgression(now);if(ready&&menuDirty)saveMenu(now);});
+window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if(ready&&(dirty||offersDirty))save(now);if(ready&&progressionDirty)saveProgression(now);if(ready&&menuDirty)saveMenu(now);});
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startCommonFunds();await startAssistant(now,true);await startProgression(now,true);await startMenu(now,true);ready=true;tick();setInterval(tick,1000);return;}
+ if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startCommonFunds();await startTaxiOffers(now);await startAssistant(now,true);await startProgression(now,true);await startMenu(now,true);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
@@ -1463,6 +1588,7 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
  // This prevents existing users from retroactively counting old completions.
  await startPlayerSettings();
  await startCommonFunds();
+ await startTaxiOffers(now);
  ready=true;
  advance(now);
  await startAssistant(now,firstVisit);
