@@ -1,4 +1,4 @@
-// MYON v0.13.26 — play style mission gating: observer, active, mixed.
+// MYON v0.13.27 — index-only shared storage bootstrap; legacy simulation preserved.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
