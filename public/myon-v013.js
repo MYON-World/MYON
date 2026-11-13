@@ -1,4 +1,4 @@
-// MYON v0.13.30 — locked world tab; legacy game behavior preserved.
+// MYON v0.13.31 — RPG development entry screen; legacy save and jobs preserved.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -921,12 +921,26 @@ function showPage(target){
   else buttons[name].removeAttribute('aria-current');
  }
  if(target==='character')showManagement();
- if(target==='world')nav.world.scrollTop=0;
+ if(target==='world')showWorldDirectory();
+}
+function showWorldDirectory(){
+ $('world-directory').hidden=false;
+ $('rpg-start-screen').hidden=true;
+ nav.world.scrollTop=0;
+}
+function showRpgStartScreen(){
+ // This is a first-screen preview, not a persistent world switch or game start.
+ // Legacy missions continue untouched; do not modify activeWorld or money keys.
+ $('world-directory').hidden=true;
+ $('rpg-start-screen').hidden=false;
+ nav.world.scrollTop=0;
 }
 function updateNav(){nav.bar.hidden=false;}
 nav.homeButton.addEventListener('click',()=>showPage('home'));
 nav.characterButton.addEventListener('click',()=>showPage('character'));
 nav.worldButton.addEventListener('click',()=>showPage('world'));
+$('world-rpg-open').addEventListener('click',showRpgStartScreen);
+$('rpg-back-to-worlds').addEventListener('click',showWorldDirectory);
 for(const button of document.querySelectorAll('[data-manage-target]')){
  button.addEventListener('click',()=>showManagement(button.getAttribute('data-manage-target')));
 }
