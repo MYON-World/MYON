@@ -1,10 +1,10 @@
-// MYON v0.13.23 — outsource taxi offers, observer taxi fares and common-funds settlement.
+// MYON v0.13.24 — finance dashboard with durable taxi settlement history.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
 const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression',MENU_KEY='v01317-bottom-nav'; // Original saves unchanged.
-const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style',FINANCE_KEY='v01322-common-funds',TAXI_OFFERS_KEY='v01323-taxi-offers';
+const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style',FINANCE_KEY='v01322-common-funds',TAXI_OFFERS_KEY='v01323-taxi-offers',LEDGER_KEY='v01324-finance-ledger';
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,LOOKBACK=2*DAY,TAXI_OFFER_INTERVAL=600;
@@ -160,7 +160,7 @@ const constructionTiers=[
 let state=null,assistant=null,progression=null,releaseManifest=null,dbPromise=null,ready=false,lastSave=0,saveChain=Promise.resolve(),dirty=false;
 let progressionDirty=false,progressionLastSave=0,progressionSaveChain=Promise.resolve();
 let menuStudy=null,menuDirty=false,menuLastSave=0,menuSaveChain=Promise.resolve();
-let profile=null,preferences=null,observerDraft=null,resetBusy=false,commonFunds=null,taxiOffers=null,offersDirty=false;
+let profile=null,preferences=null,observerDraft=null,resetBusy=false,commonFunds=null,taxiOffers=null,financeLedger=null,offersDirty=false;
 let profileSaveChain=Promise.resolve(),preferencesSaveChain=Promise.resolve();
 const cards=new Map(),offerCards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
@@ -498,7 +498,10 @@ function advance(now){
     if(v.kind==='taxi'&&v.taxiContractVersion===1&&v.contractType==='outsource'&&
        Number.isSafeInteger(v.shareUnits)&&v.shareUnits>0&&commonFunds){
      const newBalance=commonFunds.balance+v.shareUnits;
-     if(Number.isSafeInteger(newBalance))commonFunds.balance=newBalance;
+     if(Number.isSafeInteger(newBalance)&&(!financeLedger||Number.isSafeInteger(financeLedger.totalIncome+v.shareUnits))){
+      commonFunds.balance=newBalance;
+      recordTaxiSettlement(v,at);
+     }
     }
    }
    state.units=state.units.filter(v=>taskEnd(v)>at);
@@ -668,18 +671,20 @@ function save(now){
  const snapshot=JSON.parse(JSON.stringify(state));
  const fundsSnapshot=commonFunds?JSON.parse(JSON.stringify(commonFunds)):null;
  const offersSnapshot=taxiOffers?JSON.parse(JSON.stringify(taxiOffers)):null;
+ const ledgerSnapshot=financeLedger?JSON.parse(JSON.stringify(financeLedger)):null;
  lastSave=now;dirty=false;offersDirty=false;
  saveChain=saveChain.catch(()=>{}).then(async()=>{
   const db=await openDb();
   return new Promise((resolve,reject)=>{
    const tx=db.transaction(STORE,'readwrite');
    const store=tx.objectStore(STORE);
-   // Commit mission retirements, credited funds and accepted/expired offers together.
+   // Store mission retirement, credited balance, ledger and offers atomically.
    store.put(snapshot,KEY);
    if(fundsSnapshot)store.put(fundsSnapshot,FINANCE_KEY);
    if(offersSnapshot)store.put(offersSnapshot,TAXI_OFFERS_KEY);
+   if(ledgerSnapshot)store.put(ledgerSnapshot,LEDGER_KEY);
    tx.oncomplete=resolve;
-   tx.onerror=()=>reject(tx.error||new Error('MYON world/finance/offers write failed'));
+   tx.onerror=()=>reject(tx.error||new Error('MYON world/finance/ledger/offers write failed'));
   });
  }).catch(e=>{console.error('MYON save:',e);dirty=true;offersDirty=true;});
  return saveChain;
@@ -1491,6 +1496,62 @@ function drawRoute(v,slot,now){
  const keep=new Set(identities);
  for(const id of store.keys())if(!keep.has(id))store.delete(id);
 }
+// v0.13.24: independent income ledger, additive to old saved funds.
+const FINANCE_HISTORY_LIMIT=100;
+function newFinanceLedger(now){
+ return {schema:1,openedAt:now,openingBalance:commonFunds?commonFunds.balance:0,totalIncome:0,totalExpenses:0,entries:[]};
+}
+function validFinanceLedger(v){
+ return Boolean(v&&v.schema===1&&Number.isSafeInteger(v.openedAt)&&v.openedAt>0&&
+  Number.isSafeInteger(v.openingBalance)&&v.openingBalance>=0&&
+  Number.isSafeInteger(v.totalIncome)&&v.totalIncome>=0&&
+  Number.isSafeInteger(v.totalExpenses)&&v.totalExpenses>=0&&
+  Array.isArray(v.entries)&&v.entries.length<=FINANCE_HISTORY_LIMIT&&v.entries.every(e=>e&&
+   Number.isSafeInteger(e.id)&&e.id>0&&Number.isSafeInteger(e.at)&&e.at>0&&
+   e.category==='taxi-outsource'&&Number.isSafeInteger(e.amount)&&e.amount>0));
+}
+async function startFinanceLedger(now){
+ financeLedger=newFinanceLedger(now);
+ if(!IS_LIVE)return;
+ try{
+  const saved=await read(LEDGER_KEY);
+  if(validFinanceLedger(saved)){financeLedger=saved;return;}
+ }catch(error){console.error('MYON finance ledger:',error);}
+ // Opening a ledger never fabricates historic income from existing funds.
+ dirty=true;
+}
+function recordTaxiSettlement(v,at){
+ if(!financeLedger)return;
+ financeLedger.totalIncome+=v.shareUnits;
+ financeLedger.entries.unshift({id:v.id,at,category:'taxi-outsource',amount:v.shareUnits});
+ if(financeLedger.entries.length>FINANCE_HISTORY_LIMIT)financeLedger.entries.length=FINANCE_HISTORY_LIMIT;
+}
+function drawFinance(now){
+ if(!financeLedger||!state||!commonFunds)return;
+ $('finance-balance').textContent=formatCommonFunds(commonFunds.balance);
+ $('finance-income').textContent='+'+formatCommonFunds(financeLedger.totalIncome);
+ let pending=0;
+ for(const v of state.units){
+  if(v.kind==='taxi'&&v.taxiContractVersion===1&&v.contractType==='outsource'&&
+   Number.isSafeInteger(v.shareUnits)&&v.shareUnits>0&&taskEnd(v)>now)pending+=v.shareUnits;
+ }
+ $('finance-pending').textContent='+'+formatCommonFunds(pending);
+ const records=financeLedger.entries.slice(0,20);
+ const signature=records.map(e=>e.id+':'+e.at+':'+e.amount).join('|');
+ if(drawFinance.signature===signature)return;
+ const list=$('finance-transactions'),nodes=document.createDocumentFragment();
+ if(!records.length)nodes.appendChild(element('p','finance-empty','아직 기록된 거래가 없습니다.'));
+ for(const record of records){
+  const row=element('div','finance-transaction'),left=element('div','finance-transaction-copy');
+  const date=new Date(record.at*1000);
+  left.append(element('strong','','택시 승객 운송'),
+   element('small','',dateFmt.format(date).replace(/-/g,'.')+' '+timeFmt.format(date)+' · 외주 정산'));
+  row.append(left,element('strong','finance-positive','+'+formatCommonFunds(record.amount)));
+  nodes.appendChild(row);
+ }
+ list.replaceChildren(nodes);
+ drawFinance.signature=signature;
+}
 // Shared funds use an isolated save record; legacy missions and progression remain untouched.
 function validCommonFunds(value){
  return Boolean(value&&value.schema===1&&Number.isSafeInteger(value.balance)&&value.balance>=0);
@@ -1521,6 +1582,7 @@ function draw(now){
  ui.clock.textContent=timeFmt.format(date);
  drawCommonFunds();
  if(!ready)return;
+ drawFinance(now);
  renderTaxiOffers(now);
  reorder(now);
  drawAssistant(now);
@@ -1567,7 +1629,7 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startCommonFunds();await startTaxiOffers(now);await startAssistant(now,true);await startProgression(now,true);await startMenu(now,true);ready=true;tick();setInterval(tick,1000);return;}
+ if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startCommonFunds();await startFinanceLedger(now);await startTaxiOffers(now);await startAssistant(now,true);await startProgression(now,true);await startMenu(now,true);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
@@ -1588,6 +1650,7 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
  // This prevents existing users from retroactively counting old completions.
  await startPlayerSettings();
  await startCommonFunds();
+ await startFinanceLedger(now);
  await startTaxiOffers(now);
  ready=true;
  advance(now);

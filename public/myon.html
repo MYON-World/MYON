@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.23</title>
+<title>MYON v0.13.24</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -197,11 +197,35 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .taxi-offer-description{font-size:12px;color:#aac3b9}
 .taxi-offer .slot-details{margin-top:6px}
 @keyframes taxi-offer-expiry{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* v0.13.24 finance menu */
+.finance-balance-card{padding:15px 13px;display:flex;flex-direction:column;gap:7px}
+.finance-card-label{font-size:11px;color:#aac3b9;font-weight:650}
+.finance-balance-value{font-size:26px;letter-spacing:-.6px;color:#c2ebd0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.finance-balance-card .preference-note{margin:0}
+.finance-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.finance-metric{padding:13px;display:flex;flex-direction:column;gap:9px}
+.finance-metric strong{font-size:16px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.finance-positive{color:#9ae7c6}
+.finance-history{padding:0}
+.finance-history-summary{display:flex;align-items:center;justify-content:space-between;list-style:none;padding:14px 13px;cursor:pointer;font-size:12px;color:#e0eee7}
+.finance-history-summary::-webkit-details-marker{display:none}
+.finance-history-summary:focus-visible{outline:2px solid #8bdec3;outline-offset:-3px;border-radius:8px}
+.finance-history[open] .mission-catalog-arrow{transform:rotate(180deg)}
+.finance-transactions{padding:0 13px 5px;border-top:1px solid #304448}
+.finance-transaction{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:12px 0;border-bottom:1px solid #2b4043;font-variant-numeric:tabular-nums}
+.finance-transaction:last-child{border-bottom:0}
+.finance-transaction-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.finance-transaction-copy strong{font-size:11px;font-weight:700}
+.finance-transaction-copy small{font-size:10px;color:#9bb9af}
+.finance-transaction>.finance-positive{font-size:12px;white-space:nowrap}
+.finance-empty{font-size:11px;color:#9bb9af;padding:12px 0;margin:0}
+.finance-note{margin:0 2px 4px}
+@media(max-width:360px){.finance-balance-value{font-size:23px}.finance-metric strong{font-size:14px}}
 </style>
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.23</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
+<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.24</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
 <div class="common-funds" aria-label="공용자금">
   <span class="common-funds-label">공용자금</span>
   <strong id="common-funds-amount" class="common-funds-value">0 M</strong>
@@ -215,7 +239,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     <button type="button" class="manage-link" data-manage-target="player"><span class="manage-link-copy"><strong>내 정보</strong><small>프로필 · 플레이 스타일</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
     <button type="button" class="manage-link" data-manage-target="assistant"><span class="manage-link-copy"><strong>비서</strong><small>임무 분석 · 변경기록</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
     <button type="button" class="manage-link" data-manage-target="board"><span class="manage-link-copy"><strong>임무판</strong><small>임무 등록 현황 · 다음 임무 등장</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
-    <button type="button" class="manage-link" data-manage-target="finance"><span class="manage-link-copy"><span class="manage-link-heading"><strong>재정</strong><span class="assistant-dev-tag">개발중</span></span></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
+    <button type="button" class="manage-link" data-manage-target="finance"><span class="manage-link-copy"><strong>재정</strong><small>공용자금 · 정산 · 거래 내역</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
     <button type="button" class="manage-link" data-manage-target="vehicles"><span class="manage-link-copy"><span class="manage-link-heading"><strong>차량</strong><span class="assistant-dev-tag">개발중</span></span></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
   </div>
   <div id="management-detail" class="manage-detail" hidden>
@@ -292,10 +316,26 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
   </details>
     </div>
     <div id="management-finance" class="manage-pane" hidden>
-      <article class="slot">
-        <div class="slot-head"><div class="slot-name"><strong>재정</strong><span class="assistant-dev-tag">개발중</span></div></div>
-        <p class="preference-note">화폐 기준: 1 M = 10,000원</p>
+      <article class="slot finance-balance-card">
+        <div class="finance-card-label">공용자금</div>
+        <strong id="finance-balance" class="finance-balance-value">0 M</strong>
+        <p class="preference-note">1 M = 10,000원</p>
       </article>
+      <div class="finance-metrics">
+        <article class="slot finance-metric">
+          <div class="finance-card-label">누적 수익</div>
+          <strong id="finance-income" class="finance-positive">+0 M</strong>
+        </article>
+        <article class="slot finance-metric">
+          <div class="finance-card-label">정산 예정</div>
+          <strong id="finance-pending">+0 M</strong>
+        </article>
+      </div>
+      <details id="finance-history" class="slot finance-history">
+        <summary class="finance-history-summary"><strong>최근 거래 내역</strong><span class="mission-catalog-arrow" aria-hidden="true">⌄</span></summary>
+        <div id="finance-transactions" class="finance-transactions"><p class="finance-empty">아직 기록된 거래가 없습니다.</p></div>
+      </details>
+      <p class="preference-note finance-note">누적 수익과 거래 내역은 장부 도입 이후 정산부터 기록됩니다. 기존 공용자금은 그대로 보존됩니다.</p>
     </div>
     <div id="management-vehicles" class="manage-pane" hidden>
       <article class="slot">
@@ -310,7 +350,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </nav>
 </div></div>
 
-<script src="myon-v013.js?v=0.13.23"></script>
+<script src="myon-v013.js?v=0.13.24"></script>
 
 </body>
 </html>
