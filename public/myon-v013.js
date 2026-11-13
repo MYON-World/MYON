@@ -1,4 +1,4 @@
-// MYON v0.13.28 — shared economy bootstrap; legacy simulation and funds preserved.
+// MYON v0.13.29 — company policy rules only; legacy game behavior preserved.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
