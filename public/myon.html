@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.24</title>
+<title>MYON v0.13.25</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -197,6 +197,42 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .taxi-offer-description{font-size:12px;color:#aac3b9}
 .taxi-offer .slot-details{margin-top:6px}
 @keyframes taxi-offer-expiry{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+.owned-taxi-note{font-size:10px;color:#adcbc2;margin-top:7px;line-height:1.5;overflow-wrap:anywhere;padding-bottom:3px}
+/* v0.13.25 vehicle ownership */
+[hidden]{display:none!important}
+.vehicle-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vehicle-summary-box{display:flex;flex-direction:column;gap:5px;padding:13px;min-width:0}
+.vehicle-summary-box strong{font-size:16px;color:#c2ebd0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.vehicle-muted,.vehicle-data-row>span,.vehicle-label{color:#a7c0b8;font-size:11px}
+.vehicle-tabs{display:flex;gap:7px}
+.vehicle-tab{flex:1;background:#253b3e;border:1px solid #365052;color:#b3c8c0;padding:10px 4px;border-radius:8px;font-size:12px;font-weight:750}
+.vehicle-tab.selected{background:#27604e;border-color:#549d7f;color:#e8fff1}
+.vehicle-panel{display:flex;flex-direction:column;gap:9px}
+.vehicle-tile{display:flex;flex-direction:column;gap:12px;padding:13px}
+.vehicle-data-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;font-variant-numeric:tabular-nums}
+.vehicle-data-row>strong{font-size:12px;font-weight:750;overflow-wrap:anywhere;text-align:right}
+.vehicle-mint{color:#a1e5d1}
+.vehicle-divider{border-top:1px solid #304448}
+.vehicle-label{display:flex;flex-direction:column;gap:7px;font-weight:650}
+.vehicle-control{width:100%;min-width:0;background:#213a3e;color:#f3faf6;border:1px solid #40605e;border-radius:7px;padding:10px;font:inherit;font-size:12px}
+.vehicle-control:focus-visible{outline:2px solid #8bdec3}
+.vehicle-range{width:100%;accent-color:#82d9b5;margin:0}
+.vehicle-range-foot{display:flex;justify-content:space-between;color:#9bb9af;font-size:10px}
+.vehicle-full-button{width:100%;min-height:37px;text-align:center}
+.vehicle-full-button:disabled{opacity:.48;cursor:not-allowed}
+.vehicle-tile .preference-note{margin:0;font-size:10px;line-height:1.5}
+.vehicle-panel-title{font-size:13px;color:#edf5f0}
+.vehicle-status{color:#a1e5d1;font-size:10px;background:#174d3c;padding:4px 7px;border-radius:5px;white-space:nowrap}
+.vehicle-meter{height:7px;overflow:hidden;border-radius:100px;background:#364b4e}
+.vehicle-meter>div{height:100%;width:0;background:#83d9b5;transition:width .2s}
+.vehicle-meter>.vehicle-meter-warm{background:#d8a465}
+.vehicle-confirm{background:#283e42;padding:10px;border-radius:7px}
+.vehicle-confirm-buttons{display:flex;gap:7px;margin-top:9px}
+.vehicle-confirm-buttons button{flex:1}
+.finance-negative{color:#e6b4a2}
+@media(max-width:360px){.vehicle-data-row{font-size:11px}.vehicle-data-row>strong{font-size:11px}}
+
 /* v0.13.24 finance menu */
 .finance-balance-card{padding:15px 13px;display:flex;flex-direction:column;gap:7px}
 .finance-card-label{font-size:11px;color:#aac3b9;font-weight:650}
@@ -225,7 +261,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.24</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
+<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.25</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
 <div class="common-funds" aria-label="공용자금">
   <span class="common-funds-label">공용자금</span>
   <strong id="common-funds-amount" class="common-funds-value">0 M</strong>
@@ -240,7 +276,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     <button type="button" class="manage-link" data-manage-target="assistant"><span class="manage-link-copy"><strong>비서</strong><small>임무 분석 · 변경기록</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
     <button type="button" class="manage-link" data-manage-target="board"><span class="manage-link-copy"><strong>임무판</strong><small>임무 등록 현황 · 다음 임무 등장</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
     <button type="button" class="manage-link" data-manage-target="finance"><span class="manage-link-copy"><strong>재정</strong><small>공용자금 · 정산 · 거래 내역</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
-    <button type="button" class="manage-link" data-manage-target="vehicles"><span class="manage-link-copy"><span class="manage-link-heading"><strong>차량</strong><span class="assistant-dev-tag">개발중</span></span></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
+    <button type="button" class="manage-link" data-manage-target="vehicles"><span class="manage-link-copy"><strong>차량</strong><small>신차 · 중고차 구입 / 보유 차량 관리</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
   </div>
   <div id="management-detail" class="manage-detail" hidden>
     <button type="button" id="management-back" class="manage-back">‹ 관리</button>
@@ -287,12 +323,12 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
       <button type="button" id="observer-save" class="manage-button primary">수량 설정 저장</button>
       <div class="preference-detail">
         <strong class="preference-subtitle">기존 임무 초기화</strong>
-        <div class="preference-foot"><span>현재 진행 중</span><strong id="observer-running">0건</strong></div>
-        <p class="preference-note">확인하면 현재 임무를 모두 종료하고, 다음 예정된 정각 배정 시각부터 새 설정으로 등장합니다.</p>
+        <div class="preference-foot"><span>현재 관전형 임무</span><strong id="observer-running">0건</strong></div>
+        <p class="preference-note">관전형 임무만 종료하며 수락형·보유 차량 임무는 유지됩니다. 다음 정각부터 새 설정으로 등장합니다.</p>
         <button type="button" id="observer-reset" class="manage-button danger">기존 임무 초기화</button>
         <div class="manage-confirm" id="observer-reset-confirm" hidden>
           <strong>진행 중인 임무를 모두 초기화할까요?</strong>
-          <span>초기화된 임무는 복구할 수 없습니다. 즉시 새 임무를 생성하지 않습니다.</span>
+          <span>초기화된 관전형 임무는 복구할 수 없습니다. 수락형·보유 차량 임무는 유지됩니다.</span>
           <div class="manage-actions"><button id="observer-reset-cancel" type="button" class="manage-button">취소</button><button id="observer-reset-accept" type="button" class="manage-button danger">초기화 확인</button></div>
         </div>
       </div>
@@ -338,9 +374,94 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
       <p class="preference-note finance-note">누적 수익과 거래 내역은 장부 도입 이후 정산부터 기록됩니다. 기존 공용자금은 그대로 보존됩니다.</p>
     </div>
     <div id="management-vehicles" class="manage-pane" hidden>
-      <article class="slot">
-        <div class="slot-head"><div class="slot-name"><strong>차량</strong><span class="assistant-dev-tag">개발중</span></div></div>
-      </article>
+      <div class="vehicle-summary">
+        <article class="slot vehicle-summary-box">
+          <span class="vehicle-muted">보유 차량</span><strong id="vehicle-count">0 / 50대</strong>
+        </article>
+        <article class="slot vehicle-summary-box">
+          <span class="vehicle-muted">공용자금</span><strong id="vehicle-funds">0 M</strong>
+        </article>
+      </div>
+      <div class="vehicle-tabs">
+        <button type="button" id="vehicle-tab-owned" class="vehicle-tab selected">보유 차량</button>
+        <button type="button" id="vehicle-tab-buy" class="vehicle-tab">차량 구입</button>
+      </div>
+      <section id="vehicle-buy-area" class="vehicle-panel" hidden>
+        <article class="slot vehicle-tile">
+          <div class="vehicle-tabs">
+            <button type="button" id="vehicle-buy-new" class="vehicle-tab selected">신차</button>
+            <button type="button" id="vehicle-buy-used" class="vehicle-tab">중고차</button>
+          </div>
+          <label id="vehicle-model-row" class="vehicle-label">신차 모델
+            <select id="vehicle-model" class="vehicle-control"></select>
+          </label>
+          <label id="vehicle-used-row" class="vehicle-label" hidden>중고차 매물
+            <select id="vehicle-used" class="vehicle-control"></select>
+          </label>
+          <div class="vehicle-data-row"><span>차량 판매가격</span><strong id="vehicle-price">0 M</strong></div>
+          <div class="vehicle-data-row"><span>잔여 내구도</span><strong id="vehicle-durability-buy">100.000%</strong></div>
+          <div class="vehicle-divider"></div>
+          <div class="vehicle-data-row"><strong>시 지원금 비율</strong><strong id="vehicle-support-value" class="vehicle-mint">90%</strong></div>
+          <input id="vehicle-support" class="vehicle-range" type="range" min="0" max="90" value="90" step="1" aria-label="시 지원금 비율">
+          <div class="vehicle-range-foot"><span>0% · 전액 자비</span><span>90% · 최대 지원</span></div>
+          <div class="vehicle-data-row"><span>시 지원금</span><strong id="vehicle-subsidy-value" class="vehicle-mint">0 M</strong></div>
+          <div class="vehicle-data-row"><span>내 부담금</span><strong id="vehicle-self-value">0 M</strong></div>
+          <button id="vehicle-buy-action" type="button" class="manage-button primary vehicle-full-button">차량 구매</button>
+          <p id="vehicle-buy-note" class="preference-note"></p>
+          <p class="preference-note">신차 가격은 2026년 실제 차량 판매가격 참조. 중고차는 신차 기준가의 50%, 내구도 50~90%로 판매돼요.</p>
+        </article>
+      </section>
+      <section id="vehicle-owned-area" class="vehicle-panel">
+        <p id="vehicle-owned-empty" class="preference-note">보유 차량이 없습니다. 차량 구입에서 신차 또는 중고차를 구매하세요.</p>
+        <div id="vehicle-owned-detail" class="vehicle-panel" hidden>
+          <label class="vehicle-label">차량 선택
+            <select id="vehicle-owned-select" class="vehicle-control"></select>
+          </label>
+          <article class="slot vehicle-tile">
+            <div class="vehicle-data-row"><strong id="vehicle-title">택시 1호차</strong><span id="vehicle-status" class="vehicle-status">운행 대기</span></div>
+            <div class="vehicle-data-row"><span>현재 위치</span><strong id="vehicle-position">차량 출고지</strong></div>
+            <div class="vehicle-data-row"><span>영구 내구도</span><strong id="vehicle-durability">100.000%</strong></div>
+            <div class="vehicle-meter"><div id="vehicle-durability-bar"></div></div>
+            <div class="vehicle-data-row"><span>수리 주기</span><strong id="vehicle-service-runs">0 / 1,000회</strong></div>
+            <div class="vehicle-meter"><div id="vehicle-service-bar" class="vehicle-meter-warm"></div></div>
+            <div class="vehicle-divider"></div>
+            <div class="vehicle-data-row"><span>현재 내 수익 지분</span><strong id="vehicle-share" class="vehicle-mint">100.00%</strong></div>
+            <div class="vehicle-meter"><div id="vehicle-share-bar"></div></div>
+            <div class="vehicle-data-row"><span>차량 구매원가</span><strong id="vehicle-price-paid">0 M</strong></div>
+            <div class="vehicle-data-row"><span>시 지원금 상환잔액</span><strong id="vehicle-remaining">0 M</strong></div>
+            <button id="vehicle-dispatch" class="manage-button primary vehicle-full-button" type="button">새 승객 임무 시작</button>
+            <p class="preference-note">보유 택시는 목적지에 도착하면 정산하고, 복귀 없이 그 위치에서 다음 승객을 기다립니다.</p>
+          </article>
+          <article class="slot vehicle-tile">
+            <strong class="vehicle-panel-title">시 지원금 중도상환</strong>
+            <label class="vehicle-label">상환 금액 (M)
+              <input id="vehicle-repay-input" type="number" class="vehicle-control" min="0.0001" step="0.0001" value="10" inputmode="decimal">
+            </label>
+            <div class="vehicle-data-row"><span>상환 후 내 지분</span><strong id="vehicle-repay-next" class="vehicle-mint">—</strong></div>
+            <button id="vehicle-repay-action" class="manage-button vehicle-full-button" type="button">중도상환 실행</button>
+          </article>
+          <article class="slot vehicle-tile">
+            <strong class="vehicle-panel-title">차량 수리</strong>
+            <div class="vehicle-data-row"><span>수리 비용</span><strong id="vehicle-repair-price">0 M</strong></div>
+            <p class="preference-note">운행 1,000회마다 수리가 필요합니다. 수리해도 영구 내구도는 회복되지 않습니다.</p>
+            <button id="vehicle-repair-action" class="manage-button vehicle-full-button" type="button">수리 실행</button>
+          </article>
+          <article class="slot vehicle-tile">
+            <strong class="vehicle-panel-title">차량 판매</strong>
+            <div class="vehicle-data-row"><span>고정 판매가격 · 신차 기준 50%</span><strong id="vehicle-sale-price">0 M</strong></div>
+            <div class="vehicle-data-row"><span>미상환 지원금 정산 후</span><strong id="vehicle-sale-net">0 M</strong></div>
+            <button id="vehicle-sale-action" class="manage-button danger vehicle-full-button" type="button">차량 판매</button>
+            <div id="vehicle-sale-confirm" class="vehicle-confirm" hidden>
+              <p class="preference-note">차량이 영구 제거되고 미상환 지원금이 정산됩니다. 판매할까요?</p>
+              <div class="vehicle-confirm-buttons">
+                <button type="button" id="vehicle-sale-cancel" class="manage-button">취소</button>
+                <button type="button" id="vehicle-sale-confirm-action" class="manage-button danger">판매 확인</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+      <p id="vehicle-message" class="manage-status" role="status"></p>
     </div>
   </div>
 </section>
@@ -350,7 +471,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </nav>
 </div></div>
 
-<script src="myon-v013.js?v=0.13.24"></script>
+<script src="myon-v013.js?v=0.13.25"></script>
 
 </body>
 </html>
