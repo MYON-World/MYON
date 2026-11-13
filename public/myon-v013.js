@@ -1,4 +1,4 @@
-// MYON v0.13.29 — company policy rules only; legacy game behavior preserved.
+// MYON v0.13.30 — locked world tab; legacy game behavior preserved.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -10,7 +10,7 @@ const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,MAX_TOTAL=130,LOOKBACK=2*DAY,TAXI_OFFER_INTERVAL=600;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply'),gear:$('top-settings-toggle'),version:$('top-version'),settings:$('settings-panel'),notify:$('notification-toggle')};
-const nav={home:$('home-screen'),character:$('character-screen'),bar:$('bottom-nav'),homeButton:$('bottom-home'),characterButton:$('bottom-character')};
+const nav={home:$('home-screen'),character:$('character-screen'),world:$('world-screen'),bar:$('bottom-nav'),homeButton:$('bottom-home'),characterButton:$('bottom-character'),worldButton:$('bottom-world')};
 const assistantContainer=$('assistant-slot');
 const dateFmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
 const weekdayFmt=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'});
@@ -909,20 +909,24 @@ function showManagement(section=null){
  nav.character.scrollTop=0;
 }
 function showPage(target){
- const isManagement=target==='character';
- nav.home.hidden=isManagement;nav.character.hidden=!isManagement;
- nav.homeButton.classList.toggle('selected',!isManagement);
- nav.characterButton.classList.toggle('selected',isManagement);
- if(isManagement){
-  nav.homeButton.removeAttribute('aria-current');nav.characterButton.setAttribute('aria-current','page');
-  showManagement();
- }else{
-  nav.characterButton.removeAttribute('aria-current');nav.homeButton.setAttribute('aria-current','page');
+ // Legacy simulation remains active; only the visible panel changes.
+ const pages={home:nav.home,character:nav.character,world:nav.world};
+ const buttons={home:nav.homeButton,character:nav.characterButton,world:nav.worldButton};
+ if(!Object.prototype.hasOwnProperty.call(pages,target))return;
+ for(const name of Object.keys(pages)){
+  const selected=name===target;
+  pages[name].hidden=!selected;
+  buttons[name].classList.toggle('selected',selected);
+  if(selected)buttons[name].setAttribute('aria-current','page');
+  else buttons[name].removeAttribute('aria-current');
  }
+ if(target==='character')showManagement();
+ if(target==='world')nav.world.scrollTop=0;
 }
 function updateNav(){nav.bar.hidden=false;}
 nav.homeButton.addEventListener('click',()=>showPage('home'));
 nav.characterButton.addEventListener('click',()=>showPage('character'));
+nav.worldButton.addEventListener('click',()=>showPage('world'));
 for(const button of document.querySelectorAll('[data-manage-target]')){
  button.addEventListener('click',()=>showManagement(button.getAttribute('data-manage-target')));
 }

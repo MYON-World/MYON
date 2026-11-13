@@ -42,10 +42,30 @@ export function nextCompanyValuationAt(foundedAtSeconds, lastValuedAtSeconds) {
   return next;
 }
 
-// Valuation concept (NOT calculated in v0.13.29):
-// current operating cash + net realizable asset value (less debt)
-// + profitability component based on the most recent seven REAL-TIME days.
-// The profit multiplier, precise asset valuation, and handling of ongoing jobs
-// on sale still require later design decisions; do not invent them here.
-// At actual sale time, liquid balances/assets/liabilities must be rechecked;
-// proceeds go ONLY to shared businessCapital, never to personal balance.
+// The company world will supply operating cash, realizable net assets (after
+// debt) and recent seven-day NET operating profit. Asset valuation, unsettled
+// contracts and sale settlement remain separate, unimplemented systems.
+// Sale proceeds must go to shared businessCapital, never to personal cash.
+export const COMPANY_PROFIT_PREMIUM_PERCENT = 100;
+export const COMPANY_PROFIT_PREMIUM_CAP_PERCENT = 30;
+
+// Values are integral won, not floating point M. Revenue from normal missions
+// minus recurring wages/operating costs is operating profit. Exclude asset sales,
+// capital injections and other non-operating transfers from the profit input.
+export function calculateCompanyValuation(operatingCash, netAssetValue, netOperatingProfit7Days) {
+  if (!Number.isSafeInteger(operatingCash) || operatingCash < 0 ||
+      !Number.isSafeInteger(netAssetValue) ||
+      !Number.isSafeInteger(netOperatingProfit7Days)) {
+    throw new RangeError('MYON company: invalid valuation input');
+  }
+  const rawBase = operatingCash + netAssetValue;
+  if (!Number.isSafeInteger(rawBase)) throw new RangeError('MYON company: valuation base overflow');
+  const baseValue = Math.max(0, rawBase);
+  // Exactly floor(baseValue * 30 / 100), without large integer multiplication.
+  const premiumLimit = Math.floor(baseValue / 10) * 3 +
+    Math.floor((baseValue % 10) * 3 / 10);
+  const profitPremium = Math.min(Math.max(0, netOperatingProfit7Days), premiumLimit);
+  const valuation = baseValue + profitPremium;
+  if (!Number.isSafeInteger(valuation)) throw new RangeError('MYON company: valuation overflow');
+  return { baseValue, profitPremium, valuation };
+}
