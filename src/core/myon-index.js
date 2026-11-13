@@ -17,7 +17,7 @@ export function validMyonIndex(value) {
   );
 }
 
-function openGameDb() {
+export function openGameDb() {
   return new Promise((resolve, reject) => {
     if (!globalThis.indexedDB) {
       reject(new Error('MYON index: IndexedDB unavailable'));
@@ -35,7 +35,7 @@ function openGameDb() {
   });
 }
 
-function transact(db, mode, perform) {
+export function transact(db, mode, perform) {
   return new Promise((resolve, reject) => {
     let result;
     let issue = null;

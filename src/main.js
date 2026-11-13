@@ -2,11 +2,14 @@ import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
 import { initializeMyonIndex } from './core/myon-index.js'
+import { initializeMyonEconomy } from './core/myon-economy.js'
 
-// MYON index owns the shared world pointer. Do not block the existing game UI
-// if IndexedDB is unavailable; the legacy iframe continues to manage its own saves.
+// Shared metadata initializes independently of the legacy iframe game.
+// Never block the existing UI or touch its world/funds/vehicle records.
 createApp(App).mount('#app')
 
-void initializeMyonIndex().catch(error => {
-  console.error('MYON index initialization:', error)
-})
+void initializeMyonIndex()
+  .then(() => initializeMyonEconomy())
+  .catch(error => {
+    console.error('MYON shared storage initialization:', error)
+  })
