@@ -1,4 +1,4 @@
-// MYON v0.13.31 — RPG development entry screen; legacy save and jobs preserved.
+// MYON v0.13.32 — RPG taxi runs in isolated savings; legacy missions remain unchanged.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -921,19 +921,22 @@ function showPage(target){
   else buttons[name].removeAttribute('aria-current');
  }
  if(target==='character')showManagement();
- if(target==='world')showWorldDirectory();
+ showWorldDirectory();
 }
 function showWorldDirectory(){
+ window.MYON_RPG_TAXI?.exit();
  $('world-directory').hidden=false;
  $('rpg-start-screen').hidden=true;
+ document.querySelector('.common-funds').hidden=false;
  nav.world.scrollTop=0;
 }
 function showRpgStartScreen(){
- // This is a first-screen preview, not a persistent world switch or game start.
- // Legacy missions continue untouched; do not modify activeWorld or money keys.
+ // RPG runs independently from legacy missions and funds.
  $('world-directory').hidden=true;
  $('rpg-start-screen').hidden=false;
+ document.querySelector('.common-funds').hidden=true;
  nav.world.scrollTop=0;
+ window.MYON_RPG_TAXI?.enter();
 }
 function updateNav(){nav.bar.hidden=false;}
 nav.homeButton.addEventListener('click',()=>showPage('home'));

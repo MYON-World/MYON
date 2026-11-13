@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.31</title>
+<title>MYON v0.13.32</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -261,7 +261,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .finance-note{margin:0 2px 4px}
 @media(max-width:360px){.finance-balance-value{font-size:23px}.finance-metric strong{font-size:14px}}
 
-/* v0.13.31: world tab; future worlds are locked and not interactive. */
+/* v0.13.32: world tab; future worlds are locked and not interactive. */
 .world-screen .world-description{margin:0 0 4px;color:#9bb9af;font-size:11px;line-height:1.6}
 .world-current .slot-head{min-height:28px}
 .world-current-description{font-size:11px;line-height:1.55;color:#9cb9ad;margin:5px 0 2px}
@@ -270,7 +270,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .world-lock-status{display:flex;align-items:center;gap:5px;flex:none;color:#afc4bb;font-size:11px;font-weight:700;white-space:nowrap}
 .world-lock-status svg{height:16px;width:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .world-footnote{margin:3px 2px 0;font-size:11px;color:#9bb9af;line-height:1.6}
-/* v0.13.31: RPG development-world entry, no RPG economy or jobs yet. */
+/* v0.13.32: RPG development-world entry, no RPG economy or jobs yet. */
 .world-directory[hidden],.rpg-start-screen[hidden]{display:none}
 .world-directory,.rpg-start-screen{display:flex;flex-direction:column;gap:9px;min-width:0}
 .world-dev-tag{flex:none;background:#293a40;border:1px solid #477c6a;border-radius:5px;color:#9ae7c6;font-size:10px;font-weight:750;padding:5px 7px;white-space:nowrap}
@@ -286,11 +286,37 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .rpg-dev-notice{background:#20353a;border:1px solid #30484a;border-radius:9px;padding:12px;color:#adc9bf;font-size:11px;line-height:1.65}
 .rpg-dev-notice strong{color:#c2ebd0;font-size:12px}
 .rpg-dev-notice p{margin:6px 0 0}
+
+/* v0.13.32: single-vehicle, automatic RPG taxi job. */
+.common-funds[hidden],.rpg-flow-pane[hidden],.rpg-error[hidden],.rpg-taxi-settlement[hidden]{display:none}
+.rpg-flow-pane{display:flex;flex-direction:column;gap:10px;min-width:0}
+.rpg-welcome{padding:19px 14px}
+.rpg-welcome h3{font-size:14px;color:#dff3e9;line-height:1.55;margin:2px 0 15px;text-align:center}
+.rpg-welcome p{color:#c5d9d0;font-size:12px;line-height:1.75;margin:0 0 13px}
+.rpg-welcome p:last-child{color:#9bb9af;font-size:11px;margin-bottom:0}
+.rpg-full-button{width:100%;padding:12px}
+.rpg-flow-pane .manage-title{margin:1px 0 3px}
+.rpg-info-row{display:flex;align-items:center;justify-content:space-between;gap:9px;font-size:12px}
+.rpg-info-row+.rpg-info-row{margin-top:12px}
+.rpg-info-row span{color:#aac3b9;font-size:11px}
+.rpg-info-row strong{font-size:12px;color:#e4f1ea}
+.rpg-info-row .rpg-money,.rpg-money{font-size:13px;font-weight:750;color:#c2ebd0}
+.rpg-task-heading{margin-top:9px}
+.rpg-task-heading small{color:#9bb9af;font-size:10px}
+.rpg-taxi-task{min-height:108px;padding-bottom:16px}
+.rpg-taxi-task .slot-head{gap:8px}
+.rpg-taxi-task .slot-name strong{font-size:13px}
+.rpg-taxi-task .slot-progress{background:#74b9c8}
+.rpg-trip{margin-top:9px;color:#e0f1e9;font-size:11px}
+.rpg-trip-note{margin-top:7px;color:#9bb9af;font-size:11px;line-height:1.45}
+.rpg-taxi-settlement{background:#20353a}
+.rpg-settlement-heading{color:#dff3e9;font-size:12px;font-weight:750;margin:2px 0 12px}
+.rpg-error{background:#452a2b;border:1px solid #9c6668;border-radius:7px;color:#f3cece;font-size:11px;line-height:1.6;padding:11px}
 </style>
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.31</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
+<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.32</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
 <div class="common-funds" aria-label="공용자금">
   <span class="common-funds-label">공용자금</span>
   <strong id="common-funds-amount" class="common-funds-value">0 M</strong>
@@ -520,24 +546,51 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
   <div id="rpg-start-screen" class="rpg-start-screen" hidden>
     <button type="button" id="rpg-back-to-worlds" class="manage-back">‹ 월드 전환</button>
     <div class="rpg-title-row"><h2 class="manage-title">RPG 월드 <span class="rpg-version">v1</span></h2><span class="world-dev-tag">개발 중</span></div>
-    <p class="world-description">한 사람의 직업과 일상을 따라가는 방치형 월드</p>
-    <article class="slot rpg-overview">
-      <div class="slot-head"><div class="slot-name"><strong>나의 생활</strong></div><span class="slot-state waiting">시작 전</span></div>
-      <div class="rpg-overview-data">
-        <div class="manage-value"><span>직업</span><strong>미선택</strong></div>
-        <div class="manage-value"><span>현재 활동</span><strong>대기</strong></div>
-        <div class="manage-value"><span>차량</span><strong>미보유</strong></div>
+    <p id="rpg-error" class="rpg-error" role="alert" hidden></p>
+    <div id="rpg-intro" class="rpg-flow-pane" hidden>
+      <article class="slot rpg-welcome">
+        <h3>RPG 월드에 오신 것을 환영합니다</h3>
+        <p>이곳은 한 사람의 삶을 경험하는 세계입니다.</p>
+        <p>직업을 가지고 일하며 돈을 벌고, 자신만의 생활을 만들어 갑니다.</p>
+        <p>게임을 떠나 있는 동안에도 세계의 시간은 계속 흐릅니다.</p>
+      </article>
+      <button type="button" class="manage-button primary rpg-full-button" id="rpg-intro-start">시작하기</button>
+    </div>
+    <div id="rpg-jobs" class="rpg-flow-pane" hidden>
+      <h3 class="manage-title">직업</h3>
+      <button type="button" id="rpg-job-taxi" class="manage-link">
+        <span class="manage-link-copy"><strong>택시기사</strong><small>승객 운송 · 운임 정산</small></span>
+        <span class="manage-link-arrow" aria-hidden="true">›</span>
+      </button>
+    </div>
+    <div id="rpg-taxi" class="rpg-flow-pane" hidden>
+      <div class="rpg-title-row">
+        <h3 class="manage-title">택시기사</h3>
+        <span id="rpg-taxi-status" class="slot-state waiting">대기 중</span>
       </div>
-    </article>
-    <h3 class="rpg-subheading">새로운 생활 시작</h3>
-    <button type="button" class="manage-link world-locked" disabled>
-      <span class="manage-link-copy"><strong>직업 선택</strong><small>직업을 정하면 운행과 활동이 자동으로 이어집니다.</small></span>
-      <span class="world-lock-status">준비 중</span>
-    </button>
-    <article class="rpg-dev-notice">
-      <strong>개발 중 안내</strong>
-      <p>현재는 RPG 월드의 첫 화면을 구성하는 단계입니다. 직업 선택, 자동 활동, 진행 저장은 순서대로 추가될 예정이며 운영 규칙은 개발 중 변경될 수 있습니다.</p>
-    </article>
+      <article class="slot">
+        <div class="rpg-info-row"><span>차량</span><strong>회사 택시 1대</strong></div>
+        <div class="rpg-info-row"><span>현재 활동</span><strong id="rpg-taxi-activity">승객 대기</strong></div>
+        <div class="rpg-info-row"><span>개인자금</span><strong class="rpg-money" id="rpg-personal-balance">0 M</strong></div>
+      </article>
+      <div class="rpg-title-row rpg-task-heading"><h3 class="manage-title">운행 임무</h3><small>자동 운행</small></div>
+      <article class="slot rpg-taxi-task">
+        <div class="slot-head">
+          <div class="slot-name"><strong id="rpg-taxi-task-title">🚕 승객 대기 중</strong></div>
+          <strong class="rpg-money" id="rpg-taxi-task-amount">대기</strong>
+        </div>
+        <div class="rpg-trip" id="rpg-taxi-trip">주변에서 승객을 기다리고 있습니다.</div>
+        <div class="rpg-trip-note" id="rpg-taxi-task-detail">승객이 탑승하면 자동으로 운행합니다.</div>
+        <div id="rpg-taxi-progress" class="slot-progress"></div>
+      </article>
+      <article class="slot rpg-taxi-settlement" id="rpg-taxi-settlement" hidden>
+        <h3 class="rpg-settlement-heading">최근 운행 정산 · <span id="rpg-taxi-settlement-distance">0.0km</span></h3>
+        <div class="rpg-info-row"><span>총 운임</span><strong id="rpg-taxi-settlement-fare">0 M</strong></div>
+        <div class="rpg-info-row"><span>회사 몫 60%</span><strong id="rpg-taxi-settlement-company">0 M</strong></div>
+        <div class="rpg-info-row"><span>기사 수입 40%</span><strong class="rpg-money" id="rpg-taxi-settlement-driver">0 M</strong></div>
+      </article>
+      <p class="world-footnote">승객을 5~15분 기다린 뒤 자동으로 목적지까지 운행합니다. 운행 완료 시 기사 몫 40%가 개인자금에 정산됩니다.</p>
+    </div>
   </div>
 </section>
 <nav id="bottom-nav" class="bottom-nav" aria-label="하단 메뉴">
@@ -547,7 +600,8 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </nav>
 </div></div>
 
-<script src="myon-v013.js?v=0.13.31"></script>
+<script src="myon-v013.js?v=0.13.32"></script>
+<script src="myon-rpg-taxi.js?v=0.13.32"></script>
 
 </body>
 </html>
