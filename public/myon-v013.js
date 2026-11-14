@@ -1,4 +1,4 @@
-// MYON v0.13.37 — taxi-only world, leveling and city fleet, contextual header and footer version.
+// MYON v0.13.38 — taxi waiting board and fixed-price subsidized MYON taxi, contextual header and footer version.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -162,7 +162,7 @@ let progressionDirty=false,progressionLastSave=0,progressionSaveChain=Promise.re
 let menuStudy=null,menuDirty=false,menuLastSave=0,menuSaveChain=Promise.resolve();
 let profile=null,preferences=null,resetBusy=false,commonFunds=null,taxiOffers=null,financeLedger=null,offersDirty=false,taxiLevel=null;
 let profileSaveChain=Promise.resolve();
-const cards=new Map(),offerCards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
+const cards=new Map(),offerCards=new Map(),waitingVehicleCards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
 function pick(arr){return arr[nextRandom()%arr.length];}
 function addKstMonths(at,months){
@@ -786,14 +786,15 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.37',title:'택시 월드 레벨·시지원 차량 운영',
+ version:'0.13.38',title:'택시 대기 임무판·MYON 택시 구입',
  entries:[
-  '기존 비서 완료 실적을 최초 1회 승계하고, 이후 택시 완료 100건마다 레벨이 무한 상승합니다.',
-  '택시 외 저장된 진행 임무는 강제 정리하며 정산·완료 실적으로 인정하지 않습니다.',
-  'LV.2부터 외주 임무는 폐기되지 않고 10분마다 남은 임무를 자동수락합니다. 수락 버튼도 유지합니다.',
-  'LV.3부터 시지원 차량을 받고 LV.30에서 시지원 10대에 도달하며, 나머지 차량은 직접 구입합니다.',
-  '차량 없는 외주는 40%·3~10km 고정, 차량 운행은 레벨별 수익률·장거리 최대 200km로 성장합니다.',
-  '외주는 MYON 택시, 보유 차량은 택시N호로 진행 임무를 표시합니다.'
+  '차량 운영/선택 영역을 제거하고 대기 중인 택시를 임무판 수락 카드로 표시합니다.',
+  '택시N호 수락 시 진행중 임무로 이동하며 종료·정산 즉시 임무판 대기 카드로 돌아옵니다.',
+  '외주는 MYON 택시로 유지하고, 기존 외주 자동수락·폐기 규칙과 레벨 실적 승계를 보존합니다.',
+  '구입 가능 신차를 MYON 택시 단일 모델(2,000만원)로 지정합니다.',
+  '차량 구입 시 현재 레벨 수익률만큼 유저가 부담하고, 나머지는 시지원으로 처리합니다.',
+  '수익률 100% 초과 보너스는 차량 운행에만 적용하며 구입 부담률은 최대 100%입니다.',
+  '시지원 무료 차량 최대 10대, 총 차량 최대 50대와 기존 저장·완료 계약은 그대로 유지합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -1492,6 +1493,7 @@ function drawFinance(now){
 
 // v0.13.25 — Purchased taxis are permanent assets; active jobs are one-way trips.
 const TAXI_MODELS=[
+ {key:'myon',name:'MYON 택시',price:20000000},
  {key:'k5',name:'기아 K5 2.0 스마트 셀렉션',price:27240000},
  {key:'sonata',name:'현대 쏘나타 디 엣지',price:28760000}
 ];
@@ -1557,7 +1559,7 @@ function grantCityVehicles(){
  for(let i=current;i<target&&ownedGarage.vehicles.length<MAX_OWNED_VEHICLES;i++){
   const no=fleetNextNumber();if(!no)break;
   const id=ownedGarage.nextId++;
-  ownedGarage.vehicles.push({id,fleetNo:no,model:'k5',origin:'city',newPrice:0,price:0,remaining:0,
+  ownedGarage.vehicles.push({id,fleetNo:no,model:'myon',origin:'city',newPrice:0,price:0,remaining:0,
    durability:100000,serviceRuns:0,trips:0,location:'시 제공 차고지',activeMissionId:0});
   dirty=true;
  }
@@ -1799,83 +1801,117 @@ async function confirmVehicleSale(){
   await save(now);setVehicleMessage('판매 완료. 차량이 보유 목록에서 제거됐습니다.');
  }finally{vehicleBusy=false;draw(Math.floor(Date.now()/1000));}
 }
-// The public taxi-world fleet runs without maintenance, vehicle-sale or
-// subsidy-loan menus. Pre-existing purchased vehicles remain in the garage.
-let fleetSelectedId=0,fleetBusy=false;
-function drawTaxiFleet(){
- if(!ownedGarage||!taxiLevel||!commonFunds)return;
- const vehicles=ownedGarage.vehicles.slice().sort((a,b)=>(a.fleetNo||a.id)-(b.fleetNo||b.id));
- const select=$('taxi-fleet-select'),signature=vehicles.map(v=>v.id+':'+v.fleetNo).join(',');
- $('taxi-fleet-area').hidden=false;
- $('taxi-fleet-count').textContent=vehicles.length+' / 50대 (시지원 '+vehicles.filter(v=>v.origin==='city').length+'대)';
- if(drawTaxiFleet.signature!==signature){
-  const frag=document.createDocumentFragment();
-  for(const v of vehicles){
-   const item=document.createElement('option');item.value=String(v.id);
-   item.textContent='택시'+(v.fleetNo||v.id)+'호 · '+(v.origin==='city'?'시지원':'직접 구입');
-   frag.append(item);
-  }
-  select.replaceChildren(frag);drawTaxiFleet.signature=signature;
- }
- if(!vehicleById(fleetSelectedId))fleetSelectedId=vehicles[0]?.id||0;
- select.disabled=!vehicles.length;
- if(vehicles.length)select.value=String(fleetSelectedId);
- const v=vehicleById(fleetSelectedId);
- $('taxi-fleet-status').textContent=v?vehicleStatus(v):'보유 차량 없음';
- $('taxi-fleet-distance').textContent='최대 '+levelMaxKm()+'km';
- $('taxi-fleet-share').textContent=levelRateText();
- $('taxi-fleet-dispatch').disabled=fleetBusy||!vehicleDispatchAvailable(v);
- $('taxi-fleet-dispatch').textContent=v&&v.activeMissionId?'운행 중':'승객 운행 시작';
- const model=TAXI_MODELS.find(x=>x.key===$('taxi-fleet-buy-model').value)||TAXI_MODELS[0];
- const full=vehicles.length>=MAX_OWNED_VEHICLES;
- $('taxi-fleet-buy-button').textContent='차량 구입 · '+formatCommonFunds(model.price);
- $('taxi-fleet-buy-button').disabled=fleetBusy||full||commonFunds.balance<model.price;
- $('taxi-fleet-buy-note').textContent=full?'총 50대 운영 상한 도달':
-  '구입가 '+formatCommonFunds(model.price)+' · 시지원 차량과 별도';
+// The mission board owns all waiting taxi cards. No vehicle-operation panel or
+// vehicle selector is exposed; an accepted car returns here after settlement.
+const MYON_TAXI_PRICE=20000000;
+let fleetBusy=false;
+function taxiPurchaseTerms(){
+ const rate=Math.min(100,levelRevenue()),player=Math.floor(MYON_TAXI_PRICE*rate/100);
+ return {rate,player,city:MYON_TAXI_PRICE-player,price:MYON_TAXI_PRICE};
 }
-async function dispatchTaxiFleet(){
- const v=vehicleById(fleetSelectedId);
- if(fleetBusy||!ready||!vehicleDispatchAvailable(v))return;
+function formatManwon(value){return Math.floor(value/M_UNITS).toLocaleString('ko-KR')+'만원';}
+function renderTaxiWaiting(){
+ const holder=$('taxi-vehicle-waiting');
+ if(!holder||!ownedGarage)return;
+ const idle=ownedGarage.vehicles.filter(v=>!v.activeMissionId)
+  .sort((a,b)=>(a.fleetNo||a.id)-(b.fleetNo||b.id));
+ const signature=idle.map(v=>v.id+':'+(v.fleetNo||v.id)).join(',');
+ if(renderTaxiWaiting.signature!==signature){
+  const nodes=document.createDocumentFragment(),keep=new Set();
+  for(const v of idle){
+   keep.add(v.id);
+   let slot=waitingVehicleCards.get(v.id);
+   if(!slot){
+    const card=element('article','slot taxi-waiting');
+    const head=element('div','slot-head'),name=element('div','slot-name');
+    name.append(element('span','slot-icon','🚕'),
+     element('strong','','택시'+(v.fleetNo||v.id)+'호'));
+    head.append(name,element('span','slot-state','대기중'));
+    const details=element('div','slot-details'),metric=element('span','slot-metric');
+    const accept=element('button','slot-button','수락');
+    accept.type='button';
+    accept.addEventListener('click',()=>acceptWaitingTaxi(v.id));
+    details.append(metric,accept);card.append(head,details);
+    slot={card,metric,accept};
+    waitingVehicleCards.set(v.id,slot);
+   }
+   nodes.appendChild(slot.card);
+  }
+  holder.replaceChildren(nodes);
+  for(const key of waitingVehicleCards.keys())if(!keep.has(key))waitingVehicleCards.delete(key);
+  renderTaxiWaiting.signature=signature;
+ }
+ for(const v of idle){
+  const slot=waitingVehicleCards.get(v.id);
+  slot.metric.textContent=(v.origin==='city'?'시지원':'구입 차량')+
+   ' · 최대 '+levelMaxKm()+'km · '+levelRateText();
+  slot.accept.disabled=fleetBusy||!vehicleDispatchAvailable(v);
+ }
+}
+async function acceptWaitingTaxi(vehicleId){
+ const car=vehicleById(vehicleId);
+ if(fleetBusy||!ready||resetBusy||!vehicleDispatchAvailable(car))return;
  fleetBusy=true;
  try{
-  const now=Math.floor(Date.now()/1000);advance(now);
-  if(!vehicleDispatchAvailable(v))return;
-  const job=makeOwnedTrip(v,now);
-  state.units.push(job);v.activeMissionId=job.id;dirty=true;
+  const now=Math.floor(Date.now()/1000);
+  advance(now);
+  const vehicle=vehicleById(vehicleId);
+  if(!vehicleDispatchAvailable(vehicle))return;
+  const trip=makeOwnedTrip(vehicle,now);
+  state.units.push(trip);vehicle.activeMissionId=trip.id;dirty=true;
   await save(now);
-  $('taxi-fleet-message').textContent='택시'+(v.fleetNo||v.id)+'호 · '+km(job.passengerMeters)+' 운행 시작';
- }finally{fleetBusy=false;draw(Math.floor(Date.now()/1000));}
+ }finally{
+  fleetBusy=false;
+  draw(Math.floor(Date.now()/1000));
+ }
+}
+function drawTaxiPurchase(){
+ if(!ownedGarage||!taxiLevel||!commonFunds)return;
+ const terms=taxiPurchaseTerms(),total=ownedGarage.vehicles.length;
+ const cityCount=ownedGarage.vehicles.filter(v=>v.origin==='city').length;
+ $('taxi-purchase-count').textContent='총 '+total+' / 50대 · 시지원 '+cityCount+' / 10대';
+ $('taxi-purchase-player').textContent='내 부담 '+terms.rate+'% · '+formatManwon(terms.player);
+ $('taxi-purchase-city').textContent='시지원 '+(100-terms.rate)+'% · '+formatManwon(terms.city);
+ const button=$('taxi-purchase-action');
+ button.textContent='차량 구입 · '+formatCommonFunds(terms.player);
+ button.disabled=fleetBusy||resetBusy||total>=MAX_OWNED_VEHICLES||commonFunds.balance<terms.player;
+ if(total>=MAX_OWNED_VEHICLES)$('taxi-purchase-note').textContent='총 50대 상한에 도달했습니다.';
+ else if(commonFunds.balance<terms.player)$('taxi-purchase-note').textContent='구입 자금이 부족합니다.';
+ else if(!$('taxi-purchase-note').textContent.startsWith('택시'))
+  $('taxi-purchase-note').textContent='구입 완료 시 임무판에 대기 차량으로 추가됩니다.';
 }
 async function buyTaxiFleet(){
- if(fleetBusy||!ready||!ownedGarage||!commonFunds)return;
- const model=TAXI_MODELS.find(x=>x.key===$('taxi-fleet-buy-model').value)||TAXI_MODELS[0];
- if(ownedGarage.vehicles.length>=MAX_OWNED_VEHICLES||commonFunds.balance<model.price)return;
- const number=fleetNextNumber();if(!number)return;
+ if(fleetBusy||!ready||resetBusy||!ownedGarage||!taxiLevel||!commonFunds)return;
+ const terms=taxiPurchaseTerms();
+ if(ownedGarage.vehicles.length>=MAX_OWNED_VEHICLES||commonFunds.balance<terms.player)return;
+ const no=fleetNextNumber();if(!no)return;
  fleetBusy=true;
  try{
-  const now=Math.floor(Date.now()/1000);advance(now);
-  if(commonFunds.balance<model.price||ownedGarage.vehicles.length>=MAX_OWNED_VEHICLES)return;
+  const now=Math.floor(Date.now()/1000);
+  advance(now);grantCityVehicles();
+  if(ownedGarage.vehicles.length>=MAX_OWNED_VEHICLES||commonFunds.balance<terms.player)return;
+  const actualNo=fleetNextNumber();if(!actualNo)return;
   const id=ownedGarage.nextId++;
-  ownedGarage.vehicles.push({id,fleetNo:number,model:model.key,origin:'new',
-   newPrice:model.price,price:model.price,remaining:0,
-   durability:100000,serviceRuns:0,trips:0,location:'차량 출고지',activeMissionId:0});
-  commonFunds.balance-=model.price;recordFinanceTransaction('vehicle-purchase',-model.price,now,id);
-  fleetSelectedId=id;dirty=true;
+  ownedGarage.vehicles.push({
+   id,fleetNo:actualNo,model:'myon',origin:'new',
+   newPrice:terms.price,price:terms.price,remaining:0,
+   citySupportUnits:terms.city,playerPaidUnits:terms.player,purchaseRate:terms.rate,
+   durability:100000,serviceRuns:0,trips:0,location:'차량 출고지',activeMissionId:0
+  });
+  commonFunds.balance-=terms.player;
+  recordFinanceTransaction('vehicle-purchase',-terms.player,now,id);
+  dirty=true;
   await save(now);
-  $('taxi-fleet-message').textContent='택시'+number+'호 구입 완료';
- }finally{fleetBusy=false;draw(Math.floor(Date.now()/1000));}
-}
-function initTaxiFleetUi(){
- const models=$('taxi-fleet-buy-model');
- for(const m of TAXI_MODELS){
-  const item=document.createElement('option');item.value=m.key;item.textContent=m.name;models.append(item);
+  $('taxi-purchase-note').textContent='택시'+actualNo+'호 구입 완료 · 임무판 대기중';
+ }finally{
+  fleetBusy=false;
+  draw(Math.floor(Date.now()/1000));
  }
- $('taxi-fleet-select').addEventListener('change',e=>{fleetSelectedId=Number(e.target.value);drawTaxiFleet();});
- models.addEventListener('change',drawTaxiFleet);
- $('taxi-fleet-dispatch').addEventListener('click',dispatchTaxiFleet);
- $('taxi-fleet-buy-button').addEventListener('click',buyTaxiFleet);
 }
-initTaxiFleetUi();
+function initTaxiPurchaseUi(){
+ $('taxi-purchase-action').addEventListener('click',buyTaxiFleet);
+}
+initTaxiPurchaseUi();
 
 function initOwnedVehicleUi(){
  const models=$('vehicle-model');
@@ -1937,8 +1973,9 @@ function draw(now){
  drawFinance(now);
  drawVehicles();
  drawTaxiLevel();
- drawTaxiFleet();
  renderTaxiOffers(now);
+ renderTaxiWaiting();
+ drawTaxiPurchase();
  reorder(now);
  drawAssistant(now);
  drawNotice(now);
