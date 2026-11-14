@@ -1,4 +1,4 @@
-// MYON v0.13.33 — two-tab navigation; RPG saves and simulations remain intact.
+// MYON v0.13.34 — mission board moved to home above existing missions; simulation unchanged.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -898,7 +898,7 @@ function acceptResearch(){
  function acceptMenu(){
   // Temporarily disabled while the new menu study is not offered.
  }
- const MANAGEMENT_SECTIONS={player:'내 정보',assistant:'비서',board:'임무판',finance:'재정',vehicles:'차량'};
+ const MANAGEMENT_SECTIONS={player:'내 정보',assistant:'비서',finance:'재정',vehicles:'차량'};
 function showManagement(section=null){
  const selected=Object.prototype.hasOwnProperty.call(MANAGEMENT_SECTIONS,section)?section:null;
  $('management-menu').hidden=Boolean(selected);

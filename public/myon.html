@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.33</title>
+<title>MYON v0.13.34</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -261,7 +261,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .finance-note{margin:0 2px 4px}
 @media(max-width:360px){.finance-balance-value{font-size:23px}.finance-metric strong{font-size:14px}}
 
-/* v0.13.33: world tab; future worlds are locked and not interactive. */
+/* v0.13.34: world tab; future worlds are locked and not interactive. */
 .world-screen .world-description{margin:0 0 4px;color:#9bb9af;font-size:11px;line-height:1.6}
 .world-current .slot-head{min-height:28px}
 .world-current-description{font-size:11px;line-height:1.55;color:#9cb9ad;margin:5px 0 2px}
@@ -270,7 +270,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .world-lock-status{display:flex;align-items:center;gap:5px;flex:none;color:#afc4bb;font-size:11px;font-weight:700;white-space:nowrap}
 .world-lock-status svg{height:16px;width:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .world-footnote{margin:3px 2px 0;font-size:11px;color:#9bb9af;line-height:1.6}
-/* v0.13.33: RPG development-world entry, no RPG economy or jobs yet. */
+/* v0.13.34: RPG development-world entry, no RPG economy or jobs yet. */
 .world-directory[hidden],.rpg-start-screen[hidden]{display:none}
 .world-directory,.rpg-start-screen{display:flex;flex-direction:column;gap:9px;min-width:0}
 .world-dev-tag{flex:none;background:#293a40;border:1px solid #477c6a;border-radius:5px;color:#9ae7c6;font-size:10px;font-weight:750;padding:5px 7px;white-space:nowrap}
@@ -287,7 +287,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .rpg-dev-notice strong{color:#c2ebd0;font-size:12px}
 .rpg-dev-notice p{margin:6px 0 0}
 
-/* v0.13.33: single-vehicle, automatic RPG taxi job. */
+/* v0.13.34: single-vehicle, automatic RPG taxi job. */
 .common-funds[hidden],.rpg-flow-pane[hidden],.rpg-error[hidden],.rpg-taxi-settlement[hidden]{display:none}
 .rpg-flow-pane{display:flex;flex-direction:column;gap:10px;min-width:0}
 .rpg-welcome{padding:19px 14px}
@@ -312,16 +312,52 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .rpg-taxi-settlement{background:#20353a}
 .rpg-settlement-heading{color:#dff3e9;font-size:12px;font-weight:750;margin:2px 0 12px}
 .rpg-error{background:#452a2b;border:1px solid #9c6668;border-radius:7px;color:#f3cece;font-size:11px;line-height:1.6;padding:11px}
+/* v0.13.34: locked world entrance, mission board, available offers, running missions. */
+.home-world-entry{margin-bottom:16px;min-height:72px}
+.home-world-entry .slot-name strong{color:#c6d7d0}
+.home-world-entry .world-lock-status{color:#a5b9af}
+.home-world-entry-note{font-size:11px;color:#819991;margin:7px 0 1px}
+.home-mission-board{display:flex;flex-direction:column;gap:9px}
+.home-mission-heading{font-size:15px;font-weight:750;color:#dff3e9;margin:0 0 1px}
+.home-running-separator{display:flex;align-items:center;gap:12px;color:#9bb9af;font-size:11px;font-weight:650;margin:18px 0 12px}
+.home-running-separator::before,.home-running-separator::after{content:"";height:1px;background:#304448;flex:1}
+#top-settings-toggle{display:none!important}
 </style>
 </head>
 <body>
 <div class="viewport"><div class="app">
-<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.33</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
+<header class="topbar"><div class="env-brand"><strong class="brand">MYON</strong><button type="button" id="top-settings-toggle" class="env-settings" hidden aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button><span id="top-version" class="top-version">v0.13.34</span></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
 <div class="common-funds" aria-label="공용자금">
   <span class="common-funds-label">공용자금</span>
   <strong id="common-funds-amount" class="common-funds-value">0 M</strong>
 </div>
-<main id="home-screen" class="content" aria-label="진행 중인 임무">
+<main id="home-screen" class="content" aria-label="기존 월드 홈">
+  <article class="slot home-world-entry" aria-label="새로운 월드 진입 잠금">
+    <div class="slot-head">
+      <div class="slot-name"><strong>새로운 월드 진입</strong></div>
+      <span class="world-lock-status"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>잠금</span>
+    </div>
+    <p class="home-world-entry-note">아직 입장할 수 없습니다.</p>
+  </article>
+  <section class="home-mission-board" aria-labelledby="home-mission-board-title">
+    <h2 id="home-mission-board-title" class="home-mission-heading">임무판</h2>
+      <div id="board-accept-area" class="board-style-group" hidden>
+        <div id="taxi-offer-list" class="slot-list"></div>
+        <p id="taxi-offer-empty" class="preference-note">현재 수락 가능한 택시 임무가 없습니다.</p>
+        <p class="preference-note board-style-note">수락형 택시 임무는 10분마다 등장하고, 미수락 시 1시간 뒤 자동 폐기됩니다.</p>
+      </div>
+      <div id="board-observer-area" class="board-style-group" hidden>
+        <div class="supply"><span class="supply-label">다음 자동 임무 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
+        <details class="mission-catalog">
+          <summary class="mission-catalog-summary"><span>관람형 등장 가능 임무</span><span class="mission-catalog-meta"><span id="mission-catalog-count">목록</span><span class="mission-catalog-arrow" aria-hidden="true">⌄</span></span></summary>
+          <div class="mission-catalog-body">
+            <div id="mission-catalog-list"></div>
+            <p class="mission-catalog-help">관람형 자동 임무는 매시간 정각에 랜덤으로 배정됩니다. 혼합형에서도 동일한 자동 임무 설정을 사용합니다.</p>
+          </div>
+        </details>
+      </div>
+  </section>
+  <div class="home-running-separator"><span>기존 임무</span></div>
   <div id="slot-list" class="slot-list"></div>
 </main>
 <section id="character-screen" class="content manage-screen" aria-label="관리" hidden>
@@ -329,7 +365,6 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     <h2 class="manage-title">관리</h2>
     <button type="button" class="manage-link" data-manage-target="player"><span class="manage-link-copy"><strong>내 정보</strong><small>프로필 · 플레이 스타일</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
     <button type="button" class="manage-link" data-manage-target="assistant"><span class="manage-link-copy"><strong>비서</strong><small>임무 분석 · 변경기록</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
-    <button type="button" class="manage-link" data-manage-target="board"><span class="manage-link-copy"><strong>임무판</strong><small>임무 등록 현황 · 다음 임무 등장</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
     <button type="button" class="manage-link" data-manage-target="finance"><span class="manage-link-copy"><strong>재정</strong><small>공용자금 · 정산 · 거래 내역</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
     <button type="button" class="manage-link" data-manage-target="vehicles"><span class="manage-link-copy"><strong>차량</strong><small>신차 · 중고차 구입 / 보유 차량 관리</small></span><span class="manage-link-arrow" aria-hidden="true">›</span></button>
   </div>
@@ -393,23 +428,6 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     </div>
     <div id="management-assistant" class="manage-pane" hidden>
   <div id="assistant-slot" class="slot-list"></div>
-    </div>
-    <div id="management-board" class="manage-pane" hidden>
-      <div id="board-accept-area" class="board-style-group" hidden>
-        <div id="taxi-offer-list" class="slot-list"></div>
-        <p id="taxi-offer-empty" class="preference-note">현재 수락 가능한 택시 임무가 없습니다.</p>
-        <p class="preference-note board-style-note">수락형 택시 임무는 10분마다 등장하고, 미수락 시 1시간 뒤 자동 폐기됩니다.</p>
-      </div>
-      <div id="board-observer-area" class="board-style-group" hidden>
-        <div class="supply"><span class="supply-label">다음 자동 임무 등장</span><strong id="next-supply" class="supply-time">01:00:00</strong></div>
-        <details class="mission-catalog">
-          <summary class="mission-catalog-summary"><span>관람형 등장 가능 임무</span><span class="mission-catalog-meta"><span id="mission-catalog-count">목록</span><span class="mission-catalog-arrow" aria-hidden="true">⌄</span></span></summary>
-          <div class="mission-catalog-body">
-            <div id="mission-catalog-list"></div>
-            <p class="mission-catalog-help">관람형 자동 임무는 매시간 정각에 랜덤으로 배정됩니다. 혼합형에서도 동일한 자동 임무 설정을 사용합니다.</p>
-          </div>
-        </details>
-      </div>
     </div>
     <div id="management-finance" class="manage-pane" hidden>
       <article class="slot finance-balance-card">
@@ -599,8 +617,8 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 </nav>
 </div></div>
 
-<script src="myon-v013.js?v=0.13.33"></script>
-<script src="myon-rpg-taxi.js?v=0.13.33"></script>
+<script src="myon-v013.js?v=0.13.34"></script>
+<script src="myon-rpg-taxi.js?v=0.13.34"></script>
 
 </body>
 </html>
