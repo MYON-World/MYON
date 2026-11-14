@@ -911,13 +911,13 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.43',title:'보유 택시 자동수락 및 수동 수익 +50%',
+ version:'0.13.44',title:'트럭 차량별 거리 고정 운임 도입',
  entries:[
   '택시 LV.2 이후 직접 수락한 신규 외주 운송은 기본 기사 수익 40%에 보너스 50%를 추가해 총 운임의 60%를 정산합니다.',
   '매 00분·30분 대기 중인 보유 택시부터 자동수락하고 이후 외주 임무를 자동 수락합니다. 자동 운행은 기본 수익 그대로입니다.',
   '택시 외주 임무는 기존과 같이 5분마다 생성되며 LV.1은 보너스가 없고 미수락 시 1시간 뒤 폐기됩니다.',
   '이미 완료·정산한 보상과 수락해 운행 중인 기존 임무의 금액은 어떤 경우에도 소급 변경하지 않습니다.',
-  '보유 택시도 LV.2부터 직접 수락한 신규 운행에 기본 차량 정산액의 50%를 추가합니다. 기존 차량·택시 레벨·트럭 월드·공용 자금 저장 규칙을 유지합니다.'
+  '트럭 신규 운행은 1톤 2,000원, 10톤 중형 4,000원, 25톤 대형 6,000원, 트레일러 10,000원/km로 계산하며 화물 중량은 반영하지 않습니다. 기존 수락 계약과 저장된 정산액은 그대로 유지합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -2106,12 +2106,12 @@ function initOwnedVehicleUi(){
 initOwnedVehicleUi();
 
 
-// MYON v0.13.42 — separate world cycles, truck contracts, persistent vehicle pools.
+// MYON v0.13.44 — distance-only, vehicle-specific freight rates; preserve prior contracts.
 const TRUCK_MODELS=[
- {key:'cargo1',name:'1톤 카고트럭',price:20000000,maxKm:200,kind:'cargo'},
- {key:'medium',name:'중형 카고트럭',price:50000000,maxKm:500,kind:'cargo'},
- {key:'large',name:'대형 카고트럭',price:120000000,maxKm:10000,kind:'cargo'},
- {key:'tractor',name:'트랙터',price:180000000,maxKm:10000,kind:'trailer'}
+ {key:'cargo1',name:'1톤 카고트럭',price:20000000,maxKm:200,kind:'cargo',kmRate:2000},
+ {key:'medium',name:'10톤 중형 카고트럭',price:50000000,maxKm:500,kind:'cargo',kmRate:4000},
+ {key:'large',name:'25톤 대형 카고트럭',price:120000000,maxKm:10000,kind:'cargo',kmRate:6000},
+ {key:'tractor',name:'트랙터',price:180000000,maxKm:10000,kind:'trailer',kmRate:10000}
 ];
 const TRUCK_CITIES=['하린','세온','미르','라온','노아','다온','서린','유안','가온','해온','온빛','나루','아라','새별','한울','바람'];
 const TRUCK_JOB_NAMES={outsource:'외주 운송',cargo:'카고 운송',single:'단일 트레일러',double:'더블 트레일러',triple:'트리플 트레일러',quad:'4중 트레일러'};
@@ -2263,9 +2263,23 @@ function fillTruckOffers(){
  }
 }
 function truckTravelSeconds(distanceKm){return Math.max(900,Math.ceil(distanceKm*3600/65));}
+// Weight is not modelled. A new offer's fare uses the assigned vehicle's
+// per-km rate; outsource uses the 1-ton reference. Old accepted jobs keep
+// their previously stored fareUnits/shareUnits, without any repricing.
+function truckContractTerms(offer,vehicle,rate=truckRevenue()){
+ const model=vehicle&&TRUCK_MODELS.find(m=>m.key===vehicle.model);
+ if(offer.type!=='outsource'&&!model)return null;
+ const kmRate=offer.type==='outsource'?TRUCK_MODELS[0].kmRate:model.kmRate;
+ const multiplier=TRUCK_JOB_MULT[offer.type];
+ const fareUnits=offer.distanceKm*kmRate;
+ const shareUnits=Math.floor(fareUnits*rate*multiplier/100);
+ return {kmRate,fareUnits,shareUnits,rate,multiplier,model};
+}
 function makeTruckContract(offer,vehicle,now){
  const seed=mix((truckOffers.seed^Math.imul(offer.id,0x85ebca6b))>>>0);
- const gross=offer.distanceKm*2000,rate=truckRevenue(),mult=TRUCK_JOB_MULT[offer.type],share=Math.floor(gross*rate*mult/100);
+ const terms=truckContractTerms(offer,vehicle);
+ if(!terms)throw new Error('Truck contract requires an eligible vehicle');
+ const {fareUnits,shareUnits,rate,multiplier,kmRate}=terms;
  const phases=offer.type==='outsource'?[['prep',300],['outbound',truckTravelSeconds(offer.distanceKm)],['deliver',300]]:
  offer.type==='cargo'?[['load',900],['outbound',truckTravelSeconds(offer.distanceKm)],['unload',600]]:
  [['attach',600],['outbound',truckTravelSeconds(offer.distanceKm)],['detach',600]];
@@ -2275,8 +2289,8 @@ function makeTruckContract(offer,vehicle,now){
  const displayName=vehicle?model.name+' '+vehicle.id+'호 · '+TRUCK_JOB_NAMES[offer.type]:'MYON 외주 트럭';
  return {id:state.nextId++,seed,kind:'truck',truckContractVersion:1,worldCycle:worldProgress.cycles.truck,
  contractType:vehicle?'owned':'outsource',dispatch:'accepted',vehicleId:vehicle?.id||0,
- displayName,type:offer.type,from:offer.from,to:offer.to,distanceKm:offer.distanceKm,rate,multiplier:mult,
- fareUnits:gross,shareUnits:share,start:now,end:cursor,stages};
+ displayName,type:offer.type,from:offer.from,to:offer.to,distanceKm:offer.distanceKm,rate,multiplier,kmRate,
+ fareUnits,shareUnits,start:now,end:cursor,stages};
 }
 async function acceptTruckOffer(id){
  if(!ready||worldSwitchBusy||resetBusy||activeWorld()!=='truck')return;
@@ -2298,8 +2312,9 @@ function finishTruckTrip(v,at){
  }dirty=true;
 }
 function truckMissionText(v){
- return v.from+' → '+v.to+' · '+v.distanceKm.toLocaleString('ko-KR')+'km · 수익률 '+v.rate+'%'+
- (v.multiplier>1?' × '+v.multiplier:'')+' · 정산 '+formatCommonFunds(v.shareUnits);
+ return v.from+' → '+v.to+' · '+v.distanceKm.toLocaleString('ko-KR')+'km'+
+ (Number.isSafeInteger(v.kmRate)?' · km당 '+v.kmRate.toLocaleString('ko-KR')+'원':'')+
+ ' · 수익률 '+v.rate+'%'+(v.multiplier>1?' × '+v.multiplier:'')+' · 정산 '+formatCommonFunds(v.shareUnits);
 }
 function drawTruckOffers(){
  if(activeWorld()!=='truck'||!truckOffers)return;
@@ -2307,10 +2322,12 @@ function drawTruckOffers(){
  for(const offer of truckOffers.offers){
   const card=element('article','slot truck-offer'),head=element('div','slot-head'),name=element('div','slot-name');
   name.append(element('span','slot-icon',offer.type==='cargo'?'🚚':offer.type==='outsource'?'📦':'🚛'),element('strong','',TRUCK_JOB_NAMES[offer.type]));
-  const expected=Math.floor(offer.distanceKm*2000*truckRevenue()*TRUCK_JOB_MULT[offer.type]/100);
-  head.append(name,element('strong','taxi-offer-amount',formatCommonFunds(expected)));
+  const vehicle=truckEligibleVehicle(offer),terms=truckContractTerms(offer,vehicle);
+  head.append(name,element('strong','taxi-offer-amount',terms?formatCommonFunds(terms.shareUnits):'—'));
   const details=element('div','slot-details'),copy=element('span','taxi-offer-description',
-  offer.from+' → '+offer.to+' · '+offer.distanceKm.toLocaleString('ko-KR')+'km'+(TRUCK_JOB_MULT[offer.type]>1?' · ×'+TRUCK_JOB_MULT[offer.type]:''));
+  offer.from+' → '+offer.to+' · '+offer.distanceKm.toLocaleString('ko-KR')+'km'+
+  (terms?' · km당 '+terms.kmRate.toLocaleString('ko-KR')+'원'+(terms.model?' · '+terms.model.name:''): ' · 이용 가능한 차량 없음')+
+  (TRUCK_JOB_MULT[offer.type]>1?' · ×'+TRUCK_JOB_MULT[offer.type]:''));
   const btn=element('button','slot-button',canAcceptTruck(offer)?'수락':'제한');
   btn.type='button';btn.disabled=!canAcceptTruck(offer);btn.addEventListener('click',()=>acceptTruckOffer(offer.id));
   details.append(copy,btn);card.append(head,details);fragment.append(card);
@@ -2324,7 +2341,7 @@ function drawTruckPurchase(){
  const model=TRUCK_MODELS.find(m=>m.key===select.value)||TRUCK_MODELS[0];
  $('truck-purchase-count').textContent='보유 '+truckGarage.vehicles.length+' / 50대';
  $('truck-event-status').textContent='신규 월드 이벤트 · 1톤 카고 + 트랙터 각 1대 · 최초 1회';
- $('truck-purchase-spec').textContent='운송거리 '+model.maxKm.toLocaleString('ko-KR')+'km 한도 · 신차 '+formatManwon(model.price);
+ $('truck-purchase-spec').textContent='km당 '+model.kmRate.toLocaleString('ko-KR')+'원 · 운송거리 '+model.maxKm.toLocaleString('ko-KR')+'km 한도 · 신차 '+formatManwon(model.price);
  $('truck-purchase-action').textContent='차량 구입 · '+formatCommonFunds(model.price);
  $('truck-purchase-action').disabled=truckBuyBusy||worldSwitchBusy||truckGarage.vehicles.length>=50||commonFunds.balance<model.price;
  $('truck-purchase-note').textContent=truckGarage.vehicles.length>=50?'차량 보유 한도 50대':
