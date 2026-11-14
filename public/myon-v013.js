@@ -1,4 +1,4 @@
-// MYON v0.13.41 — taxi/truck world switching, persistent contracts and level growth.
+// MYON v0.13.42 — taxi/truck world switching, persistent contracts and level growth.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -7,7 +7,7 @@ const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression',MENU
 const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style',FINANCE_KEY='v01322-common-funds',TAXI_OFFERS_KEY='v01323-taxi-offers',LEDGER_KEY='v01324-finance-ledger',OWNED_KEY='v01325-owned-vehicles',TAXI_LEVEL_KEY='v01337-taxi-level',WORLD_KEY='v01341-world-switch',TRUCK_GARAGE_KEY='v01341-truck-garage',TRUCK_OFFERS_KEY='v01341-truck-offers';
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
-const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,MAX_TOTAL=130,LOOKBACK=2*DAY,TAXI_OFFER_INTERVAL=300,TAXI_AUTO_INTERVAL=600;
+const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,MAX_TOTAL=130,LOOKBACK=2*DAY,TAXI_OFFER_INTERVAL=300,TAXI_AUTO_INTERVAL=1800;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),gear:$('top-settings-toggle'),version:$('home-version'),worldName:$('current-world-name'),settings:$('settings-panel'),notify:$('notification-toggle')};
 const nav={home:$('home-screen'),character:$('character-screen'),world:$('world-screen')};
@@ -181,6 +181,9 @@ function taxiFareUnits(distanceMeters){
  return 4800+Math.ceil(Math.max(0,distanceMeters-1600)/131)*100;
 }
 function taxiOutsourceShare(fareUnits){return fareUnits*40/100;}
+// New LV.2+ manual contracts earn 50% extra on the player's 40% share.
+// Never recalculate completed settlements or already-accepted active contracts.
+function taxiManualShare(baseShare,lv=levelNumber()){return lv>=2?baseShare+Math.floor(baseShare/2):baseShare;}
 // Level is unbounded; one completed taxi job earns one record after the initial legacy snapshot.
 function levelNumber(){return taxiLevel?Math.floor(taxiLevel.completed/100)+1:1;}
 function activeWorld(){return worldProgress?.active||'taxi';}
@@ -236,7 +239,7 @@ function levelRateText(l=levelNumber()){
 }
 function levelNextReward(l=levelNumber()){
  const n=l+1,type=taxiRewardType(n);
- if(type==='auto')return '10분마다 남은 외주 임무 자동수락 · 폐기 없음';
+ if(type==='auto')return '30분마다 외주 자동수락 · 수동 수락 수익 +50% · 폐기 없음';
  if(type==='city')return n===3?'시지원 차량 1대 · 운행거리 최대 '+levelMaxKm(n)+'km':
   '시지원 차량 +1대 → 총 '+cityEntitlement(n)+'대';
  if(type==='distance')return '장거리 최대 '+levelMaxKm(n)+'km';
@@ -262,7 +265,7 @@ function drawTaxiLevel(){
  if(future.hidden)future.open=false;
  renderTaxiFutureRewards();
  $('taxi-offer-rule').textContent=l>=2?
-  '외주 임무 5분마다 등장 · 수동 수락 가능 · 10분마다 자동수락 · 폐기 없음':
+  '외주 임무 5분마다 등장 · 수동 수락 수익 +50% · 30분마다 자동수락(기본 수익) · 폐기 없음':
   '외주 임무 5분마다 등장 · 수동 수락 · 미수락 시 1시간 뒤 폐기';
 }
 // Only finite LV.48 milestone rewards appear in the drop-down. Beyond that,
@@ -621,17 +624,18 @@ function advance(now){
  dirty=true;
 }
 
-// Offers are real-time KST ten-minute slots. UTC epoch works because KST
+// Offers use real-time KST thirty-minute auto-accept slots. UTC epoch works because KST
 // has a whole-hour offset; the seed never consumes the world mission RNG.
 // Outsource supply and auto-accept use independent wall-clock slots.
 function nextFiveMinute(at){return Math.floor(at/TAXI_OFFER_INTERVAL)*TAXI_OFFER_INTERVAL+TAXI_OFFER_INTERVAL;}
-function nextTenMinute(at){return Math.floor(at/TAXI_AUTO_INTERVAL)*TAXI_AUTO_INTERVAL+TAXI_AUTO_INTERVAL;}
+function nextAutoSlot(at){return Math.floor(at/TAXI_AUTO_INTERVAL)*TAXI_AUTO_INTERVAL+TAXI_AUTO_INTERVAL;}
 function newTaxiOffers(now){return {schema:1,seed:seedNow(),nextOfferAt:nextFiveMinute(now),
- nextAutoAt:nextTenMinute(now),offers:[]};}
+ nextAutoAt:nextAutoSlot(now),autoInterval:TAXI_AUTO_INTERVAL,offers:[]};}
 function validTaxiOffers(value){
  return Boolean(value&&value.schema===1&&Number.isInteger(value.seed)&&
   Number.isSafeInteger(value.nextOfferAt)&&value.nextOfferAt>0&&
   (value.nextAutoAt===undefined||(Number.isSafeInteger(value.nextAutoAt)&&value.nextAutoAt>0))&&
+  (value.autoInterval===undefined||value.autoInterval===TAXI_AUTO_INTERVAL)&&
   Array.isArray(value.offers)&&value.offers.length<=5000&&value.offers.every(o=>
    o&&Number.isSafeInteger(o.at)&&o.at>0&&o.at%TAXI_OFFER_INTERVAL===0&&
    o.expiresAt===o.at+HOUR&&Number.isSafeInteger(o.distanceMeters)&&
@@ -646,10 +650,13 @@ async function startTaxiOffers(now){
   const saved=await read(TAXI_OFFERS_KEY);
   if(validTaxiOffers(saved)){
    taxiOffers=saved;
-   // Keep old ten-minute offers and fill the intervening five-minute slot.
+   // Preserve old unaccepted offers but switch ONLY the scheduling cursor.
+   // Avoid replaying an old 10-minute slot as a new 30-minute automatic acceptance.
    const upcoming=nextFiveMinute(now);
    if(saved.nextOfferAt>upcoming){saved.nextOfferAt=upcoming;offersDirty=true;}
-   if(!saved.nextAutoAt){saved.nextAutoAt=nextTenMinute(now);offersDirty=true;}
+   if(saved.autoInterval!==TAXI_AUTO_INTERVAL||!saved.nextAutoAt||saved.nextAutoAt%TAXI_AUTO_INTERVAL!==0){
+    saved.nextAutoAt=nextAutoSlot(now);saved.autoInterval=TAXI_AUTO_INTERVAL;offersDirty=true;
+   }
    return;
   }
   offersDirty=true;
@@ -675,16 +682,17 @@ function advanceTaxiOffers(now){
 function autoAcceptTaxiOffers(now){
  if(activeWorld()!=='taxi'||!taxiOffers)return;
  if(!Number.isSafeInteger(taxiOffers.nextAutoAt)||taxiOffers.nextAutoAt<=0){
-  taxiOffers.nextAutoAt=nextTenMinute(now);offersDirty=true;return;
+  taxiOffers.nextAutoAt=nextAutoSlot(now);taxiOffers.autoInterval=TAXI_AUTO_INTERVAL;offersDirty=true;return;
  }
  if(now<taxiOffers.nextAutoAt)return;
- taxiOffers.nextAutoAt=nextTenMinute(now);offersDirty=true;
+ taxiOffers.nextAutoAt=nextAutoSlot(now);taxiOffers.autoInterval=TAXI_AUTO_INTERVAL;offersDirty=true;
  if(levelNumber()<2)return;
  let changed=false;
  // Auto-accept already waiting offers BEFORE generating the new supply.
  for(const offer of taxiOffers.offers.slice().sort((a,b)=>a.at-b.at)){
   if(state.units.length>=MAX_TOTAL||ownedActiveCount()>=INVOLVED_MAX_MISSIONS)break;
   const job=createUnit('taxi',now,null,offer);job.worldCycle=worldProgress.cycles.taxi;
+  job.acceptMethod='auto'; // No bonus; original 40% payout is frozen on this new contract.
   state.units.push(job);
   taxiOffers.offers=taxiOffers.offers.filter(o=>o.at!==offer.at);
   changed=true;
@@ -698,6 +706,9 @@ async function acceptTaxiOffer(at){
  const offer=taxiOffers.offers.find(v=>v.at===at);
  if(!offer||(levelNumber()<2&&now>=offer.expiresAt)||state.units.length>=MAX_TOTAL||ownedActiveCount()>=INVOLVED_MAX_MISSIONS){draw(now);return;}
  const job=createUnit('taxi',now,null,offer);job.worldCycle=worldProgress.cycles.taxi;
+ // The bonus applies only to this NEW manual acceptance: never to previously accepted jobs.
+ job.acceptMethod='manual';job.manualBonusUnits=taxiManualShare(offer.shareUnits)-offer.shareUnits;
+ job.shareUnits=taxiManualShare(offer.shareUnits);
  state.units.push(job);
  taxiOffers.offers=taxiOffers.offers.filter(v=>v.at!==at);
  dirty=true;offersDirty=true;
@@ -719,10 +730,10 @@ function renderTaxiOffers(now){
     const card=element('article','slot taxi-offer');
     const head=element('div','slot-head'),name=element('div','slot-name');
     name.append(element('span','slot-icon','🚕'),element('strong','','MYON 택시'));
-    const amount=element('strong','taxi-offer-amount',formatCommonFunds(offer.shareUnits));
+    const amount=element('strong','taxi-offer-amount',formatCommonFunds(taxiManualShare(offer.shareUnits)));
     head.append(name,amount);
     const details=element('div','slot-details'),description=element('span','taxi-offer-description',
-     (offer.distanceMeters/1000).toFixed(1)+'km · 외주 40%');
+     (offer.distanceMeters/1000).toFixed(1)+(levelNumber()>=2?'km · 수동 +50% (60%)':'km · 외주 40%'));
     const accept=element('button','slot-button','수락');accept.type='button';
     accept.addEventListener('click',()=>acceptTaxiOffer(offer.at));
     details.append(description,accept);
@@ -731,9 +742,12 @@ function renderTaxiOffers(now){
     progress.style.animation='taxi-offer-expiry '+HOUR+'s linear both';
     progress.style.animationDelay='-'+Math.max(0,Date.now()/1000-offer.at)+'s';
     card.append(head,details,progress);
-    slot={card,accept};offerCards.set(offer.at,slot);
+    slot={card,accept,amount,description};offerCards.set(offer.at,slot);
    }
    const bar=slot.card.querySelector('.slot-progress');if(bar)bar.hidden=levelNumber()>=2;
+   // An already-listed but unaccepted offer displays its new LV.2 manual payout after a level-up.
+   slot.amount.textContent=formatCommonFunds(taxiManualShare(offer.shareUnits));
+   slot.description.textContent=(offer.distanceMeters/1000).toFixed(1)+(levelNumber()>=2?'km · 수동 +50% (60%)':'km · 외주 40%');
    nodes.appendChild(slot.card);
   }
   holder.replaceChildren(nodes);
@@ -885,15 +899,13 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.41',title:'택시·트럭 월드 전환과 트럭 운송',
+ version:'0.13.42',title:'택시 LV.2 수동 수락 보너스 · 30분 자동수락',
  entries:[
-  '10레벨마다 임무판 월드 전환 제안 · 레벨 초기화와 기존 차량 자산 보존.',
-  '트럭 월드 첫 진입 시 1톤 카고트럭과 트랙터 1대씩 이벤트 무상 지원.',
-  '이전 월드 시지원 차량 회수 · 진행 중 임무는 완료까지 운행하고 공용자금에 정산.',
-  '트럭 외주·카고·트레일러 운송 계약 5건 상시 표시 · 가상도시와 거리 랜덤.',
-  '트럭 LV.2 중형, LV.5 대형 시지원 · LV.41 더블 ×2, LV.51 트리플 ×3, LV.61 4중 ×4.',
-  '차량별 운송거리 제한과 최대 10,000km, 수익률 무한 성장 · LV.71 커스텀 구성은 추후 설계.',
-  '월드 이벤트 차량 최초 한 번 지급 · 이전 월드 이벤트 차량은 신차가격의 25%로 판매 가능.'
+  '택시 LV.2 이후 직접 수락한 신규 외주 운송은 기본 기사 수익 40%에 보너스 50%를 추가해 총 운임의 60%를 정산합니다.',
+  '자동 수락은 30분마다 진행하고 기존 외주 기사 수익 40%를 그대로 유지합니다.',
+  '택시 외주 임무는 기존과 같이 5분마다 생성되며 LV.1은 보너스가 없고 미수락 시 1시간 뒤 폐기됩니다.',
+  '이미 완료·정산한 보상과 수락해 운행 중인 기존 임무의 금액은 어떤 경우에도 소급 변경하지 않습니다.',
+  '기존 차량·택시 레벨·트럭 월드·월드 전환·공용 자금 저장 규칙을 유지합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -2077,7 +2089,7 @@ function initOwnedVehicleUi(){
 initOwnedVehicleUi();
 
 
-// MYON v0.13.41 — separate world cycles, truck contracts, persistent vehicle pools.
+// MYON v0.13.42 — separate world cycles, truck contracts, persistent vehicle pools.
 const TRUCK_MODELS=[
  {key:'cargo1',name:'1톤 카고트럭',price:20000000,maxKm:200,kind:'cargo'},
  {key:'medium',name:'중형 카고트럭',price:50000000,maxKm:500,kind:'cargo'},
