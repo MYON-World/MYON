@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.36</title>
+<title>MYON v0.13.37</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -261,7 +261,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .finance-note{margin:0 2px 4px}
 @media(max-width:360px){.finance-balance-value{font-size:23px}.finance-metric strong{font-size:14px}}
 
-/* v0.13.36: world tab; future worlds are locked and not interactive. */
+/* v0.13.37: world tab; future worlds are locked and not interactive. */
 .world-screen .world-description{margin:0 0 4px;color:#9bb9af;font-size:11px;line-height:1.6}
 .world-current .slot-head{min-height:28px}
 .world-current-description{font-size:11px;line-height:1.55;color:#9cb9ad;margin:5px 0 2px}
@@ -270,7 +270,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .world-lock-status{display:flex;align-items:center;gap:5px;flex:none;color:#afc4bb;font-size:11px;font-weight:700;white-space:nowrap}
 .world-lock-status svg{height:16px;width:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .world-footnote{margin:3px 2px 0;font-size:11px;color:#9bb9af;line-height:1.6}
-/* v0.13.36: RPG development-world entry, no RPG economy or jobs yet. */
+/* v0.13.37: RPG development-world entry, no RPG economy or jobs yet. */
 .world-directory[hidden],.rpg-start-screen[hidden]{display:none}
 .world-directory,.rpg-start-screen{display:flex;flex-direction:column;gap:9px;min-width:0}
 .world-dev-tag{flex:none;background:#293a40;border:1px solid #477c6a;border-radius:5px;color:#9ae7c6;font-size:10px;font-weight:750;padding:5px 7px;white-space:nowrap}
@@ -287,7 +287,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .rpg-dev-notice strong{color:#c2ebd0;font-size:12px}
 .rpg-dev-notice p{margin:6px 0 0}
 
-/* v0.13.36: single-vehicle, automatic RPG taxi job. */
+/* v0.13.37: single-vehicle, automatic RPG taxi job. */
 .common-funds[hidden],.rpg-flow-pane[hidden],.rpg-error[hidden],.rpg-taxi-settlement[hidden]{display:none}
 .rpg-flow-pane{display:flex;flex-direction:column;gap:10px;min-width:0}
 .rpg-welcome{padding:19px 14px}
@@ -312,7 +312,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .rpg-taxi-settlement{background:#20353a}
 .rpg-settlement-heading{color:#dff3e9;font-size:12px;font-weight:750;margin:2px 0 12px}
 .rpg-error{background:#452a2b;border:1px solid #9c6668;border-radius:7px;color:#f3cece;font-size:11px;line-height:1.6;padding:11px}
-/* v0.13.36: locked world entrance, mission board, available offers, running missions. */
+/* v0.13.37: locked world entrance, mission board, available offers, running missions. */
 .home-world-entry{margin-bottom:16px;min-height:72px}
 .home-world-entry .slot-name strong{color:#c6d7d0}
 .home-world-entry .world-lock-status{color:#a5b9af}
@@ -322,7 +322,31 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .home-running-separator{display:flex;align-items:center;gap:12px;color:#9bb9af;font-size:11px;font-weight:650;margin:18px 0 12px}
 .home-running-separator::before,.home-running-separator::after{content:"";height:1px;background:#304448;flex:1}
 #top-settings-toggle{display:none!important}
-/* v0.13.36: single-page taxi world, context subtitle, inline version footer. */
+/* v0.13.37: taxi-only operation level and compact fleet on the single home. */
+.taxi-level-card{padding:13px 14px;margin-bottom:15px}
+.taxi-level-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.taxi-level-label{font-size:11px;color:#9bb9af;margin-bottom:4px}
+.taxi-level-value{font-size:24px;font-weight:800;line-height:1.2;color:#c1edcf}
+.taxi-level-next{text-align:right}
+.taxi-level-next strong{font-size:17px;color:#edf5f0;font-variant-numeric:tabular-nums}
+.taxi-level-progress-track{height:5px;border-radius:5px;overflow:hidden;background:#304448;margin:12px 0 9px}
+.taxi-level-progress-fill{width:0;height:100%;background:#72bb9e;transition:width .35s linear}
+.taxi-level-stats{display:flex;flex-wrap:wrap;justify-content:space-between;gap:5px 12px;font-size:10px;color:#9bb9af}
+.taxi-level-reward{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;margin-top:12px;padding-top:10px;border-top:1px solid #304448;font-size:11px}
+.taxi-level-reward span{color:#9bb9af;flex-shrink:0}
+.taxi-level-reward strong{color:#dff3e9;text-align:right;font-weight:650}
+.taxi-fleet-area{margin-top:13px;display:flex;flex-direction:column;gap:9px}
+.taxi-fleet-heading{display:flex;justify-content:space-between;font-size:13px;color:#dff3e9}
+.taxi-fleet-heading span{color:#9bb9af;font-size:11px}
+.taxi-fleet-card{display:flex;flex-direction:column;gap:8px;padding:12px;background:#19292e;border:1px solid #304448;border-radius:9px}
+.taxi-fleet-label{font-size:11px;color:#aac3b9}
+.taxi-fleet-select{width:100%;min-width:0;color:#edf5f0;background:#132126;border:1px solid #3a5352;border-radius:6px;padding:9px;font-size:12px}
+.taxi-fleet-metrics{display:flex;flex-wrap:wrap;gap:6px 12px;color:#aac3b9;font-size:11px}
+.taxi-fleet-action{width:100%;justify-content:center}
+.taxi-fleet-action:disabled{opacity:.4;cursor:default}
+.taxi-fleet-message{margin:0;color:#9bb9af;font-size:11px;line-height:1.5;min-height:0}
+
+/* v0.13.37: single-page taxi world, context subtitle, inline version footer. */
 .brand-identity{display:flex;flex-direction:column;align-items:flex-start;gap:4px;line-height:1}
 .current-world-name{font-size:11px;font-weight:550;color:#9bb9af;letter-spacing:0}
 #home-screen{display:flex;flex-direction:column}
@@ -345,17 +369,47 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     </div>
     <p class="home-world-entry-note">아직 입장할 수 없습니다.</p>
   </article>
+  <section class="slot taxi-level-card" aria-label="택시 운영 레벨">
+    <div class="taxi-level-head">
+      <div><div class="taxi-level-label">택시 운영 레벨</div><strong id="taxi-level" class="taxi-level-value">LV.1</strong></div>
+      <div class="taxi-level-next"><div class="taxi-level-label">다음 레벨까지</div><strong id="taxi-next-remaining">100건</strong></div>
+    </div>
+    <div class="taxi-level-progress-track"><div id="taxi-level-progress" class="taxi-level-progress-fill"></div></div>
+    <div class="taxi-level-stats"><span id="taxi-level-count">누적 완료 0건</span><span id="taxi-level-current">외주 40% · 3~10km</span></div>
+    <div class="taxi-level-reward"><span>다음 레벨 보상</span><strong id="taxi-next-reward">10분마다 남은 외주 임무 자동수락</strong></div>
+  </section>
   <section class="home-mission-board" aria-labelledby="home-mission-board-title">
     <h2 id="home-mission-board-title" class="home-mission-heading">임무판</h2>
       <div id="board-accept-area" class="board-style-group" hidden>
         <div id="taxi-offer-list" class="slot-list"></div>
         <p id="taxi-offer-empty" class="preference-note">현재 수락 가능한 택시 임무가 없습니다.</p>
-        <p class="preference-note board-style-note">수락형 택시 임무는 10분마다 등장하고, 미수락 시 1시간 뒤 자동 폐기됩니다.</p>
+        <p id="taxi-offer-rule" class="preference-note board-style-note">수락형 택시 임무는 10분마다 등장하고, 미수락 시 1시간 뒤 자동 폐기됩니다.</p>
       </div>
+    <section id="taxi-fleet-area" class="taxi-fleet-area" aria-label="택시 차량 운영" hidden>
+      <div class="taxi-fleet-heading"><strong>차량 운영</strong><span id="taxi-fleet-count">0 / 50대</span></div>
+      <div class="taxi-fleet-card">
+        <label for="taxi-fleet-select" class="taxi-fleet-label">운영할 차량</label>
+        <select id="taxi-fleet-select" class="taxi-fleet-select"></select>
+        <div class="taxi-fleet-metrics">
+          <span id="taxi-fleet-status">운행 대기</span>
+          <span id="taxi-fleet-distance">최대 20km</span>
+          <span id="taxi-fleet-share">수익률 40%</span>
+        </div>
+        <button id="taxi-fleet-dispatch" type="button" class="slot-button taxi-fleet-action">승객 운행 시작</button>
+        <p id="taxi-fleet-message" class="taxi-fleet-message" role="status"></p>
+      </div>
+      <div id="taxi-fleet-buy" class="taxi-fleet-card">
+        <label for="taxi-fleet-buy-model" class="taxi-fleet-label">추가 택시 직접 구입</label>
+        <select id="taxi-fleet-buy-model" class="taxi-fleet-select"></select>
+        <button id="taxi-fleet-buy-button" type="button" class="slot-button taxi-fleet-action">차량 구입</button>
+        <p id="taxi-fleet-buy-note" class="taxi-fleet-message"></p>
+      </div>
+      <p class="preference-note">시지원 최대 10대 · 총 운영 차량 최대 50대 · 정비·유지관리 없음</p>
+    </section>
   </section>
   <div class="home-running-separator"><span>진행중 임무</span></div>
   <div id="slot-list" class="slot-list"></div>
-  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.36</span></footer>
+  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.37</span></footer>
 </main>
 <section id="character-screen" class="content manage-screen" aria-label="관리" hidden>
   <div id="management-menu" class="manage-menu">
@@ -579,8 +633,8 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 
 </div></div>
 
-<script src="myon-v013.js?v=0.13.36"></script>
-<script src="myon-rpg-taxi.js?v=0.13.36"></script>
+<script src="myon-v013.js?v=0.13.37"></script>
+<script src="myon-rpg-taxi.js?v=0.13.37"></script>
 
 </body>
 </html>
