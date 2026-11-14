@@ -1,4 +1,4 @@
-// MYON v0.13.42 — taxi/truck world switching, persistent contracts and level growth.
+// MYON v0.13.46 — taxi LV.10 MASTER, upgrades and world progress preservation.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -53,7 +53,8 @@ function charterSlot(seed){
 const modes=['taxi','truck','bus','rail','air','ship','space','construction'];
 const SECTOR_NAMES=['택시','화물','버스','철도','항공','해양','우주','건설'];
 // Capacity blueprint only: owned-vehicle inventory and improved missions are not yet implemented.
-const INVOLVED_MAX_MISSIONS=100,MAX_OWNED_VEHICLES=50;
+const INVOLVED_MAX_MISSIONS=100,MAX_OWNED_VEHICLES=100;
+const TAXI_UPGRADE_PRICES={distance:1000000,revenue:200000,fleet:2000000};
 function involvementAllocation(ownedVehicles){
  const vehicle=Math.max(0,Math.min(MAX_OWNED_VEHICLES,Number.isSafeInteger(ownedVehicles)?ownedVehicles:0));
  return {total:INVOLVED_MAX_MISSIONS,vehicle,withoutVehicle:INVOLVED_MAX_MISSIONS-vehicle};
@@ -184,8 +185,12 @@ function taxiOutsourceShare(fareUnits){return fareUnits*40/100;}
 // New LV.2+ manual contracts earn 50% extra on the player's 40% share.
 // Never recalculate completed settlements or already-accepted active contracts.
 function taxiManualShare(baseShare,lv=levelNumber()){return lv>=2?baseShare+Math.floor(baseShare/2):baseShare;}
-// Level is unbounded; one completed taxi job earns one record after the initial legacy snapshot.
-function levelNumber(){return taxiLevel?Math.floor(taxiLevel.completed/100)+1:1;}
+// LV.10 MASTER stops XP growth; legacy completed records remain intact.
+function levelNumber(){return taxiLevel?Math.min(10,Math.floor(taxiLevel.completed/100)+1):1;}
+function taxiMaster(){return levelNumber()===10;}
+function taxiUpgrades(){return taxiLevel?.upgrades||{distance:0,revenue:0,fleet:0};}
+function taxiFleetLimit(){return Math.min(100,50+10*taxiUpgrades().fleet);}
+function taxiOutsourcePercent(){return Math.max(0,100-(ownedGarage?.vehicles.length||0));}
 function activeWorld(){return worldProgress?.active||'taxi';}
 function currentWorldLevel(){return activeWorld()==='taxi'?levelNumber():truckLevelNumber();}
 // A single cycle table drives actual earnings, city grants, max trip distance,
@@ -194,13 +199,11 @@ function currentWorldLevel(){return activeWorld()==='taxi'?levelNumber():truckLe
 const TAXI_LEVEL_RULES={
  base:{revenue:40,distanceKm:20,cityCars:0},
  steps:{revenue:1,distanceKm:10,cityCars:1},
- caps:{distanceKm:200,cityCars:10},
- previewLastLevel:48,
+ caps:{distanceKm:200,cityCars:3},
+ previewLastLevel:10,
  milestones:{2:'auto',3:'city'},
  phases:[
-  {from:4,to:30,cycle:['revenue','distance','city']},
-  {from:31,to:48,cycle:['revenue','distance']},
-  {from:49,to:Infinity,cycle:['revenue']}
+  {from:4,to:10,cycle:['revenue','distance','city']}
  ]
 };
 function taxiRewardType(level){
@@ -227,11 +230,11 @@ function cityEntitlement(l=levelNumber()){
 }
 function levelMaxKm(l=levelNumber()){
  const rules=TAXI_LEVEL_RULES;
- return Math.min(rules.caps.distanceKm,rules.base.distanceKm+rules.steps.distanceKm*taxiRewardCount('distance',l));
+ return Math.min(rules.caps.distanceKm,rules.base.distanceKm+rules.steps.distanceKm*taxiRewardCount('distance',l)+10*taxiUpgrades().distance);
 }
 function levelRevenue(l=levelNumber()){
  const rules=TAXI_LEVEL_RULES;
- return rules.base.revenue+rules.steps.revenue*taxiRewardCount('revenue',l);
+ return rules.base.revenue+rules.steps.revenue*taxiRewardCount('revenue',l)+taxiUpgrades().revenue;
 }
 function levelRateText(l=levelNumber()){
  const n=levelRevenue(l);
@@ -239,9 +242,10 @@ function levelRateText(l=levelNumber()){
 }
 function levelNextReward(l=levelNumber()){
  const n=l+1,type=taxiRewardType(n);
+ if(n>10)return '마스터 · 자금으로 능력 해금';
+ if(n===10)return '마스터 · 1,000 M 시스템 보상 · 수익률 43%';
  if(type==='auto')return '30분마다 외주·보유차량 자동수락 · 수동 수락 수익 +50% · 외주 폐기 없음';
- if(type==='city')return n===3?'시지원 차량 1대 · 운행거리 최대 '+levelMaxKm(n)+'km':
-  '시지원 차량 +1대 → 총 '+cityEntitlement(n)+'대';
+ if(type==='city')return '차량 1대 지급';
  if(type==='distance')return '장거리 최대 '+levelMaxKm(n)+'km';
  if(type==='revenue'){
   const rate=levelRevenue(n);
@@ -249,25 +253,61 @@ function levelNextReward(l=levelNumber()){
  }
  return '다음 보상 준비 중';
 }
+function drawTaxiMaster(){
+ $('taxi-master-summary').textContent='수익률 '+levelRevenue()+'% · 운송최대거리 '+levelMaxKm()+'km';
+ const entries=[
+  ['distance','운송거리 +10km',levelMaxKm()>=200,'현재 '+levelMaxKm()+'km · 최대 200km'],
+  ['revenue','수익률 +1%p',levelRevenue()>=100,'현재 '+levelRevenue()+'% · 최대 100%'],
+  ['fleet','차량 보유 한도 +10대',taxiFleetLimit()>=100,'현재 '+taxiFleetLimit()+'대 · 최대 100대']
+ ];
+ for(const [key,label,done,note] of entries){
+  $('taxi-master-'+key+'-title').textContent=label;
+  $('taxi-master-'+key+'-detail').textContent=note;
+  const button=$('taxi-master-'+key+'-buy');
+  button.textContent=done?'해금 완료':formatCommonFunds(TAXI_UPGRADE_PRICES[key]);
+  button.disabled=done||fleetBusy||resetBusy||worldSwitchBusy||commonFunds.balance<TAXI_UPGRADE_PRICES[key];
+ }
+}
 function drawTaxiLevel(){
+ const master=activeWorld()==='taxi'&&taxiMaster();
+ $('taxi-level-panel').hidden=master;
+ $('taxi-master-panel').hidden=!master;
  if(activeWorld()==='truck'){drawTruckLevel();return;}
  if(!taxiLevel)return;
- $('world-level-label').textContent='택시 운영 레벨';
- const n=taxiLevel.completed%100,l=levelNumber();
- $('taxi-level').textContent='LV.'+l.toLocaleString('ko-KR');
- $('taxi-next-remaining').textContent=(100-n)+'건';
- $('taxi-level-progress').style.width=n+'%';
- $('taxi-level-count').textContent='누적 완료 '+taxiLevel.completed.toLocaleString('ko-KR')+'건';
- $('taxi-level-current').textContent=ownedGarage?.vehicles.length?levelRateText(l)+' · 최대 '+levelMaxKm(l)+'km':'외주 40% · 3~10km';
- $('taxi-next-reward').textContent=levelNextReward(l);
- const future=$('taxi-level-details');
- future.hidden=l>TAXI_LEVEL_RULES.previewLastLevel;
- if(future.hidden)future.open=false;
- renderTaxiFutureRewards();
- $('taxi-offer-rule').textContent=l>=2?
-  '외주 임무 5분마다 등장 · 외주·보유차량 수동 +50% · 30분 자동수락(기본 수익) · 외주 폐기 없음':
-  '외주 임무 5분마다 등장 · 수동 수락 · 미수락 시 1시간 뒤 폐기';
+ if(master)drawTaxiMaster();
+ else{
+  $('world-level-label').textContent='택시 운영 레벨';
+  const n=taxiLevel.completed%100,l=levelNumber();
+  $('taxi-level').textContent='LV.'+l.toLocaleString('ko-KR');
+  $('taxi-next-remaining').textContent=(100-n)+'건';
+  $('taxi-level-progress').style.width=n+'%';
+  $('taxi-level-count').textContent='누적 완료 '+taxiLevel.completed.toLocaleString('ko-KR')+'건';
+  $('taxi-level-current').textContent=ownedGarage?.vehicles.length?levelRateText(l)+' · 최대 '+levelMaxKm(l)+'km':'외주 40% · 3~10km';
+  $('taxi-next-reward').textContent=levelNextReward(l);
+  $('taxi-level-details').hidden=false;renderTaxiFutureRewards();
+ }
+ $('taxi-offer-rule').textContent=lvlTaxiRule();
 }
+function lvlTaxiRule(){
+ return levelNumber()>=2?'외주 5분 간격 · 수동 +50% · 30분 자동수락 · 차량 100대 보유 시 외주 0%':
+  '외주 5분 간격 · 수동 수락 · 미수락 시 1시간 뒤 폐기';
+}
+async function buyTaxiMasterUpgrade(type){
+ if(!['distance','revenue','fleet'].includes(type)||!ready||resetBusy||worldSwitchBusy||
+    fleetBusy||activeWorld()!=='taxi'||!taxiMaster()||!taxiLevel||!commonFunds)return;
+ const price=TAXI_UPGRADE_PRICES[type];
+ const maxed=()=>type==='distance'?levelMaxKm()>=200:type==='revenue'?levelRevenue()>=100:taxiFleetLimit()>=100;
+ if(maxed()||commonFunds.balance<price)return;
+ fleetBusy=true;
+ try{
+  const now=Math.floor(Date.now()/1000);advance(now);
+  if(maxed()||commonFunds.balance<price)return;
+  commonFunds.balance-=price;taxiLevel.upgrades[type]++;
+  recordFinanceTransaction('ability-unlock',-price,now,{distance:1,revenue:2,fleet:3}[type]);
+  dirty=true;await save(now);
+ }finally{fleetBusy=false;draw(Math.floor(Date.now()/1000));}
+}
+for(const type of ['distance','revenue','fleet'])$('taxi-master-'+type+'-buy').addEventListener('click',()=>buyTaxiMasterUpgrade(type));
 // Only finite LV.48 milestone rewards appear in the drop-down. Beyond that,
 // one immutable explanation summarizes the unlimited +1%p revenue cycle.
 function renderTaxiFutureRewards(){
@@ -276,8 +316,8 @@ function renderTaxiFutureRewards(){
  const level=currentWorldLevel(),world=activeWorld();
  if(renderTaxiFutureRewards.key===world+':'+level)return;
  const list=$('taxi-level-future-list'),fragment=document.createDocumentFragment();
- const last=world==='taxi'?TAXI_LEVEL_RULES.previewLastLevel:Math.max(100,level+25);
- for(let n=level+2;n<=last;n++){
+ const last=world==='taxi'?10:Math.max(100,level+25);
+ for(let n=level+1;n<=last;n++){
   const row=element('div','taxi-level-future-row');
   row.append(element('span','','LV.'+n.toLocaleString('ko-KR')),
    element('strong','',world==='taxi'?levelNextReward(n-1):truckNextReward(n-1)));
@@ -290,16 +330,45 @@ function initTaxiFutureUi(){
  $('taxi-level-details').addEventListener('toggle',renderTaxiFutureRewards);
 }
 initTaxiFutureUi();
+// Preserve legacy earned revenue/distance skills without retroactively charging.
+function normalizeTaxiLevel(x){
+ if(!x||x.schema!==1||!Number.isSafeInteger(x.completed)||x.completed<0)return false;
+ if(!x.upgrades){
+  const level=Math.floor(x.completed/100)+1;
+  const count=type=>{
+   let n=type==='city'&&level>=3?1:0;
+   const old=[{from:4,to:30,cycle:['revenue','distance','city']},
+    {from:31,to:48,cycle:['revenue','distance']},{from:49,to:Infinity,cycle:['revenue']}];
+   for(const phase of old){
+    const steps=Math.max(0,Math.min(level,phase.to)-phase.from+1);
+    n+=Math.floor(steps/phase.cycle.length)*phase.cycle.filter(t=>t===type).length;
+    for(let i=0;i<steps%phase.cycle.length;i++)if(phase.cycle[i]===type)n++;
+   }return n;
+  };
+  x.upgrades={distance:Math.max(0,Math.min(16,count('distance')-2)),
+   revenue:Math.max(0,count('revenue')-3),fleet:0};
+  dirty=true;
+ }
+ if(!['distance','revenue','fleet'].every(k=>Number.isSafeInteger(x.upgrades[k])&&x.upgrades[k]>=0))return false;
+ if(x.masterRewardPaid===undefined){x.masterRewardPaid=false;dirty=true;}
+ return typeof x.masterRewardPaid==='boolean';
+}
 async function startTaxiLevel(){
- if(!IS_LIVE){taxiLevel={schema:1,completed:assistantCompleted()};return;}
+ if(!IS_LIVE){taxiLevel={schema:1,completed:assistantCompleted()};normalizeTaxiLevel(taxiLevel);return;}
  try{
   const saved=await read(TAXI_LEVEL_KEY);
-  if(saved){
-   if(saved.schema===1&&Number.isSafeInteger(saved.completed)&&saved.completed>=0){taxiLevel=saved;return;}
-   console.error('MYON level: invalid save preserved');return;
-  }
+  if(saved){if(normalizeTaxiLevel(saved)){taxiLevel=saved;return;}
+   console.error('MYON level: invalid save preserved');return;}
  }catch(e){console.error('MYON level read:',e);}
- taxiLevel={schema:1,completed:assistantCompleted()};dirty=true;
+ taxiLevel={schema:1,completed:assistantCompleted()};normalizeTaxiLevel(taxiLevel);dirty=true;
+}
+function grantTaxiMasterReward(now){
+ if(!taxiLevel||!commonFunds||!taxiMaster()||taxiLevel.masterRewardPaid)return;
+ const amount=1000*M_UNITS;
+ if(!Number.isSafeInteger(commonFunds.balance+amount)||!financeLedger||
+    !Number.isSafeInteger(financeLedger.totalIncome+amount))return;
+ commonFunds.balance+=amount;taxiLevel.masterRewardPaid=true;
+ recordFinanceTransaction('level-reward',amount,now,10);dirty=true;
 }
 function purgeNonTaxiMissions(){
  if(!state||!assistant)return;
@@ -617,7 +686,7 @@ function advance(now){
    if(car&&car.origin==='city'&&car.recallAfterMission&&!car.activeMissionId){ownedGarage.vehicles=ownedGarage.vehicles.filter(x=>x.id!==car.id);dirty=true;}
   }
   if(v.kind==='truck'&&v.truckContractVersion===1)finishTruckTrip(v,at);
-  if(v.kind==='taxi'&&activeWorld()==='taxi'&&v.worldCycle===worldProgress.cycles.taxi&&taxiLevel&&taxiLevel.completed<Number.MAX_SAFE_INTEGER)taxiLevel.completed++;
+  if(v.kind==='taxi'&&activeWorld()==='taxi'&&v.worldCycle===worldProgress.cycles.taxi&&taxiLevel&&taxiLevel.completed<900)taxiLevel.completed++;
   if(v.kind==='truck'&&v.truckContractVersion===1&&activeWorld()==='truck'&&v.worldCycle===worldProgress.cycles.truck&&truckGarage.completed<Number.MAX_SAFE_INTEGER)truckGarage.completed++;
  }
  state.units=state.units.filter(v=>taskEnd(v)>now);
@@ -665,12 +734,14 @@ async function startTaxiOffers(now){
 function advanceTaxiOffers(now){
  if(activeWorld()!=='taxi'||!taxiOffers)return;
  const previous=taxiOffers.offers.length;
- if(levelNumber()<2)taxiOffers.offers=taxiOffers.offers.filter(o=>now<o.expiresAt);
+ if(taxiOutsourcePercent()===0)taxiOffers.offers=[];
+ else if(levelNumber()<2)taxiOffers.offers=taxiOffers.offers.filter(o=>now<o.expiresAt);
  if(previous!==taxiOffers.offers.length)offersDirty=true;
  if(now<taxiOffers.nextOfferAt)return;
  const first=Math.max(taxiOffers.nextOfferAt,nextFiveMinute(now-HOUR));
  for(let at=first;at<=now;at+=TAXI_OFFER_INTERVAL){
   const seed=mix((taxiOffers.seed^Math.imul(Math.floor(at/TAXI_OFFER_INTERVAL),0x9e3779b9))>>>0);
+  if(range(seed,6,0,99)>=taxiOutsourcePercent())continue;
   const distanceMeters=range(seed,0,30,100)*100;
   const fareUnits=taxiFareUnits(distanceMeters);
   if(taxiOffers.offers.length<5000)taxiOffers.offers.push({at,expiresAt:at+HOUR,distanceMeters,fareUnits,
@@ -700,6 +771,7 @@ function autoAcceptTaxiOffers(now){
  if(levelNumber()<2)return;
  // Owned vehicles take priority over outsource offers within this same slot.
  let changed=autoAcceptOwnedTaxis(now);
+ if(taxiOutsourcePercent()===0&&taxiOffers.offers.length){taxiOffers.offers=[];offersDirty=true;}
  // Auto-accept already waiting offers BEFORE generating the new supply.
  for(const offer of taxiOffers.offers.slice().sort((a,b)=>a.at-b.at)){
   if(state.units.length>=MAX_TOTAL||ownedActiveCount()>=INVOLVED_MAX_MISSIONS)break;
@@ -716,7 +788,7 @@ async function acceptTaxiOffer(at){
  const now=Math.floor(Date.now()/1000);
  advance(now);advanceTaxiOffers(now);
  const offer=taxiOffers.offers.find(v=>v.at===at);
- if(!offer||(levelNumber()<2&&now>=offer.expiresAt)||state.units.length>=MAX_TOTAL||ownedActiveCount()>=INVOLVED_MAX_MISSIONS){draw(now);return;}
+ if(!offer||taxiOutsourcePercent()===0||(levelNumber()<2&&now>=offer.expiresAt)||state.units.length>=MAX_TOTAL||ownedActiveCount()>=INVOLVED_MAX_MISSIONS){draw(now);return;}
  const job=createUnit('taxi',now,null,offer);job.worldCycle=worldProgress.cycles.taxi;
  // The bonus applies only to this NEW manual acceptance: never to previously accepted jobs.
  job.acceptMethod='manual';job.manualBonusUnits=taxiManualShare(offer.shareUnits)-offer.shareUnits;
@@ -911,13 +983,15 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.45',title:'MYON 트럭 4종 신차 명칭·가격 확정',
+ version:'0.13.46',title:'택시 LV.10 마스터 및 공용자금 능력 해금',
  entries:[
-  '택시 LV.2 이후 직접 수락한 신규 외주 운송은 기본 기사 수익 40%에 보너스 50%를 추가해 총 운임의 60%를 정산합니다.',
-  '매 00분·30분 대기 중인 보유 택시부터 자동수락하고 이후 외주 임무를 자동 수락합니다. 자동 운행은 기본 수익 그대로입니다.',
-  '택시 외주 임무는 기존과 같이 5분마다 생성되며 LV.1은 보너스가 없고 미수락 시 1시간 뒤 폐기됩니다.',
-  '이미 완료·정산한 보상과 수락해 운행 중인 기존 임무의 금액은 어떤 경우에도 소급 변경하지 않습니다.',
-  'MYON 소형트럭 2,000만원, MYON 중형트럭 1억 5,000만원, MYON 대형트럭 2억 1,000만원, MYON 트랙터 1억 8,000만원으로 신차 가격을 확정합니다. 신규 구매부터 적용되며 기존 구매 차량·계약·정산은 유지합니다.'
+  '택시 월드는 LV.10에 마스터가 되어 이후 레벨·성장용 완료 건수는 증가하지 않지만 임무 운행과 정산은 계속됩니다.',
+  'LV.10 최초 달성 시 1,000 M 시스템 보상을 공용자금에 1회 지급합니다.',
+  '마스터 능력 해금: 운송거리 +10km에 100 M(최대 200km), 수익률 +1%p에 20 M(최대 100%), 차량 보유 한도 +10대에 200 M(최대 100대).',
+  'LV.3·6·9 차량 각 1대 지급, 이벤트 차량 2대 지급은 유지하되 화면에는 전체 보유대수만 표시합니다.',
+  '보유 차량 수만큼 새 외주 임무 생성 비율이 줄어들며, 차량 100대에서는 새 외주 임무 0%입니다.',
+  '월드를 이동해도 기존 월드의 레벨·구입 능력·차량·자금·진행 중 계약 정산은 보존합니다. 비마스터 월드는 10레벨 단위 이전 기회, 택시 마스터는 상시 이전 가능합니다.',
+  '기존 LV.11 이상 플레이어가 이미 얻은 운송거리·수익률 혜택은 해금 능력으로 이관하고 기존 정산액은 재계산하지 않습니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -1553,7 +1627,7 @@ const FINANCE_HISTORY_LIMIT=100;
 function newFinanceLedger(now){
  return {schema:1,openedAt:now,openingBalance:commonFunds?commonFunds.balance:0,totalIncome:0,totalExpenses:0,entries:[]};
 }
-const FINANCE_CATEGORIES=['taxi-outsource','taxi-owned','truck-outsource','truck-owned','vehicle-purchase','vehicle-repayment','vehicle-repair','vehicle-sale','vehicle-sale-payoff'];
+const FINANCE_CATEGORIES=['taxi-outsource','taxi-owned','truck-outsource','truck-owned','vehicle-purchase','vehicle-repayment','vehicle-repair','vehicle-sale','vehicle-sale-payoff','level-reward','ability-unlock'];
 function validFinanceLedger(v){
  return Boolean(v&&v.schema===1&&Number.isSafeInteger(v.openedAt)&&v.openedAt>0&&
   Number.isSafeInteger(v.openingBalance)&&v.openingBalance>=0&&
@@ -1609,7 +1683,7 @@ function drawFinance(now){
   const date=new Date(record.at*1000);
   const names={'taxi-outsource':'외주 택시 정산','taxi-owned':'보유 택시 수익','truck-outsource':'트럭 외주 정산','truck-owned':'트럭 운송 수익',
    'vehicle-purchase':'차량 구매','vehicle-repayment':'지원금 중도상환','vehicle-repair':'차량 수리',
-   'vehicle-sale':'차량 판매','vehicle-sale-payoff':'판매 시 지원금 상환'};
+   'vehicle-sale':'차량 판매','vehicle-sale-payoff':'판매 시 지원금 상환','level-reward':'레벨 달성 보상','ability-unlock':'능력 해금'};
   left.append(element('strong','',names[record.category]||'차량 거래'),
    element('small','',dateFmt.format(date).replace(/-/g,'.')+' '+timeFmt.format(date)));
   row.append(left,element('strong',record.amount>0?'finance-positive':'finance-negative',
@@ -1648,7 +1722,7 @@ function validGarage(s){
   return TAXI_MODELS.some(m=>m.key===v.model)&&
    ['new','used','city','event'].includes(v.origin)&&Number.isSafeInteger(v.price)&&v.price>=(['city','event'].includes(v.origin)?0:1)&&
    Number.isSafeInteger(v.newPrice)&&v.newPrice>=v.price&&
-   (v.fleetNo===undefined||(Number.isInteger(v.fleetNo)&&v.fleetNo>=1&&v.fleetNo<=50))&&
+   (v.fleetNo===undefined||(Number.isInteger(v.fleetNo)&&v.fleetNo>=1&&v.fleetNo<=100))&&
    Number.isSafeInteger(v.remaining)&&v.remaining>=0&&v.remaining<=v.price&&
    Number.isSafeInteger(v.durability)&&v.durability>=0&&v.durability<=100000&&
    Number.isSafeInteger(v.serviceRuns)&&v.serviceRuns>=0&&v.serviceRuns<=1000&&
@@ -1683,19 +1757,19 @@ function assignFleetNumbers(){
  if(!ownedGarage)return;
  const used=new Set();
  for(const v of ownedGarage.vehicles){
-  if(Number.isInteger(v.fleetNo)&&v.fleetNo>=1&&v.fleetNo<=50&&!used.has(v.fleetNo))used.add(v.fleetNo);
+  if(Number.isInteger(v.fleetNo)&&v.fleetNo>=1&&v.fleetNo<=100&&!used.has(v.fleetNo))used.add(v.fleetNo);
   else v.fleetNo=0;
  }
  for(const v of ownedGarage.vehicles)if(!v.fleetNo){
-  let no=1;while(used.has(no)&&no<=50)no++;
-  if(no>50)break;
+  let no=1;while(used.has(no)&&no<=100)no++;
+  if(no>100)break;
   v.fleetNo=no;used.add(no);dirty=true;
  }
 }
 function grantCityVehicles(){
  if(activeWorld()!=='taxi'||!ownedGarage||!taxiLevel)return;
  const target=cityEntitlement(),current=ownedGarage.vehicles.filter(v=>v.origin==='city'&&!v.recallAfterMission).length;
- for(let i=current;i<target&&ownedGarage.vehicles.length<MAX_OWNED_VEHICLES;i++){
+ for(let i=current;i<target&&ownedGarage.vehicles.length<taxiFleetLimit();i++){
   const no=fleetNextNumber();if(!no)break;
   const id=ownedGarage.nextId++;
   ownedGarage.vehicles.push({id,fleetNo:no,model:'myon',origin:'city',newPrice:0,price:0,remaining:0,
@@ -1708,7 +1782,7 @@ function grantCityVehicles(){
 function grantEventVehicles(){
  if(activeWorld()!=='taxi'||!ownedGarage)return;
  if(!Number.isSafeInteger(ownedGarage.eventGranted))return;
- while(ownedGarage.eventGranted<2&&ownedGarage.vehicles.length<MAX_OWNED_VEHICLES){
+ while(ownedGarage.eventGranted<2&&ownedGarage.vehicles.length<taxiFleetLimit()){
   const no=fleetNextNumber();if(!no)break;
   const id=ownedGarage.nextId++;
   ownedGarage.vehicles.push({id,fleetNo:no,model:'myon',origin:'event',
@@ -1815,13 +1889,13 @@ function drawVehicleBuy(){
  $('vehicle-subsidy-value').textContent=currencyUnits(subsidy);
  $('vehicle-self-value').textContent=currencyUnits(self);
  $('vehicle-buy-action').textContent='차량 구매 · '+currencyUnits(self);
- $('vehicle-buy-action').disabled=vehicleBusy||ownedGarage.vehicles.length>=MAX_OWNED_VEHICLES||commonFunds.balance<self;
- $('vehicle-buy-note').textContent=ownedGarage.vehicles.length>=50?'차량은 최대 50대까지 보유할 수 있어요.':
+ $('vehicle-buy-action').disabled=vehicleBusy||ownedGarage.vehicles.length>=taxiFleetLimit()||commonFunds.balance<self;
+ $('vehicle-buy-note').textContent=ownedGarage.vehicles.length>=taxiFleetLimit()?'차량 보유 한도 '+taxiFleetLimit()+'대에 도달했습니다.':
    commonFunds.balance<self?'공용자금이 부족합니다.':'구매 시 자부담금만 공용자금에서 차감됩니다.';
 }
 function drawVehicles(){
  if(!ownedGarage||!commonFunds)return;
- $('vehicle-count').textContent=ownedGarage.vehicles.length+' / 50대';
+ $('vehicle-count').textContent=ownedGarage.vehicles.length+' / '+taxiFleetLimit()+'대';
  $('vehicle-funds').textContent=currencyUnits(commonFunds.balance);
  $('vehicle-tab-owned').classList.toggle('selected',vehicleTab==='owned');
  $('vehicle-tab-buy').classList.toggle('selected',vehicleTab==='buy');
@@ -1875,7 +1949,7 @@ async function buyOwnedVehicle(){
  if(vehicleBusy||!ready||!ownedGarage)return;
  const selected=vehicleBuySelection();
  const pct=Number($('vehicle-support').value);
- if(!Number.isInteger(pct)||pct<0||pct>90||ownedGarage.vehicles.length>=MAX_OWNED_VEHICLES)return;
+ if(!Number.isInteger(pct)||pct<0||pct>90||ownedGarage.vehicles.length>=taxiFleetLimit())return;
  const subsidy=Math.round(selected.price*pct/100),self=selected.price-subsidy;
  if(commonFunds.balance<self)return;
  vehicleBusy=true;
@@ -2003,8 +2077,7 @@ function renderTaxiWaiting(){
  }
  for(const v of idle){
   const slot=waitingVehicleCards.get(v.id);
-  slot.metric.textContent=(v.origin==='event'?'리뉴얼 이벤트':v.origin==='city'?'시지원':'구입 차량')+
-   ' · 최대 '+levelMaxKm()+'km · '+levelRateText()+(levelNumber()>=2?' · 수동 +50%':'');
+  slot.metric.textContent='최대 '+levelMaxKm()+'km · '+levelRateText()+(levelNumber()>=2?' · 수동 +50%':'');
   slot.accept.disabled=fleetBusy||!vehicleDispatchAvailable(v);
  }
 }
@@ -2028,19 +2101,15 @@ async function acceptWaitingTaxi(vehicleId){
 }
 function drawTaxiPurchase(){
  if(!ownedGarage||!taxiLevel||!commonFunds)return;
- const terms=taxiPurchaseTerms(),total=ownedGarage.vehicles.length;
- const cityCount=ownedGarage.vehicles.filter(v=>v.origin==='city').length;
- const eventCount=ownedGarage.eventGranted||0;
- $('taxi-event-status').textContent=eventCount===2?
-  '리뉴얼 이벤트 · MYON 택시 2대 무상 지급 완료':
-  '리뉴얼 이벤트 · '+eventCount+' / 2대 지급'+(total>=MAX_OWNED_VEHICLES?' · 보유 한도 내 추가 지급 대기':'');
- $('taxi-purchase-count').textContent='전체 '+total+' / 50대 · 시지원 '+cityCount+' / 10 · 이벤트 '+(ownedGarage.eventGranted||0)+' / 2';
+ const terms=taxiPurchaseTerms(),total=ownedGarage.vehicles.length,cap=taxiFleetLimit();
+ $('taxi-event-status').hidden=true;
+ $('taxi-purchase-count').textContent='보유 '+total+' / '+cap+'대';
  $('taxi-purchase-player').textContent='내 부담 '+terms.rate+'% · '+formatManwon(terms.player);
- $('taxi-purchase-city').textContent='시지원 '+(100-terms.rate)+'% · '+formatManwon(terms.city);
+ $('taxi-purchase-city').textContent='구매 지원 '+(100-terms.rate)+'% · '+formatManwon(terms.city);
  const button=$('taxi-purchase-action');
  button.textContent='차량 구입 · '+formatCommonFunds(terms.player);
- button.disabled=fleetBusy||resetBusy||total>=MAX_OWNED_VEHICLES||commonFunds.balance<terms.player;
- if(total>=MAX_OWNED_VEHICLES)$('taxi-purchase-note').textContent='총 50대 상한에 도달했습니다.';
+ button.disabled=fleetBusy||resetBusy||total>=cap||commonFunds.balance<terms.player;
+ if(total>=cap)$('taxi-purchase-note').textContent='차량 보유 한도 '+cap+'대에 도달했습니다.';
  else if(commonFunds.balance<terms.player)$('taxi-purchase-note').textContent='구입 자금이 부족합니다.';
  else if(!$('taxi-purchase-note').textContent.startsWith('택시'))
   $('taxi-purchase-note').textContent='구입 완료 시 임무판에 대기 차량으로 추가됩니다.';
@@ -2049,13 +2118,13 @@ async function buyTaxiFleet(){
  if(activeWorld()!=='taxi')return;
  if(fleetBusy||!ready||resetBusy||!ownedGarage||!taxiLevel||!commonFunds)return;
  const terms=taxiPurchaseTerms();
- if(ownedGarage.vehicles.length>=MAX_OWNED_VEHICLES||commonFunds.balance<terms.player)return;
+ if(ownedGarage.vehicles.length>=taxiFleetLimit()||commonFunds.balance<terms.player)return;
  const no=fleetNextNumber();if(!no)return;
  fleetBusy=true;
  try{
   const now=Math.floor(Date.now()/1000);
   advance(now);grantCityVehicles();
-  if(ownedGarage.vehicles.length>=MAX_OWNED_VEHICLES||commonFunds.balance<terms.player)return;
+  if(ownedGarage.vehicles.length>=taxiFleetLimit()||commonFunds.balance<terms.player)return;
   const actualNo=fleetNextNumber();if(!actualNo)return;
   const id=ownedGarage.nextId++;
   ownedGarage.vehicles.push({
@@ -2366,32 +2435,42 @@ async function buyTruck(){
 }
 function milestoneAvailable(){
  if(!worldProgress)return 0;
+ if(activeWorld()==='taxi'&&taxiMaster())return 10; // MASTER may always change worlds.
  const w=activeWorld(),lv=currentWorldLevel(),milestone=Math.floor(lv/10)*10;
  return milestone>=10&&milestone>worldProgress.seen[w]?milestone:0;
 }
 function drawWorldSwitchCard(){
- const card=$('world-switch-card'),milestone=milestoneAvailable();card.hidden=!milestone;
+ const card=$('world-switch-card'),milestone=milestoneAvailable(),master=activeWorld()==='taxi'&&taxiMaster();
+ card.hidden=!milestone;
  if(!milestone)return;
- $('world-switch-level').textContent=(activeWorld()==='taxi'?'택시':'트럭')+' LV.'+milestone+' · 월드 전환 가능';
+ $('world-keep').hidden=master;
+ $('world-switch-level').textContent=master?'택시 마스터 · 자유로운 월드 이전':
+  (activeWorld()==='taxi'?'택시':'트럭')+' LV.'+milestone+' · 월드 이전 기회';
  $('world-switch-taxi').hidden=activeWorld()==='taxi';
  $('world-switch-truck').hidden=activeWorld()==='truck';
  $('world-switch-truck').textContent=worldProgress.visited.truck?'트럭 월드로 복귀':'트럭 월드 최초 진출';
  $('world-switch-warning').hidden=!worldSwitchTarget;
  $('world-switch-confirm').hidden=!worldSwitchTarget;
- if(worldSwitchTarget)$('world-switch-warning').textContent=(worldSwitchTarget==='taxi'?'택시':'트럭')+' 월드 LV.1부터 시작합니다. 현재 레벨 초기화, 시지원 차량 회수. 공용 자금과 진행 중 정산은 유지됩니다.';
+ if(worldSwitchTarget){
+  const previous=worldProgress.visited[worldSwitchTarget];
+  $('world-switch-warning').textContent=(worldSwitchTarget==='taxi'?'택시':'트럭')+
+   (previous?' 월드의 저장된 레벨로 복귀합니다.':' 월드 LV.1부터 시작합니다.')+
+   ' 이전 월드의 성장·보유 차량·공용 자금·기존 계약 정산은 유지됩니다. 무료 지급 차량은 현재 월드에서만 이용합니다.';
+ }
 }
 async function switchWorld(target){
  if(!ready||resetBusy||worldSwitchBusy||!milestoneAvailable()||target===activeWorld()||!['taxi','truck'].includes(target))return;
  worldSwitchBusy=true;
  try{
-  const now=Math.floor(Date.now()/1000);advance(now);
-  const from=activeWorld();worldProgress.seen[from]=Math.floor(currentWorldLevel()/10)*10;
+  const now=Math.floor(Date.now()/1000);advance(now);grantTaxiMasterReward(now);
+  const from=activeWorld();
+  worldProgress.seen[from]=Math.max(worldProgress.seen[from],Math.floor(currentWorldLevel()/10)*10);
   recallWorldVehicles(from);
-  if(from==='taxi'){taxiLevel.completed=0;taxiOffers= newTaxiOffers(now);}
-  else{truckGarage.completed=0;truckGarage.cityGranted={medium:false,large:false};truckOffers=defaultTruckOffers();}
-  worldProgress.active=target;worldProgress.visited[target]=true;worldProgress.cycles[target]++;worldProgress.seen[target]=0;
-  if(target==='taxi'){taxiLevel.completed=0;taxiOffers=newTaxiOffers(now);grantEventVehicles();}
-  else{truckGarage.completed=0;truckGarage.cityGranted={medium:false,large:false};truckOffers=defaultTruckOffers();grantTruckEvent();grantTruckCity();fillTruckOffers();}
+  // Never reset taxiLevel.completed, truckGarage.completed, or purchased upgrades.
+  // Keep world offer boards and milestone-use flags for a later return.
+  worldProgress.active=target;worldProgress.visited[target]=true;worldProgress.cycles[target]++;
+  if(target==='taxi'){grantCityVehicles();grantEventVehicles();}
+  else{grantTruckEvent();grantTruckCity();fillTruckOffers();}
   renderTaxiFutureRewards.key=null;renderTaxiWaiting.signature=null;renderTaxiOffers.order=null;
   worldSwitchTarget=null;assetSalePending=null;dirty=true;offersDirty=true;await save(now);
  }finally{worldSwitchBusy=false;draw(Math.floor(Date.now()/1000));}
@@ -2404,9 +2483,9 @@ function renderWorldChrome(){
  $('taxi-vehicle-waiting').hidden=truck;$('taxi-purchase-area').hidden=truck;
  $('truck-offer-list').hidden=!truck;$('truck-offer-rule').hidden=!truck;$('truck-purchase-area').hidden=!truck;
  if(!truck){
-  $('level-future-summary').textContent='레벨 보상 전체보기 · LV.48까지';
-  $('level-infinite-title').textContent='LV.49부터 무한 성장';
-  $('level-infinite-note').textContent='매 레벨 차량 수익률 +1%p · 최대 운행거리 200km 유지';
+  $('level-future-summary').textContent='레벨 보상 전체보기 · LV.10까지';
+  $('level-infinite-title').textContent='LV.10 마스터부터 능력 개발';
+  $('level-infinite-note').textContent='자금으로 운송거리, 수익률 및 보유차량 한도를 확장할 수 있습니다.';
  }
 }
 function saleTerms(world,vehicle){
@@ -2425,7 +2504,7 @@ function drawWorldAssets(){
  for(const v of sellable){
   const model=from==='taxi'?TAXI_MODELS.find(x=>x.key===v.model):TRUCK_MODELS.find(x=>x.key===v.model);
   const terms=saleTerms(from,v),key=from+':'+v.id,row=element('div','world-asset-row'),copy=element('div','world-asset-info');
-  copy.append(element('strong','',model.name+' '+v.id+'호'),element('small','',(v.origin==='event'?'이벤트 차량':'구입 차량')+' · '+(v.activeMissionId?'운행 중 · 완료 후 판매 가능':'대기 · 유지 가능')));
+  copy.append(element('strong','',model.name+' '+v.id+'호'),element('small','',(from==='taxi'?'':(v.origin==='event'?'이벤트 차량':'구입 차량')+' · ')+(v.activeMissionId?'운행 중 · 완료 후 판매 가능':'대기 · 유지 가능')));
   const action=element('button','slot-button',assetSalePending===key?'판매 확정':'판매 · '+formatManwon(terms.net));
   action.type='button';action.disabled=Boolean(v.activeMissionId)||worldSwitchBusy||terms.net+commonFunds.balance<0;
   action.addEventListener('click',()=>sellWorldAsset(from,v.id));row.append(copy,action);fragment.append(row);
@@ -2528,7 +2607,7 @@ function draw(now){
 }
 function tick(){
  const now=Math.floor(Date.now()/1000);
- if(ready&&!resetBusy){advance(now);if(activeWorld()==='taxi'){grantCityVehicles();grantEventVehicles();autoAcceptTaxiOffers(now);advanceTaxiOffers(now);}else{grantTruckEvent();grantTruckCity();fillTruckOffers();}advanceProgression(now);advanceMenu(now);if((dirty||offersDirty)&&now-lastSave>=20)save(now);
+ if(ready&&!resetBusy){advance(now);grantTaxiMasterReward(now);if(activeWorld()==='taxi'){grantCityVehicles();grantEventVehicles();autoAcceptTaxiOffers(now);advanceTaxiOffers(now);}else{grantTruckEvent();grantTruckCity();fillTruckOffers();}advanceProgression(now);advanceMenu(now);if((dirty||offersDirty)&&now-lastSave>=20)save(now);
   if(progressionDirty&&now-progressionLastSave>=2)saveProgression(now);
   if(menuDirty&&now-menuLastSave>=2)saveMenu(now);}
  draw(now);

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.45</title>
+<title>MYON v0.13.46</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -324,6 +324,19 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 #top-settings-toggle{display:none!important}
 /* v0.13.42: taxi-only operation level and compact fleet on the single home. */
 .taxi-level-card{padding:13px 14px;margin-bottom:15px}
+#taxi-level-panel[hidden],#taxi-master-panel[hidden],#taxi-event-status[hidden],#world-keep[hidden]{display:none!important}
+.taxi-master-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.taxi-master-name{font-size:16px;font-weight:800;color:#dff3e9}
+.taxi-master-rank{font-size:13px;font-weight:800;color:#e6c978;white-space:nowrap}
+.taxi-master-summary{font-size:12px;color:#c1edcf;margin-top:10px}
+.taxi-master-divider{border-top:1px solid #304448;margin:13px 0 9px}
+.taxi-master-upgrade{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0}
+.taxi-master-upgrade+.taxi-master-upgrade{border-top:1px solid #304448}
+.taxi-master-upgrade-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.taxi-master-upgrade-text strong{font-size:12px;color:#dff3e9}
+.taxi-master-upgrade-text small{font-size:10px;color:#9bb9af}
+.taxi-master-upgrade button{min-width:85px;flex:none}
+.taxi-master-upgrade button:disabled{opacity:.5;cursor:default}
 .taxi-level-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .taxi-level-label{font-size:11px;color:#9bb9af;margin-bottom:4px}
 .taxi-level-value{font-size:24px;font-weight:800;line-height:1.2;color:#c1edcf}
@@ -414,7 +427,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     </div>
     <p class="home-world-entry-note">아직 입장할 수 없습니다.</p>
   </article>
-  <section class="slot taxi-level-card" aria-label="택시 운영 레벨">
+  <section id="taxi-level-panel" class="slot taxi-level-card" aria-label="월드 운영 레벨">
     <div class="taxi-level-head">
       <div><div id="world-level-label" class="taxi-level-label">택시 운영 레벨</div><strong id="taxi-level" class="taxi-level-value">LV.1</strong></div>
       <div class="taxi-level-next"><div class="taxi-level-label">다음 레벨까지</div><strong id="taxi-next-remaining">100건</strong></div>
@@ -423,13 +436,42 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     <div class="taxi-level-stats"><span id="taxi-level-count">누적 완료 0건</span><span id="taxi-level-current">외주 40% · 3~10km</span></div>
     <div class="taxi-level-reward"><span>다음 레벨 보상</span><strong id="taxi-next-reward">30분마다 외주·보유차량 자동수락 · 수동 +50%</strong></div>
     <details id="taxi-level-details" class="taxi-level-details">
-      <summary id="level-future-summary">레벨 보상 전체보기 · LV.48까지</summary>
+      <summary id="level-future-summary">레벨 보상 전체보기 · LV.10까지</summary>
       <div id="taxi-level-future-list" class="taxi-level-future-list"></div>
       <div class="taxi-level-infinite-note">
-        <strong id="level-infinite-title">LV.49부터 무한 성장</strong>
-        <span id="level-infinite-note">매 레벨 차량 수익률 +1%p · 최대 운행거리 200km 유지</span>
+        <strong id="level-infinite-title">LV.10 마스터부터 능력 개발</strong>
+        <span id="level-infinite-note">공용자금으로 운송거리와 수익률, 보유 한도를 해금할 수 있습니다.</span>
       </div>
     </details>
+  </section>
+  <section id="taxi-master-panel" class="slot taxi-level-card" aria-label="택시 마스터 능력 해금" hidden>
+    <div class="taxi-master-head">
+      <strong class="taxi-master-name">택시 운영</strong>
+      <strong class="taxi-master-rank">마스터</strong>
+    </div>
+    <div id="taxi-master-summary" class="taxi-master-summary">수익률 43% · 운송최대거리 40km</div>
+    <div class="taxi-master-divider"></div>
+    <div class="taxi-master-upgrade">
+      <div class="taxi-master-upgrade-text">
+        <strong id="taxi-master-distance-title">운송거리 +10km</strong>
+        <small id="taxi-master-distance-detail">최대 200km</small>
+      </div>
+      <button id="taxi-master-distance-buy" type="button" class="slot-button">100 M</button>
+    </div>
+    <div class="taxi-master-upgrade">
+      <div class="taxi-master-upgrade-text">
+        <strong id="taxi-master-revenue-title">수익률 +1%p</strong>
+        <small id="taxi-master-revenue-detail">최대 100%</small>
+      </div>
+      <button id="taxi-master-revenue-buy" type="button" class="slot-button">20 M</button>
+    </div>
+    <div class="taxi-master-upgrade">
+      <div class="taxi-master-upgrade-text">
+        <strong id="taxi-master-fleet-title">차량 보유 한도 +10대</strong>
+        <small id="taxi-master-fleet-detail">현재 50대 · 최대 100대</small>
+      </div>
+      <button id="taxi-master-fleet-buy" type="button" class="slot-button">200 M</button>
+    </div>
   </section>
   <section class="home-mission-board" aria-labelledby="home-mission-board-title">
     <h2 id="home-mission-board-title" class="home-mission-heading">임무판</h2>
@@ -456,13 +498,13 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 
   </section>
   <section id="taxi-purchase-area" class="taxi-purchase-area" aria-label="차량 구입">
-    <div class="taxi-fleet-heading"><strong>차량 구입</strong><span id="taxi-purchase-count">전체 0 / 50대</span></div>
-    <p id="taxi-event-status" class="taxi-event-status">리뉴얼 이벤트 · MYON 택시 2대 무상 지급</p>
+    <div class="taxi-fleet-heading"><strong>차량 구입</strong><span id="taxi-purchase-count">보유 0 / 50대</span></div>
+    <p id="taxi-event-status" class="taxi-event-status" hidden></p>
     <div class="taxi-fleet-card">
       <div class="taxi-purchase-title"><strong>MYON 택시</strong><span>신차 · 2,000만원</span></div>
       <div class="taxi-purchase-breakdown">
         <span id="taxi-purchase-player">내 부담 40% · 800만원</span>
-        <span id="taxi-purchase-city">시지원 60% · 1,200만원</span>
+        <span id="taxi-purchase-city">구매 지원 60% · 1,200만원</span>
       </div>
       <button id="taxi-purchase-action" type="button" class="slot-button taxi-fleet-action">차량 구입 · 800 M</button>
       <p id="taxi-purchase-note" class="taxi-fleet-message" role="status"></p>
@@ -487,7 +529,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
    </section>
    <div class="home-running-separator"><span>진행중 임무</span></div>
   <div id="slot-list" class="slot-list"></div>
-  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.45</span></footer>
+  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.46</span></footer>
 </main>
 <section id="character-screen" class="content manage-screen" aria-label="관리" hidden>
   <div id="management-menu" class="manage-menu">
@@ -711,7 +753,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 
 </div></div>
 
-<script src="myon-v013.js?v=0.13.45"></script>
+<script src="myon-v013.js?v=0.13.46"></script>
 <script src="myon-rpg-taxi.js?v=0.13.38"></script>
 
 </body>
