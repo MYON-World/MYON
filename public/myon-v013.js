@@ -1,4 +1,4 @@
-// MYON v0.13.38 — taxi waiting board and fixed-price subsidized MYON taxi, contextual header and footer version.
+// MYON v0.13.39 — renewal taxis and refined mission cadence, contextual header and footer version.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -7,7 +7,7 @@ const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression',MENU
 const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style',FINANCE_KEY='v01322-common-funds',TAXI_OFFERS_KEY='v01323-taxi-offers',LEDGER_KEY='v01324-finance-ledger',OWNED_KEY='v01325-owned-vehicles',TAXI_LEVEL_KEY='v01337-taxi-level';
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
-const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,MAX_TOTAL=130,LOOKBACK=2*DAY,TAXI_OFFER_INTERVAL=600;
+const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,MAX_TOTAL=130,LOOKBACK=2*DAY,TAXI_OFFER_INTERVAL=300,TAXI_AUTO_INTERVAL=600;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),gear:$('top-settings-toggle'),version:$('home-version'),worldName:$('current-world-name'),settings:$('settings-panel'),notify:$('notification-toggle')};
 const nav={home:$('home-screen'),character:$('character-screen'),world:$('world-screen')};
@@ -214,10 +214,36 @@ function drawTaxiLevel(){
  $('taxi-level-count').textContent='누적 완료 '+taxiLevel.completed.toLocaleString('ko-KR')+'건';
  $('taxi-level-current').textContent=ownedGarage?.vehicles.length?levelRateText(l)+' · 최대 '+levelMaxKm(l)+'km':'외주 40% · 3~10km';
  $('taxi-next-reward').textContent=levelNextReward(l);
+ renderTaxiFutureRewards();
  $('taxi-offer-rule').textContent=l>=2?
-  '외주 임무는 10분마다 등장 · 직접 수락 가능 · 10분마다 남은 임무 자동수락 · 폐기 없음':
-  '외주 임무는 10분마다 등장하고, 미수락 시 1시간 뒤 자동 폐기됩니다.';
+  '외주 임무 5분마다 등장 · 수동 수락 가능 · 10분마다 자동수락 · 폐기 없음':
+  '외주 임무 5분마다 등장 · 수동 수락 · 미수락 시 1시간 뒤 폐기';
 }
+// Infinite levels are paged in 20-level increments to avoid an infinite DOM.
+// The existing next-level reward stays visible even with the list collapsed.
+let futureRewardCount=20;
+function renderTaxiFutureRewards(){
+ const details=$('taxi-level-details');if(!details||!details.open)return;
+ const level=levelNumber(),signature=level+':'+futureRewardCount;
+ if(renderTaxiFutureRewards.signature===signature)return;
+ const list=$('taxi-level-future-list'),fragment=document.createDocumentFragment();
+ for(let rewardLevel=level+2;rewardLevel<level+2+futureRewardCount;rewardLevel++){
+  const item=element('div','taxi-level-future-row');
+  const no=element('span','','LV.'+rewardLevel.toLocaleString('ko-KR'));
+  const reward=element('strong','',levelNextReward(rewardLevel-1));
+  item.append(no,reward);fragment.append(item);
+ }
+ list.replaceChildren(fragment);
+ $('taxi-level-more').textContent='이후 20레벨 더 보기';
+ renderTaxiFutureRewards.signature=signature;
+}
+function initTaxiFutureUi(){
+ $('taxi-level-details').addEventListener('toggle',renderTaxiFutureRewards);
+ $('taxi-level-more').addEventListener('click',()=>{
+  futureRewardCount+=20;renderTaxiFutureRewards();
+ });
+}
+initTaxiFutureUi();
 async function startTaxiLevel(){
  if(!IS_LIVE){taxiLevel={schema:1,completed:assistantCompleted()};return;}
  try{
@@ -548,11 +574,15 @@ function advance(now){
 
 // Offers are real-time KST ten-minute slots. UTC epoch works because KST
 // has a whole-hour offset; the seed never consumes the world mission RNG.
-function nextTenMinute(at){return Math.floor(at/TAXI_OFFER_INTERVAL)*TAXI_OFFER_INTERVAL+TAXI_OFFER_INTERVAL;}
-function newTaxiOffers(now){return {schema:1,seed:seedNow(),nextOfferAt:nextTenMinute(now),offers:[]};}
+// Outsource supply and auto-accept use independent wall-clock slots.
+function nextFiveMinute(at){return Math.floor(at/TAXI_OFFER_INTERVAL)*TAXI_OFFER_INTERVAL+TAXI_OFFER_INTERVAL;}
+function nextTenMinute(at){return Math.floor(at/TAXI_AUTO_INTERVAL)*TAXI_AUTO_INTERVAL+TAXI_AUTO_INTERVAL;}
+function newTaxiOffers(now){return {schema:1,seed:seedNow(),nextOfferAt:nextFiveMinute(now),
+ nextAutoAt:nextTenMinute(now),offers:[]};}
 function validTaxiOffers(value){
  return Boolean(value&&value.schema===1&&Number.isInteger(value.seed)&&
   Number.isSafeInteger(value.nextOfferAt)&&value.nextOfferAt>0&&
+  (value.nextAutoAt===undefined||(Number.isSafeInteger(value.nextAutoAt)&&value.nextAutoAt>0))&&
   Array.isArray(value.offers)&&value.offers.length<=5000&&value.offers.every(o=>
    o&&Number.isSafeInteger(o.at)&&o.at>0&&o.at%TAXI_OFFER_INTERVAL===0&&
    o.expiresAt===o.at+HOUR&&Number.isSafeInteger(o.distanceMeters)&&
@@ -565,7 +595,14 @@ async function startTaxiOffers(now){
  if(!IS_LIVE)return;
  try{
   const saved=await read(TAXI_OFFERS_KEY);
-  if(validTaxiOffers(saved)){taxiOffers=saved;return;}
+  if(validTaxiOffers(saved)){
+   taxiOffers=saved;
+   // Keep old ten-minute offers and fill the intervening five-minute slot.
+   const upcoming=nextFiveMinute(now);
+   if(saved.nextOfferAt>upcoming){saved.nextOfferAt=upcoming;offersDirty=true;}
+   if(!saved.nextAutoAt){saved.nextAutoAt=nextTenMinute(now);offersDirty=true;}
+   return;
+  }
   offersDirty=true;
  }catch(error){console.error('MYON taxi offers:',error);offersDirty=true;}
 }
@@ -574,10 +611,8 @@ function advanceTaxiOffers(now){
  const previous=taxiOffers.offers.length;
  if(levelNumber()<2)taxiOffers.offers=taxiOffers.offers.filter(o=>now<o.expiresAt);
  if(previous!==taxiOffers.offers.length)offersDirty=true;
- // Taxi offers remain available for old observer, active, and mixed profiles.
  if(now<taxiOffers.nextOfferAt)return;
- // Never generate already-expired offers after an offline return.
- const first=Math.max(taxiOffers.nextOfferAt,nextTenMinute(now-HOUR));
+ const first=Math.max(taxiOffers.nextOfferAt,nextFiveMinute(now-HOUR));
  for(let at=first;at<=now;at+=TAXI_OFFER_INTERVAL){
   const seed=mix((taxiOffers.seed^Math.imul(Math.floor(at/TAXI_OFFER_INTERVAL),0x9e3779b9))>>>0);
   const distanceMeters=range(seed,0,30,100)*100;
@@ -585,14 +620,20 @@ function advanceTaxiOffers(now){
   if(taxiOffers.offers.length<5000)taxiOffers.offers.push({at,expiresAt:at+HOUR,distanceMeters,fareUnits,
    shareUnits:taxiOutsourceShare(fareUnits)});
  }
- taxiOffers.nextOfferAt=nextTenMinute(now);
+ taxiOffers.nextOfferAt=nextFiveMinute(now);
  offersDirty=true;
 }
 function autoAcceptTaxiOffers(now){
- if(!taxiOffers||levelNumber()<2)return;
+ if(!taxiOffers)return;
+ if(!Number.isSafeInteger(taxiOffers.nextAutoAt)||taxiOffers.nextAutoAt<=0){
+  taxiOffers.nextAutoAt=nextTenMinute(now);offersDirty=true;return;
+ }
+ if(now<taxiOffers.nextAutoAt)return;
+ taxiOffers.nextAutoAt=nextTenMinute(now);offersDirty=true;
+ if(levelNumber()<2)return;
  let changed=false;
+ // Auto-accept already waiting offers BEFORE generating the new supply.
  for(const offer of taxiOffers.offers.slice().sort((a,b)=>a.at-b.at)){
-  if(offer.at+TAXI_OFFER_INTERVAL>now)continue;
   if(state.units.length>=MAX_TOTAL||ownedActiveCount()>=INVOLVED_MAX_MISSIONS)break;
   state.units.push(createUnit('taxi',now,null,offer));
   taxiOffers.offers=taxiOffers.offers.filter(o=>o.at!==offer.at);
@@ -625,7 +666,7 @@ function renderTaxiOffers(now){
    if(!slot){
     const card=element('article','slot taxi-offer');
     const head=element('div','slot-head'),name=element('div','slot-name');
-    name.append(element('span','slot-icon','🚕'),element('strong','','MYON 택시 · 승객 운송'));
+    name.append(element('span','slot-icon','🚕'),element('strong','','MYON 택시'));
     const amount=element('strong','taxi-offer-amount',formatCommonFunds(offer.shareUnits));
     head.append(name,amount);
     const details=element('div','slot-details'),description=element('span','taxi-offer-description',
@@ -786,15 +827,15 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.38',title:'택시 대기 임무판·MYON 택시 구입',
+ version:'0.13.39',title:'택시 월드 리뉴얼 · MYON 택시 2대 무상 지급',
  entries:[
-  '차량 운영/선택 영역을 제거하고 대기 중인 택시를 임무판 수락 카드로 표시합니다.',
-  '택시N호 수락 시 진행중 임무로 이동하며 종료·정산 즉시 임무판 대기 카드로 돌아옵니다.',
-  '외주는 MYON 택시로 유지하고, 기존 외주 자동수락·폐기 규칙과 레벨 실적 승계를 보존합니다.',
-  '구입 가능 신차를 MYON 택시 단일 모델(2,000만원)로 지정합니다.',
-  '차량 구입 시 현재 레벨 수익률만큼 유저가 부담하고, 나머지는 시지원으로 처리합니다.',
-  '수익률 100% 초과 보너스는 차량 운행에만 적용하며 구입 부담률은 최대 100%입니다.',
-  '시지원 무료 차량 최대 10대, 총 차량 최대 50대와 기존 저장·완료 계약은 그대로 유지합니다.'
+  '외주 임무는 5분마다 등장하며 LV.2 이상 자동수락은 독립된 10분 주기로 작동합니다.',
+  'LV.2부터 외주 임무 폐기 없음과 수동 수락 버튼을 유지합니다.',
+  '택시 진행중 임무명에서 중복되는 승객 운송 문구를 제거합니다.',
+  '레벨 카드의 다음 보상 아래에 2레벨 뒤부터 펼쳐보는 보상 목록과 더 보기 기능을 추가합니다.',
+  '리뉴얼 기념 MYON 택시 신차 2대를 계정당 최초 1회 무상 지급합니다. 현금 지원은 없습니다.',
+  '이벤트 차량 2대는 시지원 무료 차량 10대와 별도로 지급되며 전체 차량 50대 한도에는 포함됩니다.',
+  '이벤트 차량도 대기 → 수락 → 운행 → 정산 → 대기로 순환하는 동일한 택시 로직을 사용합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -1128,7 +1169,7 @@ function element(tag,cls,value){
 // Historical automatic-mission catalog removed from the UI in v0.13.35.
 function makeUnitCard(v){
  const card=element('article','slot'),head=element('div','slot-head'),name=element('div','slot-name');
- name.append(element('span','slot-icon',unitIcons[v.kind]),element('strong','',v.contractType==='owned'?'택시'+(v.vehicleNo||vehicleById(v.vehicleId)?.fleetNo||v.vehicleId)+'호 · 승객 운송':'MYON 택시 · 승객 운송'));
+ name.append(element('span','slot-icon',unitIcons[v.kind]),element('strong','',v.contractType==='owned'?'택시'+(v.vehicleNo||vehicleById(v.vehicleId)?.fleetNo||v.vehicleId)+'호':'MYON 택시'));
  const status=element('span','slot-state');
  head.append(name,status);
  const detail=element('div','slot-details');
@@ -1506,16 +1547,18 @@ const USED_MARKET=[
 let ownedGarage=null,vehicleSelectedId=0,vehicleTab='owned',vehicleBuyType='new',vehicleBusy=false;
 const currencyUnits=n=>formatCommonFunds(n);
 const vehicleById=id=>ownedGarage&&ownedGarage.vehicles.find(v=>v.id===id);
-function garageDefault(){return {schema:1,nextId:1,vehicles:[]};}
+function garageDefault(){return {schema:1,nextId:1,eventGranted:0,vehicles:[]};}
 function validGarage(s){
  if(!s||s.schema!==1||!Number.isSafeInteger(s.nextId)||s.nextId<1||
+    (!Number.isSafeInteger(s.eventGranted)&&s.eventGranted!==undefined)||
+    (s.eventGranted!==undefined&&(s.eventGranted<0||s.eventGranted>2))||
     !Array.isArray(s.vehicles)||s.vehicles.length>MAX_OWNED_VEHICLES)return false;
  const ids=new Set();
  return s.vehicles.every(v=>{
   if(!v||!Number.isSafeInteger(v.id)||v.id<1||v.id>=s.nextId||ids.has(v.id))return false;
   ids.add(v.id);
   return TAXI_MODELS.some(m=>m.key===v.model)&&
-   ['new','used','city'].includes(v.origin)&&Number.isSafeInteger(v.price)&&v.price>=(v.origin==='city'?0:1)&&
+   ['new','used','city','event'].includes(v.origin)&&Number.isSafeInteger(v.price)&&v.price>=(['city','event'].includes(v.origin)?0:1)&&
    Number.isSafeInteger(v.newPrice)&&v.newPrice>=v.price&&
    (v.fleetNo===undefined||(Number.isInteger(v.fleetNo)&&v.fleetNo>=1&&v.fleetNo<=50))&&
    Number.isSafeInteger(v.remaining)&&v.remaining>=0&&v.remaining<=v.price&&
@@ -1530,7 +1573,15 @@ async function startOwnedGarage(){
  if(!IS_LIVE)return;
  try{
   const saved=await read(OWNED_KEY);
-  if(validGarage(saved)){ownedGarage=saved;assignFleetNumbers();return;}
+  if(validGarage(saved)){
+   ownedGarage=saved;assignFleetNumbers();
+   // A persisted grant count never decreases even if a gift is removed.
+   if(ownedGarage.eventGranted===undefined){
+    ownedGarage.eventGranted=ownedGarage.vehicles.filter(v=>v.origin==='event').length;
+    dirty=true;
+   }
+   return;
+  }
   if(saved)throw new Error('Saved vehicle data failed validation; preserving record');
   dirty=true;
  }catch(e){console.error('MYON owned vehicles:',e);if(e.message.includes('validation')){ownedGarage=null;}}
@@ -1561,6 +1612,21 @@ function grantCityVehicles(){
   const id=ownedGarage.nextId++;
   ownedGarage.vehicles.push({id,fleetNo:no,model:'myon',origin:'city',newPrice:0,price:0,remaining:0,
    durability:100000,serviceRuns:0,trips:0,location:'시 제공 차고지',activeMissionId:0});
+  dirty=true;
+ }
+}
+// Renewal gift: two free MYON taxis per player, running through the
+// SAME owned-vehicle workflow. Unclaimed gift slots wait at the 50-car cap.
+function grantEventVehicles(){
+ if(!ownedGarage)return;
+ if(!Number.isSafeInteger(ownedGarage.eventGranted))return;
+ while(ownedGarage.eventGranted<2&&ownedGarage.vehicles.length<MAX_OWNED_VEHICLES){
+  const no=fleetNextNumber();if(!no)break;
+  const id=ownedGarage.nextId++;
+  ownedGarage.vehicles.push({id,fleetNo:no,model:'myon',origin:'event',
+   newPrice:20000000,price:0,remaining:0,
+   durability:100000,serviceRuns:0,trips:0,location:'리뉴얼 이벤트 차고지',activeMissionId:0});
+  ownedGarage.eventGranted++;
   dirty=true;
  }
 }
@@ -1749,7 +1815,7 @@ async function dispatchOwnedVehicle(){
 async function repayOwnedVehicle(){
  const v=vehicleById(vehicleSelectedId),n=Number($('vehicle-repay-input').value);
  const amount=Math.round(n*10000);
- if(vehicleBusy||!v||v.origin==='city'||!Number.isFinite(n)||n<=0||Math.abs(n*10000-amount)>=0.00001||
+ if(vehicleBusy||!v||['city','event'].includes(v.origin)||!Number.isFinite(n)||n<=0||Math.abs(n*10000-amount)>=0.00001||
   amount>v.remaining||amount>commonFunds.balance)return;
  vehicleBusy=true;
  try{
@@ -1763,7 +1829,7 @@ async function repayOwnedVehicle(){
 }
 async function repairOwnedVehicle(){
  const v=vehicleById(vehicleSelectedId);
- if(vehicleBusy||!v||v.origin==='city'||v.activeMissionId||v.serviceRuns<1000||v.durability<=0)return;
+ if(vehicleBusy||!v||['city','event'].includes(v.origin)||v.activeMissionId||v.serviceRuns<1000||v.durability<=0)return;
  const fee=repairCost(v);
  if(commonFunds.balance<fee)return;
  vehicleBusy=true;
@@ -1777,7 +1843,7 @@ async function repairOwnedVehicle(){
 }
 async function sellOwnedVehicle(){
  const v=vehicleById(vehicleSelectedId);
- if(vehicleBusy||!v||v.origin==='city'||v.activeMissionId)return;
+ if(vehicleBusy||!v||['city','event'].includes(v.origin)||v.activeMissionId)return;
  const gross=v.newPrice/2,net=gross-v.remaining;
  if(commonFunds.balance+net<0){setVehicleMessage('미상환 지원금을 정산할 공용자금이 부족합니다.');return;}
  if(!$('vehicle-sale-confirm').hidden)return;
@@ -1785,7 +1851,7 @@ async function sellOwnedVehicle(){
 }
 async function confirmVehicleSale(){
  const v=vehicleById(vehicleSelectedId);
- if(vehicleBusy||!v||v.origin==='city'||v.activeMissionId)return;
+ if(vehicleBusy||!v||['city','event'].includes(v.origin)||v.activeMissionId)return;
  const gross=v.newPrice/2,net=gross-v.remaining;
  if(commonFunds.balance+net<0)return;
  vehicleBusy=true;
@@ -1843,7 +1909,7 @@ function renderTaxiWaiting(){
  }
  for(const v of idle){
   const slot=waitingVehicleCards.get(v.id);
-  slot.metric.textContent=(v.origin==='city'?'시지원':'구입 차량')+
+  slot.metric.textContent=(v.origin==='event'?'리뉴얼 이벤트':v.origin==='city'?'시지원':'구입 차량')+
    ' · 최대 '+levelMaxKm()+'km · '+levelRateText();
   slot.accept.disabled=fleetBusy||!vehicleDispatchAvailable(v);
  }
@@ -1869,7 +1935,11 @@ function drawTaxiPurchase(){
  if(!ownedGarage||!taxiLevel||!commonFunds)return;
  const terms=taxiPurchaseTerms(),total=ownedGarage.vehicles.length;
  const cityCount=ownedGarage.vehicles.filter(v=>v.origin==='city').length;
- $('taxi-purchase-count').textContent='총 '+total+' / 50대 · 시지원 '+cityCount+' / 10대';
+ const eventCount=ownedGarage.eventGranted||0;
+ $('taxi-event-status').textContent=eventCount===2?
+  '리뉴얼 이벤트 · MYON 택시 2대 무상 지급 완료':
+  '리뉴얼 이벤트 · '+eventCount+' / 2대 지급'+(total>=MAX_OWNED_VEHICLES?' · 보유 한도 내 추가 지급 대기':'');
+ $('taxi-purchase-count').textContent='전체 '+total+' / 50대 · 시지원 '+cityCount+' / 10 · 이벤트 '+(ownedGarage.eventGranted||0)+' / 2';
  $('taxi-purchase-player').textContent='내 부담 '+terms.rate+'% · '+formatManwon(terms.player);
  $('taxi-purchase-city').textContent='시지원 '+(100-terms.rate)+'% · '+formatManwon(terms.city);
  const button=$('taxi-purchase-action');
@@ -2008,7 +2078,7 @@ function draw(now){
 }
 function tick(){
  const now=Math.floor(Date.now()/1000);
- if(ready&&!resetBusy){advance(now);grantCityVehicles();advanceTaxiOffers(now);autoAcceptTaxiOffers(now);advanceProgression(now);advanceMenu(now);if((dirty||offersDirty)&&now-lastSave>=20)save(now);
+ if(ready&&!resetBusy){advance(now);grantCityVehicles();grantEventVehicles();autoAcceptTaxiOffers(now);advanceTaxiOffers(now);advanceProgression(now);advanceMenu(now);if((dirty||offersDirty)&&now-lastSave>=20)save(now);
   if(progressionDirty&&now-progressionLastSave>=2)saveProgression(now);
   if(menuDirty&&now-menuLastSave>=2)saveMenu(now);}
  draw(now);
@@ -2048,6 +2118,7 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
  ready=true;
  advance(now);
  grantCityVehicles();
+ grantEventVehicles();
  await startProgression(now,firstVisit);
  await startMenu(now,firstVisit);
  tick();
