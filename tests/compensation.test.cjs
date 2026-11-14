@@ -358,3 +358,14 @@ test('at the absolute 100-car cap a vehicle sale immediately delivers an owed fi
  assert.equal(data.get('v01341-world-switch').taxiSupportGranted,1);
  assert.equal(data.get(F.taxi).vehicles.filter(v=>v.origin==='city').length,1,'Reload must never double-grant');
 });
+
+test('5-minute taxi automation aligns its first dispatch with actual 5-minute offer creation',async()=>{
+ const clock={ms:Date.UTC(2026,10,16,4,2,15)},data=fixture(clock.ms);
+ data.get(F.level).upgrades={distance:0,revenue:0,fleet:0,autoMinutes:24};
+ const a=await boot(data,clock);assert.deepEqual(a.errors,[]);
+ await a.click('world-auto-buy');
+ const next=data.get('v01323-taxi-offers').nextAutoAt,now=Math.floor(clock.ms/1000);
+ assert.equal(next%300,0);
+ assert.ok(next>now&&next-now<=300);
+ assert.equal(data.get('v01323-taxi-offers').autoInterval,300);
+});

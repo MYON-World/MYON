@@ -65,6 +65,7 @@ function sharedFleetLimit(){return 50+10*sharedFleetSteps();}
 function taxiAutoSteps(){return Math.min(25,taxiLevel?.upgrades?.autoMinutes||0);}
 function truckAutoSteps(){return Math.min(30,truckGarage?.upgrades?.autoMinutes||0);}
 function taxiAutoSeconds(){return Math.max(300,1800-60*taxiAutoSteps());}
+function taxiNextAutoAt(now){return taxiAutoSteps()===25?nextFiveMinute(now):now+taxiAutoSeconds();}
 function truckAutoSeconds(){return Math.max(0,1800-60*truckAutoSteps());}
 function autoEarningsRate(base,steps){return Math.max(0,base-steps/5);}
 function taxiAutoShare(fare,baseRate){return Math.floor(fare*(baseRate*5-taxiAutoSteps())/500);}
@@ -759,8 +760,9 @@ async function startTaxiOffers(now){
 function syncTaxiAutoCursor(now){
  if(!taxiOffers)return;
  const interval=taxiAutoSeconds();
- if(taxiOffers.autoInterval!==interval){
-  taxiOffers.autoInterval=interval;taxiOffers.nextAutoAt=now+interval;offersDirty=true;
+ if(taxiOffers.autoInterval!==interval||
+    taxiAutoSteps()===25&&taxiOffers.nextAutoAt%TAXI_OFFER_INTERVAL!==0){
+  taxiOffers.autoInterval=interval;taxiOffers.nextAutoAt=taxiNextAutoAt(now);offersDirty=true;
  }
 }
 function advanceTaxiOffers(now){
@@ -799,7 +801,7 @@ function autoAcceptTaxiOffers(now){
   taxiOffers.nextAutoAt=nextAutoSlot(now,taxiAutoSeconds());taxiOffers.autoInterval=taxiAutoSeconds();offersDirty=true;return;
  }
  if(now<taxiOffers.nextAutoAt)return;
- taxiOffers.nextAutoAt=now+taxiAutoSeconds();taxiOffers.autoInterval=taxiAutoSeconds();offersDirty=true;
+ taxiOffers.nextAutoAt=taxiNextAutoAt(now);taxiOffers.autoInterval=taxiAutoSeconds();offersDirty=true;
  if(levelNumber()<2)return;
  // Owned vehicles take priority over outsource offers within this same slot.
  let changed=autoAcceptOwnedTaxis(now);
@@ -3173,7 +3175,7 @@ async function buyWorldUpgrade(kind){
   if(kind==='fleet')worldProgress.fleetUnlocks++;
   else if(taxi){
    taxiLevel.upgrades.autoMinutes++;
-   taxiOffers.nextAutoAt=now+taxiAutoSeconds();
+   taxiOffers.nextAutoAt=taxiNextAutoAt(now);
    taxiOffers.autoInterval=taxiAutoSeconds();offersDirty=true;
   }else{
    truckGarage.upgrades.autoMinutes++;
