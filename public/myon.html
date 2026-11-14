@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.48</title>
+<title>MYON v0.13.49</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -435,12 +435,26 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .compensation-close{width:100%;background:transparent;border:0;color:#9bb9af;font-size:11px;margin-top:6px;padding:9px}
 .compensation-error{color:#f0a4a1;font-size:11px;text-align:center;margin-top:8px;line-height:1.5}
 .compensation-job-badge{font-size:10px;color:#9ae7c6;margin-top:7px;line-height:1.4}
+
+/* v0.13.49: hour-long, wall-clock update rollout; progress is elapsed wait time. */
+.auto-update-banner{position:relative;flex:none;background:#1a3540;border-bottom:1px solid #366276;padding:7px 12px 10px;min-height:43px;font-variant-numeric:tabular-nums}
+.auto-update-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.auto-update-title{font-size:11px;font-weight:800;color:#c3e7f0;line-height:1.4}
+.auto-update-percent{font-size:12px;color:#abdcf0;font-weight:800}
+.auto-update-sub{display:flex;align-items:center;justify-content:space-between;gap:9px;font-size:10px;color:#9cbecb;margin-top:3px}
+.auto-update-progress{position:absolute;bottom:0;left:0;right:0;height:3px;background:#294550;overflow:hidden}
+.auto-update-progress>div{height:100%;width:0;background:#79c7dc;transition:width 1s linear}
 </style>
 </head>
 <body>
 <div class="viewport"><div class="app">
 <header class="topbar"><div class="env-brand"><div class="brand-identity"><strong class="brand">MYON</strong><span id="current-world-name" class="current-world-name">택시 월드</span></div><button type="button" id="top-settings-toggle" class="env-settings" hidden aria-label="설정 시스템 연구 후 해금" aria-expanded="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.3 2.8 2.8-1.3 2.1.7 1.6L23 11v3l-2.5.6-.7 1.6 1.3 2.1-2.8 2.8-2.1-1.3-1.6.7L14 23h-4l-.6-2.5-1.6-.7-2.1 1.3-2.8-2.8 1.3-2.1-.7-1.6L1 14v-3l2.5-.6.7-1.6-1.3-2.1 2.8-2.8 2.1 1.3 1.6-.7z"/></svg></button></div><div class="clock" aria-label="한국 표준시"><span id="clock-date" class="clock-date"></span><time id="clock-time" class="clock-time"></time></div><div id="settings-panel" class="settings-panel" hidden><div class="settings-title">설정</div><div class="settings-row"><div class="settings-label"><strong>변경기록 알림</strong><small>새 버전의 24시간 알림 표시</small></div><button id="notification-toggle" class="settings-toggle" type="button" aria-pressed="true">켜짐</button></div></div></header>
-<div class="common-funds" aria-label="공용자금">
+<div id="auto-update-banner" class="auto-update-banner" hidden aria-label="시스템 업데이트 진행 상황">
+  <div class="auto-update-top"><strong id="auto-update-title" class="auto-update-title">새 커밋 적용 중</strong><strong id="auto-update-percent" class="auto-update-percent">0%</strong></div>
+  <div class="auto-update-sub"><span id="auto-update-detail">1시간 순차 적용</span><span id="auto-update-remaining">남은 60:00</span></div>
+  <div class="auto-update-progress"><div id="auto-update-fill"></div></div>
+ </div>
+ <div class="common-funds" aria-label="공용자금">
   <span class="common-funds-label">공용자금</span>
   <strong id="common-funds-amount" class="common-funds-value">0 M</strong>
 </div>
@@ -598,7 +612,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
    </section>
    <div class="home-running-separator"><span>진행중 임무</span></div>
   <div id="slot-list" class="slot-list"></div>
-  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.48</span></footer>
+  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.49</span></footer>
 </main>
 <section id="character-screen" class="content manage-screen" aria-label="관리" hidden>
   <div id="management-menu" class="manage-menu">
@@ -839,8 +853,9 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 
 </div></div>
 
-<script src="myon-v013.js?v=0.13.48"></script>
+<script src="myon-v013.js?v=0.13.49"></script>
 <script src="myon-rpg-taxi.js?v=0.13.38"></script>
+<script src="myon-auto-update.js?v=0.13.49"></script>
 
 </body>
 </html>

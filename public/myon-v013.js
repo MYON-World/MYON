@@ -1,4 +1,4 @@
-// MYON v0.13.48 — safe one-time emergency compensation; preserve legacy saves.
+// MYON v0.13.49 — safe one-hour automatic update rollout.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -166,6 +166,7 @@ let menuStudy=null,menuDirty=false,menuLastSave=0,menuSaveChain=Promise.resolve(
 let profile=null,preferences=null,resetBusy=false,commonFunds=null,taxiOffers=null,financeLedger=null,offersDirty=false,taxiLevel=null,worldProgress=null,truckGarage=null,truckOffers=null,worldSwitchBusy=false,worldSwitchTarget=null,assetSalePending=null;
 let profileSaveChain=Promise.resolve();
 let compensation=null,compensationModalOpen=false,compensationBusy=false,compensationError='';
+let autoUpdateReloadLock=false;
 const cards=new Map(),offerCards=new Map(),waitingVehicleCards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
 function pick(arr){return arr[nextRandom()%arr.length];}
@@ -902,9 +903,10 @@ function openDb(){
 // One-time, read-before-write raw restore snapshot of the prior game records.
 const SAVE_RESTORE_POINT='v01347-restore-point';
 const SAVE_RESTORE_POINT_48='v01348-before-compensation';
+const SAVE_RESTORE_POINT_49='v01349-before-auto-update';
 const SAVE_RESTORE_KEYS=[KEY,FINANCE_KEY,OWNED_KEY,TAXI_LEVEL_KEY,WORLD_KEY,
  TRUCK_GARAGE_KEY,TAXI_OFFERS_KEY,TRUCK_OFFERS_KEY,LEDGER_KEY,ASSISTANT_KEY,
- PROGRESSION_KEY,MENU_KEY,PROFILE_KEY,PREF_KEY];
+ PROGRESSION_KEY,MENU_KEY,PROFILE_KEY,PREF_KEY,COMPENSATION_KEY];
 async function preserveSaveRestorePoint(now,restoreKey=SAVE_RESTORE_POINT){
  if(!IS_LIVE)return;
  const db=await openDb();
@@ -1043,18 +1045,16 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.48',title:'긴급 복구 보상 · 7일 수익 +200% · 차량 50% 할인',
+ version:'0.13.49',title:'새 커밋 1시간 자동 적용 · 안전 저장 후 새로고침',
  entries:[
-  'GPT 코딩 초기화 오류의 복구 사과 보상: MYON 택시 2대와 공용자금 100,000 M를 수락 즉시 최초 1회 지급합니다.',
-  '수락한 실제 시각부터 168시간 동안 택시·트럭 임무 정산에 긴급 수익 +200%를 별도 항목으로 추가합니다. 이미 진행 중이던 미정산 임무도 포함합니다.',
-  '이미 완료되어 정산한 보상은 변경하지 않으며, 긴급 혜택 시간 안에 완료되는 운송에만 추가 수익이 발생합니다.',
-  '동일한 7일 동안 택시 신차·중고차와 트럭 신차의 차량 구매가격을 50% 할인합니다. 기간이 끝나면 자동으로 정상 가격으로 복귀합니다.',
-  '공용자금 바로 아래 한 줄짜리 오류 안내와, 가로 전체 너비의 4개 보상 항목을 가진 수령 팝업을 추가합니다.',
-  '보상 수령 후에는 7일 실시간 카운트다운과 수익 +200%·차량 구매 50% 할인 진행 상황을 표시합니다.',
-  '공용자금·지급 차량·지급 이력·만료 시각을 단일 IndexedDB 트랜잭션으로 저장하여 일부만 지급되거나 중복 수령하지 않도록 보호합니다.',
-  '차량 한도가 꽉 찬 경우 미지급 보상 택시 수량을 기록하고, 보유 한도에 빈자리가 생기면 자동으로 지급합니다.',
-  'v01348-before-compensation에 업데이트 전 기존 저장 키를 최초 1회 추가 백업하고, 다른 탭의 오래된 저장이 보상 기록을 덮어쓰지 못하도록 차단합니다.',
-  '기존 택시·트럭 진행 중인 임무와 기존 계약금액을 보존하며, CI에서 10개의 택시·트럭 세이브 호환성 테스트를 통과해야 배포합니다.'
+  '새 커밋의 GitHub Pages 배포가 완료되면 자동으로 감지합니다. 상단에 \'새 커밋 적용 중\' 알림과 진행률 0~100%를 표시합니다.',
+  '업데이트 진행률은 실제 설치 속도가 아니라 배포 확인 후 정해진 실제시간 60분의 경과율입니다. 남은 시간을 분·초로 표시합니다.',
+  '브라우저를 닫거나 다시 접속해도 동일한 업데이트의 시작 시각을 보관하여 남은 대기시간을 이어갑니다.',
+  '진행률이 100%가 되면 기존 세이브의 임무·공용자금·차량·재정 장부·보상 정보를 저장 후 재확인하고, 성공하면 최신 게임으로 자동 새로고침합니다.',
+  '보상 수령·차량 구매·월드 전환·기록 저장 등이 진행 중이거나 저장 검증에 실패하면 자동 새로고침을 보류합니다.',
+  '새 배포 정보가 확인되지 않거나 네트워크가 끊긴 상태에서는 새로운 버전으로 이동하지 않습니다.',
+  '매 60초 배포 정보를 확인하고 숨겨진 탭에서 돌아올 때도 즉시 재확인합니다. 신규 코드가 처음 배포되기 전부터 열린 탭은 최초 1회 직접 새로고침이 필요할 수 있습니다.',
+  '기존 v0.13.48의 수익 +200% 및 차량구매 50% 할인 7일 혜택, 택시·트럭 진행 중 임무와 저장 자료는 그대로 보존합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -1358,7 +1358,7 @@ function updateSettings(now){
  ui.gear.setAttribute('aria-label',unlocked?'설정 열기':'설정 시스템 연구 후 해금');
  if(!unlocked){ui.settings.hidden=true;ui.gear.setAttribute('aria-expanded','false');}
  ui.version.hidden=false;
- ui.version.textContent='v'+releaseManifest.version;
+ ui.version.textContent='v0.13.49'; // Display the code actually loaded, not merely the latest online notice.
  ui.notify.textContent=progression.notifyEnabled?'켜짐':'꺼짐';
  ui.notify.setAttribute('aria-pressed',String(progression.notifyEnabled));
 }
@@ -3096,17 +3096,64 @@ function draw(now){
 }
 function tick(){
  const now=Math.floor(Date.now()/1000);
- if(ready&&!resetBusy&&!compensationBusy){advance(now);deliverPendingCompensationCars();grantTaxiMasterReward(now);grantTruckMasterReward(now);if(activeWorld()==='taxi'){grantCityVehicles();grantEventVehicles();autoAcceptTaxiOffers(now);advanceTaxiOffers(now);}else{grantTruckEvent();grantTruckCity();fillTruckOffers();autoAcceptTruckOffers(now);}advanceProgression(now);advanceMenu(now);if((dirty||offersDirty)&&now-lastSave>=20)save(now);
+ if(ready&&!resetBusy&&!compensationBusy&&!autoUpdateReloadLock){advance(now);deliverPendingCompensationCars();grantTaxiMasterReward(now);grantTruckMasterReward(now);if(activeWorld()==='taxi'){grantCityVehicles();grantEventVehicles();autoAcceptTaxiOffers(now);advanceTaxiOffers(now);}else{grantTruckEvent();grantTruckCity();fillTruckOffers();autoAcceptTruckOffers(now);}advanceProgression(now);advanceMenu(now);if((dirty||offersDirty)&&now-lastSave>=20)save(now);
   if(progressionDirty&&now-progressionLastSave>=2)saveProgression(now);
   if(menuDirty&&now-menuLastSave>=2)saveMenu(now);}
  draw(now);
 }
+
+/* Only this read-only verification bridge is exposed to the separate updater.
+   A navigation is forbidden until every existing saved record matches memory. */
+window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){
+ if(!IS_LIVE||!ready||autoUpdateReloadLock||resetBusy||compensationBusy||
+    fleetBusy||vehicleBusy||truckBuyBusy||truckAcceptBusy||worldSwitchBusy||
+    compensationModalOpen||document.hidden)return false;
+ const focus=document.activeElement;
+ if(focus&&/^(INPUT|TEXTAREA|SELECT)$/.test(focus.tagName||''))return false;
+ autoUpdateReloadLock=true;
+ try{
+  const now=Math.floor(Date.now()/1000);
+  advance(now);
+  deliverPendingCompensationCars();
+  await save(now);
+  if(progressionDirty)saveProgression(now);
+  if(menuDirty)saveMenu(now);
+  await Promise.all([saveChain,progressionSaveChain,menuSaveChain,profileSaveChain]);
+  if(!ready||dirty||offersDirty||progressionDirty||menuDirty||
+     resetBusy||compensationBusy||fleetBusy||vehicleBusy||truckBuyBusy||
+     truckAcceptBusy||worldSwitchBusy)throw Error('Game save queue not clean');
+  const records=[
+   [KEY,state],[FINANCE_KEY,commonFunds],[LEDGER_KEY,financeLedger],
+   [OWNED_KEY,ownedGarage],[TAXI_LEVEL_KEY,taxiLevel],[WORLD_KEY,worldProgress],
+   [TRUCK_GARAGE_KEY,truckGarage],[TAXI_OFFERS_KEY,taxiOffers],[TRUCK_OFFERS_KEY,truckOffers],
+   [ASSISTANT_KEY,assistant],[COMPENSATION_KEY,compensation],
+   [PROGRESSION_KEY,progression],[MENU_KEY,menuStudy],[PROFILE_KEY,profile]
+  ];
+  for(const [key,expected] of records){
+   if(expected==null)continue;
+   const saved=await read(key);
+   if(JSON.stringify(saved)!==JSON.stringify(expected))
+    throw Error('Saved record differs from active game: '+key);
+  }
+  if(!ready||dirty||offersDirty||progressionDirty||menuDirty||
+     compensationBusy||fleetBusy||vehicleBusy||truckBuyBusy||truckAcceptBusy||
+     worldSwitchBusy)throw Error('Game changed during save verification');
+  // Keep the simulation paused only until parent navigation starts.
+  return true;
+ }catch(error){
+  console.warn('MYON update save check failed. Original game remains open:',error);
+  autoUpdateReloadLock=false;
+  return false;
+ }
+};
+window.MYON_CANCEL_UPDATE_LOCK=()=>{autoUpdateReloadLock=false;};
+
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
 window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if(ready&&!compensationBusy&&(dirty||offersDirty))save(now);if(ready&&progressionDirty)saveProgression(now);if(ready&&menuDirty)saveMenu(now);});
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(IS_LIVE){await preserveSaveRestorePoint(now);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_48);}
+ if(IS_LIVE){await preserveSaveRestorePoint(now);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_48);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_49);}
  if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startCommonFunds();await startFinanceLedger(now);await startOwnedGarage();await startTaxiOffers(now);await startAssistant(now,true);purgeNonTaxiMissions();await startTaxiLevel();await startWorldState();await startCompensation();await startProgression(now,true);await startMenu(now,true);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);

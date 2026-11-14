@@ -89,7 +89,7 @@ async function boot(data,clock={ms:Date.now()}){
  vm.runInNewContext(source,{window,document,location:{pathname:'/MYON/myon.html'},
   Date:FakeDate,setInterval:()=>0,fetch:async()=>({ok:false}),console:logs},{timeout:2000});
  await microtasks();
- return {data,clock,errors,e:id=>elements.get(id),async click(id){
+ return {data,clock,errors,e:id=>elements.get(id),checkpoint:()=>window.MYON_SAFE_UPDATE_CHECKPOINT(),cancelUpdate:()=>window.MYON_CANCEL_UPDATE_LOCK(),async click(id){
   const button=elements.get(id);assert.ok(button,'Expected UI element '+id);
   assert.equal(typeof button.handlers.click,'function','Expected click handler '+id);
   await button.handlers.click();await microtasks();
@@ -246,4 +246,47 @@ test('truck purchases use a 50 percent discounted cost only during the claimed w
  const secondCash=data.get(F.funds).balance;
  await a.click('truck-purchase-action');
  assert.equal(data.get(F.funds).balance,secondCash-20000000);
+});
+
+
+test('update checkpoint reads back every save and preserves legacy progression',async()=>{
+ const data=fixture(),originalFunds=data.get(F.funds).balance,originalLevel=data.get(F.level).completed;
+ const a=await boot(data);
+ assert.deepEqual(a.errors,[]);
+ await a.click('compensation-close');
+ assert.equal(await a.checkpoint(),true);
+ a.cancelUpdate();
+ assert.equal(data.get(F.funds).balance,originalFunds);
+ assert.equal(data.get(F.level).completed,originalLevel);
+ assert.equal(data.get(F.taxi).vehicles.length,4);
+});
+test('update checkpoint refuses stale tab with conflicting claimed compensation',async()=>{
+ const data=fixture();
+ const a=await boot(data),b=await boot(data);
+ await a.click('compensation-claim');
+ await b.click('compensation-close');
+ assert.equal(await b.checkpoint(),false);
+ assert.equal(data.get(F.comp).giftIssued,2);
+ assert.equal(data.get(F.ledger).entries.filter(x=>x.category==='compensation-grant').length,1);
+});
+test('update checkpoint refuses while emergency award is being reviewed',async()=>{
+ const a=await boot(fixture());
+ assert.equal(a.e('compensation-overlay').hidden,false);
+ assert.equal(await a.checkpoint(),false);
+ await a.click('compensation-close');
+ assert.equal(await a.checkpoint(),true);
+ a.cancelUpdate();
+});
+
+test('v0.13.49 restore point preserves claimed 7-day bonus record',async()=>{
+ const data=fixture(),now=Math.floor(Date.now()/1000);
+ const claim={schema:1,claimedAt:now-60,expiresAt:now-60+7*DAY,giftIssued:2};
+ data.set(F.comp,claim);
+ const a=await boot(data);
+ assert.deepEqual(a.errors,[]);
+ const point=data.get('v01349-before-auto-update');
+ assert.ok(point&&point.records,'Missing one-time pre-update backup');
+ assert.deepEqual(point.records[F.comp],claim);
+ assert.equal(point.records[F.funds].balance,12345678);
+ assert.equal(point.records[F.level].completed,625);
 });

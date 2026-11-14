@@ -23,6 +23,10 @@ jobs:
       - name: Build MYON official game
         run: |
           npm ci
+          # A successful Pages deployment publishes this commit revision.
+          # Old clients only begin the 1-hour rollout after seeing this file.
+          VERSION=$(node -p "require('./package.json').version")
+          printf '{"revision":"%s","version":"%s"}\n' "$GITHUB_SHA" "$VERSION" > public/myon-build.json
           npm test
           npm run build
       - name: Check published game
@@ -30,6 +34,7 @@ jobs:
           test -f dist/index.html
           test -f dist/myon.html
           test -f dist/myon-v013.js
+          test -f dist/myon-build.json
           ! test -e dist/test
           ! test -e dist/dev
       - uses: actions/upload-pages-artifact@v3
