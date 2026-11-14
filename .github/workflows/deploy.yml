@@ -23,6 +23,7 @@ jobs:
       - name: Build MYON official game
         run: |
           npm ci
+          npm test
           npm run build
       - name: Check published game
         run: |

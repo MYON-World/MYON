@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.47</title>
+<title>MYON v0.13.48</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -12,7 +12,7 @@ html,body{margin:0;width:100%;height:100%;background:#0b1217}
 button{font:inherit;cursor:pointer;touch-action:manipulation}
 button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .viewport{min-height:100dvh;display:flex;justify-content:center}
-.app{background:#0e171b;width:100%;max-width:450px;height:100dvh;height:100svh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.app{position:relative;background:#0e171b;width:100%;max-width:450px;height:100dvh;height:100svh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 @media(min-width:600px){.viewport{padding:20px 0}.app{height:calc(100dvh - 40px);border:1px solid #304448;border-radius:16px;box-shadow:0 0 35px #0005}}
 .topbar{position:relative;background:#14242a;border-bottom:1px solid #2c4346;height:77px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 17px}
 .brand{font-size:20px;font-weight:800;letter-spacing:.01em}
@@ -410,6 +410,31 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .world-asset-info strong{font-size:12px;color:#edf5f0}
 .world-asset-info small{font-size:10px;color:#aac3b9}
 .world-asset-row .slot-button{white-space:nowrap;flex:none}
+
+/* v0.13.48: the existing MYON screen stays intact. Compact banner below funds. */
+.compensation-notice{flex:none;display:flex;align-items:center;gap:7px;min-width:0;padding:6px 12px;background:#30291e;border-bottom:1px solid #675038}
+.compensation-notice-icon{font-size:13px;font-weight:800;color:#eab876}
+.compensation-notice-copy{flex:1;min-width:0;font-size:10px;color:#f1d0a4;line-height:1.4}
+.compensation-notice-action{flex:none;border:1px solid #8a6642;border-radius:5px;background:#48382a;color:#ffdcac;font-size:10px;font-weight:800;padding:5px 7px}
+.compensation-benefit{flex:none;background:#1b372c;border-bottom:1px solid #47755b;padding:8px 12px}
+.compensation-benefit-line{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:#bbefd0}
+.compensation-benefit-timer{font:750 11px/1.4 ui-monospace,Consolas,monospace;color:#edce98;white-space:nowrap;font-variant-numeric:tabular-nums}
+.compensation-benefit-detail{font-size:10px;color:#b4d8c0;margin-top:4px}
+.compensation-overlay{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:12px;background:#061013e0}
+.compensation-popup{width:100%;max-height:calc(100% - 24px);overflow-y:auto;background:#19292e;border:1px solid #557369;border-radius:10px;padding:17px 15px;box-shadow:0 15px 35px #0009}
+.compensation-popup-title{font-size:19px;font-weight:850;color:#edf5f0}
+.compensation-popup-subtitle{font-size:11px;color:#9bb9af;line-height:1.6;margin-top:6px}
+.compensation-reward-list{display:flex;flex-direction:column;gap:7px;margin-top:15px}
+.compensation-reward-row{width:100%;min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:9px;background:#213630;border:1px solid #38534a;border-radius:7px;padding:12px}
+.compensation-reward-label{font-size:12px;color:#bfd9cc}
+.compensation-reward-period{font-size:10px;color:#9bb9af;margin-top:4px}
+.compensation-reward-value{font-size:15px;color:#c1edcf;font-weight:850;text-align:right;white-space:nowrap}
+.compensation-apology{text-align:center;color:#e4c99c;font-size:12px;font-weight:750;line-height:1.65;margin:16px 0 14px}
+.compensation-claim{width:100%;min-height:40px;background:#27604e;color:#e8fff1;border:1px solid #549d7f;border-radius:7px;font-size:13px;font-weight:800}
+.compensation-claim:disabled{opacity:.45;cursor:default}
+.compensation-close{width:100%;background:transparent;border:0;color:#9bb9af;font-size:11px;margin-top:6px;padding:9px}
+.compensation-error{color:#f0a4a1;font-size:11px;text-align:center;margin-top:8px;line-height:1.5}
+.compensation-job-badge{font-size:10px;color:#9ae7c6;margin-top:7px;line-height:1.4}
 </style>
 </head>
 <body>
@@ -419,7 +444,15 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
   <span class="common-funds-label">공용자금</span>
   <strong id="common-funds-amount" class="common-funds-value">0 M</strong>
 </div>
-<main id="home-screen" class="content" aria-label="택시 월드 홈">
+<div id="compensation-notice" class="compensation-notice" hidden role="status">
+  <span class="compensation-notice-icon">!</span><span class="compensation-notice-copy">GPT 코딩 초기화 오류 · 세이브 로딩 문제 복구</span>
+  <button id="compensation-notice-action" type="button" class="compensation-notice-action">보상 확인</button>
+ </div>
+ <div id="compensation-benefit" class="compensation-benefit" hidden>
+  <div class="compensation-benefit-line"><span>긴급보상 진행 중</span><strong id="compensation-countdown" class="compensation-benefit-timer">남은 시간 7일 00:00:00</strong></div>
+  <div class="compensation-benefit-detail">임무 정산 +200% · 차량 구입 50% 할인<span id="compensation-remaining-cars"></span></div>
+ </div>
+ <main id="home-screen" class="content" aria-label="택시 월드 홈">
   <article class="slot home-world-entry" hidden aria-label="새로운 월드 진입 잠금">
     <div class="slot-head">
       <div class="slot-name"><strong>새로운 월드 진입</strong></div>
@@ -565,7 +598,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
    </section>
    <div class="home-running-separator"><span>진행중 임무</span></div>
   <div id="slot-list" class="slot-list"></div>
-  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.47</span></footer>
+  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.48</span></footer>
 </main>
 <section id="character-screen" class="content manage-screen" aria-label="관리" hidden>
   <div id="management-menu" class="manage-menu">
@@ -787,9 +820,26 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
   </div>
 </section>
 
+<div id="compensation-overlay" class="compensation-overlay" hidden>
+ <section class="compensation-popup" role="dialog" aria-modal="true" aria-labelledby="compensation-popup-title">
+  <div id="compensation-popup-title" class="compensation-popup-title">긴급 복구 보상</div>
+  <div id="compensation-popup-subtitle" class="compensation-popup-subtitle">세이브 오류 복구 사과 보상 · 수락 시 즉시 지급</div>
+  <div class="compensation-reward-list">
+   <div class="compensation-reward-row"><div class="compensation-reward-label">MYON 택시 무상지원</div><strong class="compensation-reward-value">2대</strong></div>
+   <div class="compensation-reward-row"><div class="compensation-reward-label">공용자금 일시 지급</div><strong class="compensation-reward-value">100,000 M</strong></div>
+   <div class="compensation-reward-row"><div><div class="compensation-reward-label">긴급 운송 수익 보너스</div><div class="compensation-reward-period">실제시간 7일 · 수령 즉시 시작</div></div><strong class="compensation-reward-value">+200%</strong></div>
+   <div class="compensation-reward-row"><div><div class="compensation-reward-label">차량 구입가격 할인</div><div class="compensation-reward-period">실제시간 7일 · 수령 즉시 시작</div></div><strong class="compensation-reward-value">50% 할인</strong></div>
+  </div>
+  <div class="compensation-apology">GPT 코딩 실수 죄송합니다. MYON 사장님들.</div>
+  <button id="compensation-claim" class="compensation-claim" type="button">보상 수락하기</button>
+  <button id="compensation-close" class="compensation-close" type="button">닫기</button>
+  <div id="compensation-error" class="compensation-error" role="status"></div>
+ </section>
+</div>
+
 </div></div>
 
-<script src="myon-v013.js?v=0.13.47-safe1"></script>
+<script src="myon-v013.js?v=0.13.48"></script>
 <script src="myon-rpg-taxi.js?v=0.13.38"></script>
 
 </body>
