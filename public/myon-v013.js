@@ -1,4 +1,4 @@
-// MYON v0.13.49 — safe one-hour automatic update rollout.
+// MYON v0.13.50 — 60-minute quiet period per newly deployed commit.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -1045,16 +1045,15 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.49',title:'새 커밋 1시간 자동 적용 · 안전 저장 후 새로고침',
+ version:'0.13.50',title:'연속 커밋 대기 · 새 버전마다 1시간 재시작',
  entries:[
-  '새 커밋의 GitHub Pages 배포가 완료되면 자동으로 감지합니다. 상단에 \'새 커밋 적용 중\' 알림과 진행률 0~100%를 표시합니다.',
-  '업데이트 진행률은 실제 설치 속도가 아니라 배포 확인 후 정해진 실제시간 60분의 경과율입니다. 남은 시간을 분·초로 표시합니다.',
-  '브라우저를 닫거나 다시 접속해도 동일한 업데이트의 시작 시각을 보관하여 남은 대기시간을 이어갑니다.',
-  '진행률이 100%가 되면 기존 세이브의 임무·공용자금·차량·재정 장부·보상 정보를 저장 후 재확인하고, 성공하면 최신 게임으로 자동 새로고침합니다.',
-  '보상 수령·차량 구매·월드 전환·기록 저장 등이 진행 중이거나 저장 검증에 실패하면 자동 새로고침을 보류합니다.',
-  '새 배포 정보가 확인되지 않거나 네트워크가 끊긴 상태에서는 새로운 버전으로 이동하지 않습니다.',
-  '매 60초 배포 정보를 확인하고 숨겨진 탭에서 돌아올 때도 즉시 재확인합니다. 신규 코드가 처음 배포되기 전부터 열린 탭은 최초 1회 직접 새로고침이 필요할 수 있습니다.',
-  '기존 v0.13.48의 수익 +200% 및 차량구매 50% 할인 7일 혜택, 택시·트럭 진행 중 임무와 저장 자료는 그대로 보존합니다.'
+  '새 커밋의 GitHub Pages 배포가 확인될 때마다 업데이트 진행률을 0%로 되돌리고, 해당 커밋 기준 실제시간 1시간 대기를 새로 시작합니다.',
+  '대기 중 추가 커밋이 계속 배포되면 최신 커밋으로 업데이트 대상을 바꾸고 1시간 대기 시간을 반복해서 연장합니다.',
+  '마지막으로 감지한 배포 이후 1시간 동안 새 커밋이 없을 때만 100%에 도달하여 세이브 확인 뒤 자동 새로고침합니다.',
+  '100% 직후에도 최신 배포를 다시 확인하며, 저장 검사 중 새 커밋이 발견되면 새로고침을 취소하고 0%부터 다시 기다립니다.',
+  '브라우저를 닫았다 열어도 최신 배포의 대기 시작 시각을 유지하고, 다른 MYON 탭이 감지한 새 커밋의 대기 시각도 공유합니다.',
+  '실제 설치 시간과 무관한 1시간 순차 적용 화면이며, 기존 자금·차량·진행 중 임무·7일 긴급보상 데이터는 변경하지 않습니다.',
+  '저장 검증이 실패하거나 이용 중인 작업이 있으면 안전을 위해 자동 새로고침을 연기합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -1358,7 +1357,7 @@ function updateSettings(now){
  ui.gear.setAttribute('aria-label',unlocked?'설정 열기':'설정 시스템 연구 후 해금');
  if(!unlocked){ui.settings.hidden=true;ui.gear.setAttribute('aria-expanded','false');}
  ui.version.hidden=false;
- ui.version.textContent='v0.13.49'; // Display the code actually loaded, not merely the latest online notice.
+ ui.version.textContent='v0.13.50'; // Display the code actually loaded, not merely the latest online notice.
  ui.notify.textContent=progression.notifyEnabled?'켜짐':'꺼짐';
  ui.notify.setAttribute('aria-pressed',String(progression.notifyEnabled));
 }

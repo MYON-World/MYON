@@ -1,10 +1,10 @@
-// MYON v0.13.49 — automatic rollout after one real-world hour.
+// MYON v0.13.50 — restart the full one-hour rollout for every newly deployed commit.
 // Progress reflects deliberate waiting time, not simulated download/install work.
 (function(){
 'use strict';
 if(/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname))return;
 const WAIT_MS=60*60*1000,CHECK_MS=60000,STORAGE_KEY='myon-commit-rollout-v1';
-const CODE_VERSION='0.13.49';
+const CODE_VERSION='0.13.50';
 const params=new URLSearchParams(location.search||'');
 const buildId=params.get('build')||'';
 const sourceId=buildId||'version:'+CODE_VERSION;
@@ -12,7 +12,7 @@ const $=id=>document.getElementById(id);
 const banner=$('auto-update-banner');
 if(!banner)return;
 let pending=null,checking=false,applying=false,refreshIssued=false;
-let lastVerifiedAt=0,retryAfter=0,note='';
+let retryAfter=0,note='';
 function valid(x){
  return Boolean(x&&x.schema===1&&x.from===sourceId&&
   typeof x.target==='string'&&/^[a-f0-9]{40}$/i.test(x.target)&&
@@ -64,13 +64,18 @@ async function check(){
   const latest=await response.json();
   if(!latest||typeof latest.revision!=='string'||!/^[a-f0-9]{40}$/i.test(latest.revision))return false;
   if(buildId?latest.revision===buildId:!versionGreater(latest.version,CODE_VERSION)){
-   if(pending){pending=null;persist();draw();}
+   // Keep an already verified pending rollout if an edge cache answers with stale metadata.
    return true;
   }
-  const old=pending||stored();
+  const old=stored()||pending;
   pending=old||{schema:1,from:sourceId,target:latest.revision,startedAt:Date.now()};
-  if(pending.target!==latest.revision)pending.target=latest.revision; // keep original one-hour timer
-  lastVerifiedAt=Date.now();note='';
+  if(pending.target!==latest.revision){
+   // A newer deployed commit replaces the target AND starts a fresh full hour.
+   pending.target=latest.revision;
+   pending.startedAt=Date.now();
+   retryAfter=0;
+   note='새 커밋 확인 · 1시간 대기 다시 시작';
+  }else note='';
   persist();draw();
   return true;
  }catch(error){console.warn('MYON rollout check:',error);return false;}
@@ -83,17 +88,19 @@ async function apply(){
  applying=true;note='최신 배포와 저장 자료 확인 중';draw();
  let checkpointGranted=false;
  try{
-  const target=pending.target;
-  // Re-verify after a long offline period; never navigate blindly.
-  if(Date.now()-lastVerifiedAt>90000){
-   if(!await check()||!pending||pending.target!==target)
-    throw Error('Fresh deployed revision not verified');
-  }
+  const target=pending.target,startedAt=pending.startedAt;
+  const samePending=()=>pending&&pending.target===target&&pending.startedAt===startedAt&&progress()===100;
+  // Even if the last poll was seconds ago, check before applying: a newer
+  // deployment resets the timer instead of being silently included.
+  if(!await check())throw Error('Deployment verification unavailable');
+  if(!samePending())throw Error('NEW_COMMIT_RESTARTED_HOUR');
   const checkpoint=window.MYON_SAFE_UPDATE_CHECKPOINT;
   if(typeof checkpoint!=='function')throw Error('Save verification bridge unavailable');
   checkpointGranted=await checkpoint();
   if(!checkpointGranted)throw Error('Game or save is not safe for reload');
-  if(!pending||pending.target!==target)throw Error('Target changed during save check');
+  // A newer release might land while IndexedDB is being checked.
+  if(!await check())throw Error('Deployment changed or is unavailable');
+  if(!samePending())throw Error('NEW_COMMIT_RESTARTED_HOUR');
   const parent=window.parent&&window.parent.location;
   if(!parent||typeof parent.replace!=='function'||typeof parent.href!=='string')
    throw Error('Parent refresh is unavailable');
@@ -104,14 +111,29 @@ async function apply(){
   parent.replace(next.href); // Reload the Vue host, not just the stale iframe.
  }catch(error){
   console.warn('MYON update postponed without reload:',error);
-  refreshIssued=false;note='세이브 보호 · 안전 확인 후 자동 적용';
-  retryAfter=Date.now()+30000;
+  refreshIssued=false;
+  if(error.message==='NEW_COMMIT_RESTARTED_HOUR'){
+   note='새 커밋 확인 · 1시간 대기 다시 시작';
+   retryAfter=0;
+  }else{
+   note='세이브 보호 · 안전 확인 후 자동 적용';
+   retryAfter=Date.now()+30000;
+  }
   if(checkpointGranted&&typeof window.MYON_CANCEL_UPDATE_LOCK==='function')
    window.MYON_CANCEL_UPDATE_LOCK();
  }finally{applying=false;draw();}
 }
+function syncSharedTimer(){
+ // A second open MYON tab may detect the newer commit first.
+ const shared=stored();
+ if(shared&&(!pending||shared.target!==pending.target||shared.startedAt!==pending.startedAt)){
+  pending=shared;retryAfter=0;note='새 커밋 확인 · 1시간 대기 다시 시작';
+ }
+}
 function tick(){
- if(!pending||refreshIssued)return;
+ if(refreshIssued)return;
+ syncSharedTimer();
+ if(!pending)return;
  draw();
  if(progress()===100&&!applying)void apply();
 }

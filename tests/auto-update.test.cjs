@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-auto-update.js'),'utf8');
-const A='a'.repeat(40),B='b'.repeat(40),C='c'.repeat(40);
+const A='a'.repeat(40),B='b'.repeat(40),C='c'.repeat(40),D='d'.repeat(40);
 const flush=async()=>{for(let i=0;i<300;i++)await Promise.resolve()};
 function harness({clock={ms:1760000000000},store=new Map(),target=B,online=true,hidden=false,
  checkpoint=async()=>true,build=A,version='0.13.50'}={}){
@@ -74,11 +74,50 @@ test('one-hour timer survives iframe reload or browser restart',async()=>{
  await b.advance(24*60000);
  assert.equal(b.navs.length,1);
 });
-test('newer commit during rollout updates target but preserves countdown',async()=>{
+test('every newer deployed commit restarts the full 60-minute wait',async()=>{
  const a=harness();await a.ready();await a.advance(25*60000);
- a.setTarget(C);await a.poll();
  assert.equal(a.nodes.get('auto-update-percent').textContent,'41%');
- await a.advance(35*60000);
+ a.setTarget(C);await a.poll();
+ assert.equal(a.nodes.get('auto-update-percent').textContent,'0%');
+ assert.equal(a.nodes.get('auto-update-remaining').textContent,'남은 60:00');
+ await a.advance(35*60000); // Original B rollout reaches its former deadline.
+ assert.equal(a.nodes.get('auto-update-percent').textContent,'58%');
+ assert.equal(a.navs.length,0);
+ a.setTarget(D);await a.poll(); // Another commit arrives before C's full hour.
+ assert.equal(a.nodes.get('auto-update-percent').textContent,'0%');
+ await a.advance(59*60000);
+ assert.equal(a.navs.length,0);
+ await a.advance(60000);
+ assert.equal(a.navs.length,1);
+ assert.ok(a.navs[0].includes('myon_commit='+D.slice(0,12)));
+});
+test('the reset timer for a newer commit persists after restarting the browser',async()=>{
+ const store=new Map(),clock={ms:1760000000000};
+ const a=harness({store,clock});await a.ready();await a.advance(50*60000);
+ a.setTarget(C);await a.poll();
+ assert.equal(a.nodes.get('auto-update-percent').textContent,'0%');
+ const b=harness({store,clock,target:C});await b.ready();
+ assert.equal(b.nodes.get('auto-update-remaining').textContent,'남은 60:00');
+ await b.advance(40*60000);
+ assert.equal(b.nodes.get('auto-update-percent').textContent,'66%');
+ assert.equal(b.navs.length,0);
+ await b.advance(20*60000);
+ assert.equal(b.navs.length,1);
+ assert.ok(b.navs[0].includes('myon_commit='+C.slice(0,12)));
+});
+test('new commit appearing during final save check prevents outdated refresh',async()=>{
+ let a,attempts=0;
+ a=harness({checkpoint:async()=>{
+  attempts++;
+  if(attempts===1)a.setTarget(C);
+  return true;
+ }});
+ await a.ready();
+ await a.advance(60*60000);
+ assert.equal(a.navs.length,0);
+ assert.equal(a.nodes.get('auto-update-percent').textContent,'0%');
+ assert.equal(a.nodes.get('auto-update-remaining').textContent,'남은 60:00');
+ await a.advance(60*60000);
  assert.equal(a.navs.length,1);
  assert.ok(a.navs[0].includes('myon_commit='+C.slice(0,12)));
 });
@@ -118,4 +157,18 @@ test('background tab remains pending until player returns',async()=>{
  await flush();
  await a.advance(1000);
  assert.equal(a.navs.length,1);
+});
+
+test('multiple open tabs share the restarted timer for the newest deployed commit',async()=>{
+ const store=new Map(),clock={ms:1760000000000};
+ const a=harness({store,clock,target:B}),b=harness({store,clock,target:B});
+ await a.ready();await b.ready();
+ await a.advance(20*60000);
+ assert.equal(a.nodes.get('auto-update-percent').textContent,'33%');
+ b.setTarget(C);await b.poll();
+ assert.equal(b.nodes.get('auto-update-percent').textContent,'0%');
+ await a.advance(1000);
+ assert.equal(a.nodes.get('auto-update-percent').textContent,'0%');
+ assert.equal(a.nodes.get('auto-update-remaining').textContent,'남은 59:59');
+ assert.equal(a.navs.length,0);
 });
