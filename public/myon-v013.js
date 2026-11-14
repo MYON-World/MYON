@@ -239,7 +239,7 @@ function levelRateText(l=levelNumber()){
 }
 function levelNextReward(l=levelNumber()){
  const n=l+1,type=taxiRewardType(n);
- if(type==='auto')return '30분마다 외주 자동수락 · 수동 수락 수익 +50% · 폐기 없음';
+ if(type==='auto')return '30분마다 외주·보유차량 자동수락 · 수동 수락 수익 +50% · 외주 폐기 없음';
  if(type==='city')return n===3?'시지원 차량 1대 · 운행거리 최대 '+levelMaxKm(n)+'km':
   '시지원 차량 +1대 → 총 '+cityEntitlement(n)+'대';
  if(type==='distance')return '장거리 최대 '+levelMaxKm(n)+'km';
@@ -265,7 +265,7 @@ function drawTaxiLevel(){
  if(future.hidden)future.open=false;
  renderTaxiFutureRewards();
  $('taxi-offer-rule').textContent=l>=2?
-  '외주 임무 5분마다 등장 · 수동 수락 수익 +50% · 30분마다 자동수락(기본 수익) · 폐기 없음':
+  '외주 임무 5분마다 등장 · 외주·보유차량 수동 +50% · 30분 자동수락(기본 수익) · 외주 폐기 없음':
   '외주 임무 5분마다 등장 · 수동 수락 · 미수락 시 1시간 뒤 폐기';
 }
 // Only finite LV.48 milestone rewards appear in the drop-down. Beyond that,
@@ -679,6 +679,17 @@ function advanceTaxiOffers(now){
  taxiOffers.nextOfferAt=nextFiveMinute(now);
  offersDirty=true;
 }
+// The shared 00/30-minute cursor dispatches idle owned taxis before outsource offers.
+function autoAcceptOwnedTaxis(now){
+ if(!ownedGarage)return false;
+ let changed=false;
+ for(const vehicle of ownedGarage.vehicles.slice().sort((a,b)=>(a.fleetNo||a.id)-(b.fleetNo||b.id))){
+  if(!vehicleDispatchAvailable(vehicle))continue;
+  const trip=makeOwnedTrip(vehicle,now,'auto');
+  state.units.push(trip);vehicle.activeMissionId=trip.id;changed=true;
+ }
+ return changed;
+}
 function autoAcceptTaxiOffers(now){
  if(activeWorld()!=='taxi'||!taxiOffers)return;
  if(!Number.isSafeInteger(taxiOffers.nextAutoAt)||taxiOffers.nextAutoAt<=0){
@@ -687,7 +698,8 @@ function autoAcceptTaxiOffers(now){
  if(now<taxiOffers.nextAutoAt)return;
  taxiOffers.nextAutoAt=nextAutoSlot(now);taxiOffers.autoInterval=TAXI_AUTO_INTERVAL;offersDirty=true;
  if(levelNumber()<2)return;
- let changed=false;
+ // Owned vehicles take priority over outsource offers within this same slot.
+ let changed=autoAcceptOwnedTaxis(now);
  // Auto-accept already waiting offers BEFORE generating the new supply.
  for(const offer of taxiOffers.offers.slice().sort((a,b)=>a.at-b.at)){
   if(state.units.length>=MAX_TOTAL||ownedActiveCount()>=INVOLVED_MAX_MISSIONS)break;
@@ -899,13 +911,13 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.42',title:'택시 LV.2 수동 수락 보너스 · 30분 자동수락',
+ version:'0.13.43',title:'보유 택시 자동수락 및 수동 수익 +50%',
  entries:[
   '택시 LV.2 이후 직접 수락한 신규 외주 운송은 기본 기사 수익 40%에 보너스 50%를 추가해 총 운임의 60%를 정산합니다.',
-  '자동 수락은 30분마다 진행하고 기존 외주 기사 수익 40%를 그대로 유지합니다.',
+  '매 00분·30분 대기 중인 보유 택시부터 자동수락하고 이후 외주 임무를 자동 수락합니다. 자동 운행은 기본 수익 그대로입니다.',
   '택시 외주 임무는 기존과 같이 5분마다 생성되며 LV.1은 보너스가 없고 미수락 시 1시간 뒤 폐기됩니다.',
   '이미 완료·정산한 보상과 수락해 운행 중인 기존 임무의 금액은 어떤 경우에도 소급 변경하지 않습니다.',
-  '기존 차량·택시 레벨·트럭 월드·월드 전환·공용 자금 저장 규칙을 유지합니다.'
+  '보유 택시도 LV.2부터 직접 수락한 신규 운행에 기본 차량 정산액의 50%를 추가합니다. 기존 차량·택시 레벨·트럭 월드·공용 자금 저장 규칙을 유지합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -1723,17 +1735,20 @@ function ownedTaxiFare(distance,at){
  const night=Math.ceil(base*nightRate/100);
  return {base,extra,night,nightRate,total:base+extra+night};
 }
-function makeOwnedTrip(v,now){
+function makeOwnedTrip(v,now,acceptMethod='manual'){
  const base=jobIdentity(now,null),seed=base.seed;
  const distance=range(seed,22,30,levelMaxKm()*10)*100;
  const fare=ownedTaxiFare(distance,now);
  // The city-out-of-town tariff remains. LV.5 unlocks an extra 1% on >10km.
  const longFare=levelNumber()>=5&&distance>10000?Math.ceil(fare.total/100):0;
- const total=fare.total+longFare,rate=levelRevenue(),shareUnits=Math.floor(total*rate/100);
+ const total=fare.total+longFare,rate=levelRevenue(),baseShareUnits=Math.floor(total*rate/100);
+ // Freeze +50% of the vehicle's own revenue only for a NEW manual LV.2+ trip.
+ const manualBonusUnits=acceptMethod==='manual'?taxiManualShare(baseShareUnits)-baseShareUnits:0;
+ const shareUnits=baseShareUnits+manualBonusUnits;
  const end=roadEnd(seed,now,distance);
  return {...base,kind:'taxi',dispatch:'owned',contractType:'owned',taxiContractVersion:3,worldCycle:worldProgress.cycles.taxi,
   vehicleId:v.id,vehicleNo:v.fleetNo||v.id,passengerMeters:distance,fareUnits:total,
-  shareUnits,revenueRate:rate,cityCutUnits:Math.max(0,total-shareUnits),
+  shareUnits,revenueRate:rate,acceptMethod,manualBonusUnits,cityCutUnits:Math.max(0,total-shareUnits),
   baseFare:fare.base,extraFare:fare.extra,nightFare:fare.night,longFare,nightRate:fare.nightRate,
   start:now,end,stages:[{phase:'outbound',start:now,end,distance}],
   startLocation:v.location,destination:'운행 거점 '+(v.trips+1)};
@@ -1766,6 +1781,8 @@ function ownedTaxiMissionText(job){
  if(job.nightFare)chunks.push('심야 +'+formatCommonFunds(job.nightFare));
  if(job.taxiContractVersion===3){
   chunks.push(job.revenueRate>100?'수익률 100% + 보너스 '+(job.revenueRate-100)+'%':'수익률 '+job.revenueRate+'%');
+  if(job.manualBonusUnits>0)chunks.push('수동 수락 +50% '+formatCommonFunds(job.manualBonusUnits));
+  else if(job.acceptMethod==='auto')chunks.push('자동 수락 · 기본 수익');
   chunks.push('예상 정산 '+formatCommonFunds(job.shareUnits));
  }else{
   const car=vehicleById(job.vehicleId);
@@ -1987,7 +2004,7 @@ function renderTaxiWaiting(){
  for(const v of idle){
   const slot=waitingVehicleCards.get(v.id);
   slot.metric.textContent=(v.origin==='event'?'리뉴얼 이벤트':v.origin==='city'?'시지원':'구입 차량')+
-   ' · 최대 '+levelMaxKm()+'km · '+levelRateText();
+   ' · 최대 '+levelMaxKm()+'km · '+levelRateText()+(levelNumber()>=2?' · 수동 +50%':'');
   slot.accept.disabled=fleetBusy||!vehicleDispatchAvailable(v);
  }
 }
@@ -2001,7 +2018,7 @@ async function acceptWaitingTaxi(vehicleId){
   advance(now);
   const vehicle=vehicleById(vehicleId);
   if(!vehicleDispatchAvailable(vehicle))return;
-  const trip=makeOwnedTrip(vehicle,now);
+  const trip=makeOwnedTrip(vehicle,now,'manual');
   state.units.push(trip);vehicle.activeMissionId=trip.id;dirty=true;
   await save(now);
  }finally{
