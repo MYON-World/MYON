@@ -8,7 +8,7 @@ const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-auto-update.
 const A='a'.repeat(40),B='b'.repeat(40),C='c'.repeat(40),D='d'.repeat(40);
 const flush=async()=>{for(let i=0;i<300;i++)await Promise.resolve()};
 function harness({clock={ms:1760000000000},store=new Map(),target=B,online=true,hidden=false,
- checkpoint=async()=>true,build=A,version='0.13.52'}={}){
+ checkpoint=async()=>true,build=A,version='0.13.53'}={}){
  const nodes=new Map(),intervals=[],events={},navs=[],requests=[];
  const get=id=>{
   if(nodes.has(id))return nodes.get(id);
@@ -50,8 +50,8 @@ function harness({clock={ms:1760000000000},store=new Map(),target=B,online=true,
 test('two-row banner shows installed and latest version, central percentage, bare big countdown',async()=>{
  const a=harness();await a.ready();
  assert.equal(a.nodes.get('auto-update-title').textContent,'신규 업데이트 적용 중');
- assert.equal(a.nodes.get('auto-update-version-from').textContent,'v0.13.51');
- assert.equal(a.nodes.get('auto-update-version-to').textContent,'v0.13.52');
+ assert.equal(a.nodes.get('auto-update-version-from').textContent,'v0.13.52');
+ assert.equal(a.nodes.get('auto-update-version-to').textContent,'v0.13.53');
  assert.equal(a.nodes.get('auto-update-remaining').textContent,'60:00');
  assert.equal(a.nodes.get('auto-update-percent').textContent,'0%');
  assert.equal(a.nodes.get('auto-update-progress').attributes['aria-valuenow'],'0');
@@ -62,9 +62,9 @@ test('two-row banner shows installed and latest version, central percentage, bar
 });
 test('latest version label and time reset together on a second deployed commit',async()=>{
  const a=harness();await a.ready();await a.advance(29*60000);
- a.setTarget(C);a.setVersion('0.13.53');await a.poll();
- assert.equal(a.nodes.get('auto-update-version-from').textContent,'v0.13.51');
- assert.equal(a.nodes.get('auto-update-version-to').textContent,'v0.13.53');
+ a.setTarget(C);a.setVersion('0.13.54');await a.poll();
+ assert.equal(a.nodes.get('auto-update-version-from').textContent,'v0.13.52');
+ assert.equal(a.nodes.get('auto-update-version-to').textContent,'v0.13.54');
  assert.equal(a.nodes.get('auto-update-remaining').textContent,'60:00');
  assert.equal(a.nodes.get('auto-update-percent').textContent,'0%');
  assert.equal(a.navs.length,0);

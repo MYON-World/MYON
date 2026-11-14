@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.51</title>
+<title>MYON v0.13.52</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -449,6 +449,36 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .auto-update-progress{position:relative;flex:1;min-width:45px;height:5px;background:#304d59;border-radius:8px;overflow:hidden}
 .auto-update-progress>div{height:100%;width:0;background:#82cada;border-radius:8px;transition:width .5s ease}
 .auto-update-detail{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+
+/* v0.13.52 Bus World: a compact observer-first dashboard. */
+#bus-world-panel[hidden],#world-switch-bus[hidden],#home-running-separator[hidden],#slot-list[hidden]{display:none!important}
+#bus-world-panel{display:flex;flex-direction:column;gap:9px;margin-bottom:12px}
+.bus-card{padding:12px 14px;min-height:0}
+.bus-headline{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 0 9px}
+.bus-headline strong{font-size:13px;color:#e5f3ea}
+.bus-headline span,.bus-headline>span{color:#a7c4b9;font-size:11px}
+.bus-progress{height:6px;border-radius:8px;background:#31474c;overflow:hidden;margin:10px 0 5px}
+#bus-level-progress{height:100%;background:#79d9ab;width:0%;transition:width .3s}
+.bus-goal{display:flex;justify-content:space-between;gap:8px;color:#a7c4b9;font-size:10px;margin-bottom:11px}
+.bus-locked{width:100%;opacity:.7;cursor:not-allowed}
+.bus-hint{color:#96b5aa;font-size:10px;line-height:1.55;margin:8px 0 0}
+.bus-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.bus-stats>div{display:flex;flex-direction:column;gap:5px;background:#20363a;border-radius:7px;padding:10px}
+.bus-stats span,.bus-settlement span{font-size:10px;color:#a9c5b9}
+.bus-stats strong{font-size:15px;color:#e7f8ec;font-variant-numeric:tabular-nums}
+.bus-settlement{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:10px;background:#1c4236;border-radius:7px}
+.bus-settlement strong{font-size:15px;color:#a0f3c4;font-variant-numeric:tabular-nums}
+.bus-action{width:100%;margin-top:8px;padding:10px}
+.bus-details{margin-top:10px;border-top:1px solid #304448;padding-top:10px;font-size:11px;color:#d3e9df}
+.bus-details summary{cursor:pointer;font-weight:700}
+.bus-vehicle-list{display:flex;flex-direction:column;gap:0;margin-top:6px;max-height:280px;overflow:auto}
+.bus-vehicle-row{display:flex;justify-content:space-between;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid #304448}
+.bus-vehicle-row:last-child{border-bottom:0}
+.bus-vehicle-copy{display:flex;flex-direction:column;gap:5px;min-width:0}
+.bus-vehicle-copy strong{font-size:11px;color:#e5f3ea}
+.bus-vehicle-copy small{font-size:10px;color:#9ebdb0;line-height:1.45}
+.bus-vehicle-row button{flex:none;font-size:10px;padding:6px}
+
 </style>
 </head>
 <body>
@@ -583,11 +613,51 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
       <button id="world-keep" class="slot-button" type="button">현재 월드 유지</button>
       <button id="world-switch-taxi" class="slot-button" type="button">택시 월드로 전환</button>
       <button id="world-switch-truck" class="slot-button" type="button">트럭 월드로 전환</button>
+      <button id="world-switch-bus" class="slot-button" type="button">버스 월드 최초 진출</button>
     </div>
     <p id="world-switch-warning" class="world-switch-warning" hidden></p>
     <button id="world-switch-confirm" type="button" class="slot-button world-switch-confirm" hidden>전환 확정</button>
     <p class="world-switch-future">추가 신규 월드 · 준비 중</p>
    </article>
+   <section id="bus-world-panel" aria-label="버스월드 LV.1 똑버스" hidden>
+     <article class="slot bus-card">
+      <div class="slot-head">
+       <div class="slot-name"><strong>똑버스 운영</strong></div><span class="slot-state">LV.1</span>
+      </div>
+      <div class="bus-headline"><span>누적 수송 완료</span><strong id="bus-level-count">0 / 1,000명</strong></div>
+      <div class="bus-progress"><div id="bus-level-progress"></div></div>
+      <div class="bus-goal"><span id="bus-level-note">목표까지 1,000명</span><span>목표 1,000명</span></div>
+      <button type="button" class="slot-button bus-locked" disabled aria-label="LV.2 업글 준비 중, 현재 잠금"><span aria-hidden="true">🔒</span> LV.2 업글 · 준비 중</button>
+      <p class="bus-hint">LV.2 설계 중 · 목표 달성 후에도 똑버스 운행 및 수익정산 계속</p>
+     </article>
+     <article class="slot bus-card">
+      <div class="bus-headline"><strong>MYON 솔라티</strong><span id="bus-fleet-count">운행 차량 1 / 100대</span></div>
+      <p class="bus-hint">시 지원 차량 1대 · 승객정원 15명 · 1인당 1,650원</p>
+      <div class="bus-stats">
+       <div><span>현재 탑승</span><strong id="bus-onboard">0 / 15명</strong></div>
+       <div><span>누적 승차매출</span><strong id="bus-gross">0 M</strong></div>
+      </div>
+      <div class="bus-settlement"><span>차고지 복귀 시 예상 정산금</span><strong id="bus-pending">0 M</strong></div>
+      <p class="bus-hint">오전반 06:00~12:00 · 오후반 13:00~21:00 마지막 정류장 출발 · 입고 시 정산</p>
+      <details class="bus-details">
+       <summary>차량별 운행 현황</summary>
+       <div id="bus-vehicle-list" class="bus-vehicle-list"></div>
+      </details>
+     </article>
+     <article class="slot bus-card">
+      <div class="bus-headline"><strong>차량 구매</strong><span>신차 6,000만원 · 최대 100대</span></div>
+      <button id="bus-purchase" type="button" class="slot-button bus-action">MYON 솔라티 구매 · 6,000 M</button>
+     </article>
+     <article class="slot bus-card">
+      <div class="bus-headline"><strong>자금 영구 해금</strong><span>현재 수익률 <strong id="bus-rate">40%</strong></span></div>
+      <button id="bus-revenue-buy" type="button" class="slot-button bus-action">수익률 +1%p · 10 M</button>
+      <p class="bus-hint">40%부터 최대 100% · 시 지원 및 직접 구매 차량 동일 적용 · 노선 변경 후에도 유지</p>
+      <details class="bus-details">
+       <summary>운영 기술 목록 · 추후 확정</summary>
+       <p class="bus-hint">운행 데이터 분석 · 수요 예측 · 호출 최적화 · 배차 최적화 · 스마트 차량 배치 · 통합 운행 관제</p>
+      </details>
+     </article>
+    </section>
    <div id="board-accept-area" class="board-style-group" hidden>
         <div id="taxi-offer-list" class="slot-list"></div>
         <div id="truck-offer-list" class="slot-list" hidden></div>
@@ -628,9 +698,9 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
      <p class="taxi-event-status">차량을 계속 보유할 수 있습니다. 이벤트 차량은 신차 가격의 25%로 판매 가능합니다.</p>
      <div id="world-assets-list" class="world-assets-list"></div>
    </section>
-   <div class="home-running-separator"><span>진행중 임무</span></div>
+   <div id="home-running-separator" class="home-running-separator"><span>진행중 임무</span></div>
   <div id="slot-list" class="slot-list"></div>
-  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.51</span></footer>
+  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.52</span></footer>
 </main>
 <section id="character-screen" class="content manage-screen" aria-label="관리" hidden>
   <div id="management-menu" class="manage-menu">
@@ -871,9 +941,11 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 
 </div></div>
 
-<script src="myon-v013.js?v=0.13.51"></script>
+<script src="myon-bus-engine.js?v=0.13.52"></script>
+<script src="myon-bus-ui.js?v=0.13.52"></script>
+<script src="myon-v013.js?v=0.13.52"></script>
 <script src="myon-rpg-taxi.js?v=0.13.38"></script>
-<script src="myon-auto-update.js?v=0.13.51"></script>
+<script src="myon-auto-update.js?v=0.13.52"></script>
 
 </body>
 </html>

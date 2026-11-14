@@ -1,10 +1,10 @@
-// MYON v0.13.51 — compact two-line update status with installed → pending versions.
+// MYON v0.13.52 — compact two-line update status with installed → pending versions.
 // Progress reflects deliberate waiting time, not simulated download/install work.
 (function(){
 'use strict';
 if(/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname))return;
 const WAIT_MS=60*60*1000,CHECK_MS=60000,STORAGE_KEY='myon-commit-rollout-v1';
-const CODE_VERSION='0.13.51';
+const CODE_VERSION='0.13.52';
 const params=new URLSearchParams(location.search||'');
 const buildId=params.get('build')||'';
 const sourceId=buildId||'version:'+CODE_VERSION;

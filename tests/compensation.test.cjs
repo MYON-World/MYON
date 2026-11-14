@@ -5,6 +5,8 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const source=fs.readFileSync(path.resolve(__dirname,'../public/myon-v013.js'),'utf8');
+const busEngineSource=fs.readFileSync(path.resolve(__dirname,'../public/myon-bus-engine.js'),'utf8');
+const busUiSource=fs.readFileSync(path.resolve(__dirname,'../public/myon-bus-ui.js'),'utf8');
 const F={world:'v01302-world',funds:'v01322-common-funds',taxi:'v01325-owned-vehicles',
  level:'v01337-taxi-level',ledger:'v01324-finance-ledger',
  comp:'v01348-emergency-compensation',restore:'v01348-before-compensation'};
@@ -86,6 +88,8 @@ async function boot(data,clock={ms:Date.now()}){
   static now(){return clock.ms}
  }
  const logs={log(){},warn(){},error(...args){errors.push(args.map(x=>String(x?.message||x)).join(' '))}};
+ vm.runInNewContext(busEngineSource,{window,document,Date:FakeDate,console:logs},{timeout:2000});
+ vm.runInNewContext(busUiSource,{window,document,Date:FakeDate,console:logs},{timeout:2000});
  vm.runInNewContext(source,{window,document,location:{pathname:'/MYON/myon.html'},
   Date:FakeDate,setInterval:()=>0,fetch:async()=>({ok:false}),console:logs},{timeout:2000});
  await microtasks();

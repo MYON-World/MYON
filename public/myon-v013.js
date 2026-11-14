@@ -1,10 +1,12 @@
-// MYON v0.13.51 — compact two-row update banner, no gameplay/save changes.
+// MYON v0.13.52 — Bus World LV.1 Ddok / LV.2 locked; existing saves preserved.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
 const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
 const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression',MENU_KEY='v01317-bottom-nav'; // Original saves unchanged.
-const COMPENSATION_KEY='v01348-emergency-compensation';
+const COMPENSATION_KEY='v01348-emergency-compensation',BUS_KEY='v01352-bus-world';
+const busEngine=window.MYON_BUS_ENGINE,busUi=window.MYON_BUS_UI;
+if(!busEngine||!busUi)throw Error('Bus module not ready; original save protected');
 const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style',FINANCE_KEY='v01322-common-funds',TAXI_OFFERS_KEY='v01323-taxi-offers',LEDGER_KEY='v01324-finance-ledger',OWNED_KEY='v01325-owned-vehicles',TAXI_LEVEL_KEY='v01337-taxi-level',WORLD_KEY='v01341-world-switch',TRUCK_GARAGE_KEY='v01341-truck-garage',TRUCK_OFFERS_KEY='v01341-truck-offers';
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
@@ -166,6 +168,7 @@ let menuStudy=null,menuDirty=false,menuLastSave=0,menuSaveChain=Promise.resolve(
 let profile=null,preferences=null,resetBusy=false,commonFunds=null,taxiOffers=null,financeLedger=null,offersDirty=false,taxiLevel=null,worldProgress=null,truckGarage=null,truckOffers=null,worldSwitchBusy=false,worldSwitchTarget=null,assetSalePending=null;
 let profileSaveChain=Promise.resolve();
 let compensation=null,compensationModalOpen=false,compensationBusy=false,compensationError='';
+let busState=null,busBusy=false;
 let autoUpdateReloadLock=false;
 const cards=new Map(),offerCards=new Map(),waitingVehicleCards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
 function nextRandom(){state.rng=(state.rng+0x6d2b79f5)>>>0;return mix(state.rng);}
@@ -196,7 +199,7 @@ function taxiUpgrades(){return taxiLevel?.upgrades||{distance:0,revenue:0,fleet:
 function taxiFleetLimit(){return Math.min(100,50+10*taxiUpgrades().fleet);}
 function taxiOutsourcePercent(){return Math.max(0,100-(ownedGarage?.vehicles.length||0));}
 function activeWorld(){return worldProgress?.active||'taxi';}
-function currentWorldLevel(){return activeWorld()==='taxi'?levelNumber():truckLevelNumber();}
+function currentWorldLevel(){return activeWorld()==='taxi'?levelNumber():activeWorld()==='truck'?truckLevelNumber():(busState?.level||1);}
 // A single cycle table drives actual earnings, city grants, max trip distance,
 // the next-level reward and the expanded level preview. Revenue grows every
 // level from LV.49 onward; distance tops out at LV.48 (200 km).
@@ -904,9 +907,10 @@ function openDb(){
 const SAVE_RESTORE_POINT='v01347-restore-point';
 const SAVE_RESTORE_POINT_48='v01348-before-compensation';
 const SAVE_RESTORE_POINT_49='v01349-before-auto-update';
+const SAVE_RESTORE_POINT_52='v01352-before-bus-world';
 const SAVE_RESTORE_KEYS=[KEY,FINANCE_KEY,OWNED_KEY,TAXI_LEVEL_KEY,WORLD_KEY,
  TRUCK_GARAGE_KEY,TAXI_OFFERS_KEY,TRUCK_OFFERS_KEY,LEDGER_KEY,ASSISTANT_KEY,
- PROGRESSION_KEY,MENU_KEY,PROFILE_KEY,PREF_KEY,COMPENSATION_KEY];
+ PROGRESSION_KEY,MENU_KEY,PROFILE_KEY,PREF_KEY,COMPENSATION_KEY,BUS_KEY];
 async function preserveSaveRestorePoint(now,restoreKey=SAVE_RESTORE_POINT){
  if(!IS_LIVE)return;
  const db=await openDb();
@@ -949,6 +953,7 @@ function save(now){
  const worldSnapshot=worldProgress?JSON.parse(JSON.stringify(worldProgress)):null;
  const truckGarageSnapshot=truckGarage?JSON.parse(JSON.stringify(truckGarage)):null;
  const truckOffersSnapshot=truckOffers?JSON.parse(JSON.stringify(truckOffers)):null;
+ const busSnapshot=busState?JSON.parse(JSON.stringify(busState)):null;
  const assistantSnapshot=assistant?JSON.parse(JSON.stringify(assistant)):null;
  const compensationSnapshot=compensation?JSON.parse(JSON.stringify(compensation)):null;
  lastSave=now;dirty=false;offersDirty=false;
@@ -976,6 +981,7 @@ function save(now){
    if(worldSnapshot)store.put(worldSnapshot,WORLD_KEY);
    if(truckGarageSnapshot)store.put(truckGarageSnapshot,TRUCK_GARAGE_KEY);
    if(truckOffersSnapshot)store.put(truckOffersSnapshot,TRUCK_OFFERS_KEY);
+    if(busSnapshot)store.put(busSnapshot,BUS_KEY);
    if(assistantSnapshot)store.put(assistantSnapshot,ASSISTANT_KEY);
    if(compensationSnapshot)store.put(compensationSnapshot,COMPENSATION_KEY);
    };
@@ -1045,9 +1051,14 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.51',title:'신규 업데이트 2줄 알림 · 버전 번호·카운터 강조',
+ version:'0.13.52',title:'버스월드 LV.1 똑버스 · LV.2 잠금',
  entries:[
-  '업데이트 상단 알림을 두 줄로 압축합니다. 첫 줄은 \'신규 업데이트 적용 중\'·중앙 진행률 %·오른쪽 큰 남은 시간 숫자입니다.',
+  'MYON 솔라티 시지원 1대, 승객정원 15명, 기본요금 1,650원, 차량 신차 6,000만원.',
+   '오전 06:00~12:00 / 오후 13:00~21:00 마지막 정류장 출발, 차고지 복귀 시 차량별 총매출 정산.',
+   '정류장 간 300~800m 랜덤, 하차→승차, 누적 수송완료 1,000명 목표, LV.2 업글 준비 중 잠금.',
+   'LV.1부터 차량 구매와 수익률 +1%p 영구 해금, 시지원·구입차 동일 정산율 40%부터 적용.',
+   '버스 진행도·차량·해금은 별도 영구 저장, 기존 택시·트럭과 공용자금 보존.',
+   '업데이트 상단 알림을 두 줄로 압축합니다. 첫 줄은 \'신규 업데이트 적용 중\'·중앙 진행률 %·오른쪽 큰 남은 시간 숫자입니다.',
   '둘째 줄에는 현재 실행 버전 → 배포된 신규 버전을 표시하고, 오른쪽에 길게 이어진 진행바를 배치합니다.',
   '남은 카운터의 \'남은\' 문구를 없애고 60:00부터 00:00까지 숫자만 크게 표시합니다.',
   '최신 배포 정보의 버전 번호를 실시간으로 읽어 실제 현재 실행 중인 버전과 신규 버전을 구분합니다.',
@@ -1357,7 +1368,7 @@ function updateSettings(now){
  ui.gear.setAttribute('aria-label',unlocked?'설정 열기':'설정 시스템 연구 후 해금');
  if(!unlocked){ui.settings.hidden=true;ui.gear.setAttribute('aria-expanded','false');}
  ui.version.hidden=false;
- ui.version.textContent='v0.13.51'; // Display the code actually loaded, not merely the latest online notice.
+ ui.version.textContent='v0.13.52'; // Display the code actually loaded, not merely the latest online notice.
  ui.notify.textContent=progression.notifyEnabled?'켜짐':'꺼짐';
  ui.notify.setAttribute('aria-pressed',String(progression.notifyEnabled));
 }
@@ -1690,7 +1701,7 @@ const FINANCE_HISTORY_LIMIT=100;
 function newFinanceLedger(now){
  return {schema:1,openedAt:now,openingBalance:commonFunds?commonFunds.balance:0,totalIncome:0,totalExpenses:0,entries:[]};
 }
-const FINANCE_CATEGORIES=['taxi-outsource','taxi-owned','truck-outsource','truck-owned','vehicle-purchase','vehicle-repayment','vehicle-repair','vehicle-sale','vehicle-sale-payoff','level-reward','ability-unlock','compensation-grant','compensation-income'];
+const FINANCE_CATEGORIES=['bus-operation','taxi-outsource','taxi-owned','truck-outsource','truck-owned','vehicle-purchase','vehicle-repayment','vehicle-repair','vehicle-sale','vehicle-sale-payoff','level-reward','ability-unlock','compensation-grant','compensation-income'];
 function validFinanceLedger(v){
  return Boolean(v&&v.schema===1&&Number.isSafeInteger(v.openedAt)&&v.openedAt>0&&
   Number.isSafeInteger(v.openingBalance)&&v.openingBalance>=0&&
@@ -1752,7 +1763,8 @@ function drawFinance(now){
    if(car)pending+=v.fareUnits-Math.min(car.remaining,Math.ceil(v.fareUnits*car.remaining/car.price));
   }
  }
- $('finance-pending').textContent='+'+formatCommonFunds(pending);
+ if(busState)pending+=busState.vehicles.reduce((sum,v)=>sum+Math.floor(v.gross*busEngine.rate(busState)/100),0);
+  $('finance-pending').textContent='+'+formatCommonFunds(pending);
  const records=financeLedger.entries.slice(0,20);
  const signature=records.map(e=>e.category+':'+e.id+':'+e.at+':'+e.amount).join('|');
  if(drawFinance.signature===signature)return;
@@ -1761,7 +1773,7 @@ function drawFinance(now){
  for(const record of records){
   const row=element('div','finance-transaction'),left=element('div','finance-transaction-copy');
   const date=new Date(record.at*1000);
-  const names={'taxi-outsource':'외주 택시 정산','taxi-owned':'보유 택시 수익','truck-outsource':'트럭 외주 정산','truck-owned':'트럭 운송 수익',
+  const names={'bus-operation':'똑버스 차고지 정산','taxi-outsource':'외주 택시 정산','taxi-owned':'보유 택시 수익','truck-outsource':'트럭 외주 정산','truck-owned':'트럭 운송 수익',
    'vehicle-purchase':'차량 구매','vehicle-repayment':'지원금 중도상환','vehicle-repair':'차량 수리',
    'vehicle-sale':'차량 판매','vehicle-sale-payoff':'판매 시 지원금 상환','level-reward':'레벨 달성 보상','ability-unlock':'능력 해금'};
   left.append(element('strong','',names[record.category]||'차량 거래'),
@@ -2370,10 +2382,13 @@ async function buyTruckMasterUpgrade(type){
 }
 for(const type of ['distance','revenue','fleet','roadtrain'])
  $('truck-master-'+type+'-buy').addEventListener('click',()=>buyTruckMasterUpgrade(type));
-function defaultWorldProgress(){return {schema:1,active:'taxi',visited:{taxi:true,truck:false},cycles:{taxi:1,truck:0},seen:{taxi:0,truck:0}};}
+function defaultWorldProgress(){return {schema:1,active:'taxi',visited:{taxi:true,truck:false,bus:false},cycles:{taxi:1,truck:0,bus:0},seen:{taxi:0,truck:0,bus:0}};}
 function validWorldProgress(x){
- return Boolean(x&&x.schema===1&&['taxi','truck'].includes(x.active)&&x.visited&&x.visited.taxi===true&&typeof x.visited.truck==='boolean'&&x.cycles&&x.seen&&
- ['taxi','truck'].every(k=>Number.isSafeInteger(x.cycles[k])&&x.cycles[k]>=0&&Number.isSafeInteger(x.seen[k])&&x.seen[k]>=0));
+ return Boolean(x&&x.schema===1&&['taxi','truck','bus'].includes(x.active)&&x.visited&&x.visited.taxi===true&&typeof x.visited.truck==='boolean'&&
+ (x.visited.bus===undefined||typeof x.visited.bus==='boolean')&&(x.active!=='bus'||x.visited.bus===true)&&x.cycles&&x.seen&&
+ ['taxi','truck'].every(k=>Number.isSafeInteger(x.cycles[k])&&x.cycles[k]>=0&&Number.isSafeInteger(x.seen[k])&&x.seen[k]>=0)&&
+ (x.cycles.bus===undefined||Number.isSafeInteger(x.cycles.bus)&&x.cycles.bus>=0)&&
+ (x.seen.bus===undefined||Number.isSafeInteger(x.seen.bus)&&x.seen.bus>=0));
 }
 function defaultTruckGarage(){return {schema:1,completed:0,nextId:1,eventGranted:0,cityGranted:{medium:false,large:false},
  upgrades:{distance:0,revenue:0,fleet:0,roadtrain:0},masterRewardPaid:false,vehicles:[]};}
@@ -2436,7 +2451,13 @@ async function startWorldState(){
  if(!IS_LIVE)return;
  try{
   const [world,garage,offers]=await Promise.all([read(WORLD_KEY),read(TRUCK_GARAGE_KEY),read(TRUCK_OFFERS_KEY)]);
-  if(world){if(!validWorldProgress(world))throw Error('Invalid saved world state');worldProgress=world;}else dirty=true;
+  if(world){
+   if(!validWorldProgress(world))throw Error('Invalid saved world state');
+   worldProgress=world;
+   if(worldProgress.visited.bus===undefined){worldProgress.visited.bus=false;dirty=true;}
+   if(worldProgress.cycles.bus===undefined){worldProgress.cycles.bus=0;dirty=true;}
+   if(worldProgress.seen.bus===undefined){worldProgress.seen.bus=0;dirty=true;}
+  }else dirty=true;
   if(garage){if(!normalizeTruckGarage(garage)||!validTruckGarage(garage))throw Error('Invalid saved truck garage');truckGarage=garage;}else dirty=true;
   if(offers){
    if(!validTruckOffers(offers))throw Error('Invalid saved truck offers');
@@ -2475,7 +2496,7 @@ function recallWorldVehicles(from){
  if(from==='taxi'){
   for(const v of ownedGarage.vehicles)if(v.origin==='city'&&v.activeMissionId)v.recallAfterMission=true;
   ownedGarage.vehicles=ownedGarage.vehicles.filter(v=>v.origin!=='city'||v.activeMissionId);
- }else{
+ }else if(from==='truck'){
   for(const v of truckGarage.vehicles)if(v.origin==='city'&&v.activeMissionId)v.recallAfterMission=true;
   truckGarage.vehicles=truckGarage.vehicles.filter(v=>v.origin!=='city'||v.activeMissionId);
   truckGarage.cityGranted={medium:false,large:false};
@@ -2777,30 +2798,34 @@ async function buyTruck(){
 function milestoneAvailable(){
  if(!worldProgress)return 0;
  if((activeWorld()==='taxi'&&taxiMaster())||(activeWorld()==='truck'&&truckMaster()))return 10; // A world's MASTER may always switch.
+  if(activeWorld()==='bus')return taxiMaster()||truckMaster()?10:0;
  const w=activeWorld(),lv=currentWorldLevel(),milestone=Math.floor(lv/10)*10;
  return milestone>=10&&milestone>worldProgress.seen[w]?milestone:0;
 }
 function drawWorldSwitchCard(){
- const card=$('world-switch-card'),milestone=milestoneAvailable(),master=activeWorld()==='taxi'?taxiMaster():truckMaster();
+ const card=$('world-switch-card'),milestone=milestoneAvailable(),master=activeWorld()==='bus'?false:activeWorld()==='taxi'?taxiMaster():truckMaster();
  card.hidden=!milestone;
  if(!milestone)return;
- $('world-keep').hidden=master;
- $('world-switch-level').textContent=master?(activeWorld()==='taxi'?'택시':'트럭')+' 마스터 · 자유로운 월드 이전':
+ $('world-keep').hidden=master||activeWorld()==='bus';
+ $('world-switch-level').textContent=activeWorld()==='bus'?'버스 LV.1 · 기존 마스터 월드 복귀 가능':master?(activeWorld()==='taxi'?'택시':'트럭')+' 마스터 · 자유로운 월드 이전':
   (activeWorld()==='taxi'?'택시':'트럭')+' LV.'+milestone+' · 월드 이전 기회';
- $('world-switch-taxi').hidden=activeWorld()==='taxi';
- $('world-switch-truck').hidden=activeWorld()==='truck';
+ $('world-switch-taxi').hidden=activeWorld()==='taxi'||activeWorld()==='bus'&&!taxiMaster();
+ $('world-switch-truck').hidden=activeWorld()==='truck'||activeWorld()==='bus'&&!truckMaster();
+  $('world-switch-bus').hidden=activeWorld()==='bus';
+  $('world-switch-bus').textContent=worldProgress.visited.bus?'버스 월드로 복귀':'버스 월드 최초 진출';
  $('world-switch-truck').textContent=worldProgress.visited.truck?'트럭 월드로 복귀':'트럭 월드 최초 진출';
  $('world-switch-warning').hidden=!worldSwitchTarget;
  $('world-switch-confirm').hidden=!worldSwitchTarget;
  if(worldSwitchTarget){
   const previous=worldProgress.visited[worldSwitchTarget];
-  $('world-switch-warning').textContent=(worldSwitchTarget==='taxi'?'택시':'트럭')+
+  $('world-switch-warning').textContent=({taxi:'택시',truck:'트럭',bus:'버스'}[worldSwitchTarget])+
    (previous?' 월드의 저장된 레벨로 복귀합니다.':' 월드 LV.1부터 시작합니다.')+
    ' 이전 월드의 성장·보유 차량·공용 자금·기존 계약 정산은 유지됩니다. 무료 지급 차량은 현재 월드에서만 이용합니다.';
  }
 }
 async function switchWorld(target){
- if(!ready||resetBusy||worldSwitchBusy||!milestoneAvailable()||target===activeWorld()||!['taxi','truck'].includes(target))return;
+ if(!ready||resetBusy||worldSwitchBusy||!milestoneAvailable()||target===activeWorld()||!['taxi','truck','bus'].includes(target))return;
+  if(activeWorld()==='bus'&&!(target==='taxi'&&taxiMaster()||target==='truck'&&truckMaster()))return;
  worldSwitchBusy=true;
  try{
   const now=Math.floor(Date.now()/1000);advance(now);grantTaxiMasterReward(now);grantTruckMasterReward(now);
@@ -2809,19 +2834,31 @@ async function switchWorld(target){
   recallWorldVehicles(from);
   // Never reset taxiLevel.completed, truckGarage.completed, or purchased upgrades.
   // Keep world offer boards and milestone-use flags for a later return.
-  worldProgress.active=target;worldProgress.visited[target]=true;worldProgress.cycles[target]++;
+  if(target==='bus'&&!worldProgress.visited.bus){
+    busState.lastAt=now;
+    for(const v of busState.vehicles)v.createdAt=now;
+   }
+   worldProgress.active=target;worldProgress.visited[target]=true;worldProgress.cycles[target]++;
   if(target==='taxi'){grantCityVehicles();grantEventVehicles();}
-  else{grantTruckEvent();grantTruckCity();fillTruckOffers();}
+  else if(target==='truck'){grantTruckEvent();grantTruckCity();fillTruckOffers();}
   renderTaxiFutureRewards.key=null;renderTaxiWaiting.signature=null;renderTaxiOffers.order=null;
   worldSwitchTarget=null;assetSalePending=null;dirty=true;offersDirty=true;await save(now);
  }finally{worldSwitchBusy=false;draw(Math.floor(Date.now()/1000));}
 }
 function renderWorldChrome(){
- const truck=activeWorld()==='truck';
- ui.worldName.textContent=truck?'트럭 월드':'택시 월드';
- nav.home.setAttribute('aria-label',truck?'트럭 월드 홈':'택시 월드 홈');
- $('taxi-offer-list').hidden=truck;$('taxi-offer-empty').hidden=truck;$('taxi-offer-rule').hidden=truck;
- $('taxi-vehicle-waiting').hidden=truck;$('taxi-purchase-area').hidden=truck;
+ const truck=activeWorld()==='truck',bus=activeWorld()==='bus';
+  $('bus-world-panel').hidden=!bus;
+  $('world-assets-area').hidden=bus;
+  $('home-mission-board-title').textContent=bus?'버스 운영':'임무판';
+  $('taxi-level-panel').hidden=bus;
+  $('taxi-master-panel').hidden=bus;
+  $('truck-master-panel').hidden=bus;
+  $('home-running-separator').hidden=bus;
+  $('slot-list').hidden=bus;
+ ui.worldName.textContent=bus?'버스 월드':truck?'트럭 월드':'택시 월드';
+ nav.home.setAttribute('aria-label',bus?'버스 월드 홈':truck?'트럭 월드 홈':'택시 월드 홈');
+ $('taxi-offer-list').hidden=truck||bus;$('taxi-offer-empty').hidden=truck||bus;$('taxi-offer-rule').hidden=truck||bus;
+ $('taxi-vehicle-waiting').hidden=truck||bus;$('taxi-purchase-area').hidden=truck||bus;
  $('truck-offer-list').hidden=!truck;$('truck-offer-rule').hidden=!truck;$('truck-purchase-area').hidden=!truck;
  if(!truck){
   $('level-future-summary').textContent='레벨 보상 전체보기 · LV.10까지';
@@ -2836,6 +2873,7 @@ function saleTerms(world,vehicle){
  return {gross,remaining,net:gross-remaining};
 }
 function drawWorldAssets(){
+ if(activeWorld()==='bus'){$('world-assets-area').hidden=true;return;}
  if(!worldProgress||!ownedGarage||!truckGarage||!commonFunds)return;
  const from=activeWorld()==='taxi'?'truck':'taxi',list=from==='taxi'?ownedGarage.vehicles:truckGarage.vehicles;
  const sellable=list.filter(v=>v.origin!=='city'),area=$('world-assets-area');area.hidden=!sellable.length;
@@ -2874,7 +2912,7 @@ $('world-keep').addEventListener('click',async()=>{
  const now=Math.floor(Date.now()/1000);worldProgress.seen[activeWorld()]=Math.floor(currentWorldLevel()/10)*10;
  worldSwitchTarget=null;dirty=true;await save(now);draw(now);
 });
-for(const w of ['taxi','truck'])$('world-switch-'+w).addEventListener('click',()=>{worldSwitchTarget=w;drawWorldSwitchCard();});
+for(const w of ['taxi','truck','bus'])$('world-switch-'+w).addEventListener('click',()=>{worldSwitchTarget=w;drawWorldSwitchCard();});
 $('world-switch-confirm').addEventListener('click',()=>{if(worldSwitchTarget)switchWorld(worldSwitchTarget);});
 
 
@@ -3038,6 +3076,71 @@ function drawCommonFunds(){
  if(!commonFunds)return;
  $('common-funds-amount').textContent=formatCommonFunds(commonFunds.balance);
 }
+
+async function startBusWorld(now){
+ busState=busEngine.initial(now);
+ if(!IS_LIVE)return;
+ const saved=await read(BUS_KEY);
+ if(saved){if(!busEngine.valid(saved))throw Error('Invalid bus-world save; original record protected');busState=saved;}
+ else dirty=true;
+}
+function advanceBusWorld(now){
+ if(!busState||!worldProgress?.visited.bus||!commonFunds||!financeLedger)return;
+ const result=busEngine.advance(busState,now);
+ if(result.changed)dirty=true;
+ for(const entry of result.settlements){
+  if(entry.payout<=0)continue;
+  if(!Number.isSafeInteger(commonFunds.balance+entry.payout)||!Number.isSafeInteger(financeLedger.totalIncome+entry.payout)){
+   console.error('MYON bus settlement overflow: preserve previous saved state');ready=false;return;
+  }
+  commonFunds.balance+=entry.payout;
+  recordFinanceTransaction('bus-operation',entry.payout,entry.at,entry.id);dirty=true;
+ }
+}
+function drawBusWorld(){
+ if(!busState||!commonFunds)return;
+ busUi.draw(busState,{rate:busEngine.rate(busState),funds:commonFunds.balance,
+  busy:busBusy||worldSwitchBusy||autoUpdateReloadLock,ready,format:formatCommonFunds,engine:busEngine});
+}
+async function toggleBusVehicle(id){
+ if(!ready||busBusy||worldSwitchBusy||autoUpdateReloadLock||activeWorld()!=='bus')return;
+ const v=busState.vehicles.find(x=>x.id===id);if(!v)return;
+ busBusy=true;
+ try{
+  const now=Math.floor(Date.now()/1000);advanceBusWorld(now);
+  v.enabled=!v.enabled;busState.lastAt=now;dirty=true;
+  await save(now);busUi.refresh();
+ }finally{busBusy=false;draw(Math.floor(Date.now()/1000));}
+}
+async function buyBusVehicle(){
+ if(!ready||busBusy||worldSwitchBusy||autoUpdateReloadLock||activeWorld()!=='bus'||!busState||!commonFunds)return;
+ if(busState.vehicles.length>=busEngine.MAX_VEHICLES||commonFunds.balance<busEngine.PRICE)return;
+ busBusy=true;
+ try{
+  const now=Math.floor(Date.now()/1000);advanceBusWorld(now);
+  if(commonFunds.balance<busEngine.PRICE)return;
+  const v=busEngine.addVehicle(busState,now);if(!v)return;
+  commonFunds.balance-=busEngine.PRICE;
+  recordFinanceTransaction('vehicle-purchase',-busEngine.PRICE,now,v.id);
+  dirty=true;await save(now);busUi.refresh();
+ }finally{busBusy=false;draw(Math.floor(Date.now()/1000));}
+}
+async function buyBusRevenue(){
+ if(!ready||busBusy||worldSwitchBusy||autoUpdateReloadLock||activeWorld()!=='bus'||!busState||!commonFunds)return;
+ if(busEngine.rate(busState)>=100||commonFunds.balance<busEngine.REVENUE_UNLOCK_PRICE)return;
+ busBusy=true;
+ try{
+  const now=Math.floor(Date.now()/1000);advanceBusWorld(now);
+  if(busEngine.rate(busState)>=100||commonFunds.balance<busEngine.REVENUE_UNLOCK_PRICE)return;
+  commonFunds.balance-=busEngine.REVENUE_UNLOCK_PRICE;busState.upgrades.revenue++;
+  recordFinanceTransaction('ability-unlock',-busEngine.REVENUE_UNLOCK_PRICE,now,52);
+  dirty=true;await save(now);
+ }finally{busBusy=false;draw(Math.floor(Date.now()/1000));}
+}
+busUi.init({onToggle:toggleBusVehicle});
+$('bus-purchase').addEventListener('click',buyBusVehicle);
+$('bus-revenue-buy').addEventListener('click',buyBusRevenue);
+
 function draw(now){
  const date=new Date(now*1000);
  ui.date.textContent=dateFmt.format(date).replace(/-/g,'.')+' ('+weekdayFmt.format(date)+')';
@@ -3046,6 +3149,12 @@ function draw(now){
  if(!ready)return;
  drawCompensation(now);
  renderWorldChrome();
+ if(activeWorld()==='bus'){
+  $('board-accept-area').hidden=true;
+  drawFinance(now);drawBusWorld();drawWorldSwitchCard();
+  drawAssistant(now);drawNotice(now);updateSettings(now);
+  return;
+ }
  $('board-accept-area').hidden=false;
  drawFinance(now);
  drawVehicles();
@@ -3095,7 +3204,7 @@ function draw(now){
 }
 function tick(){
  const now=Math.floor(Date.now()/1000);
- if(ready&&!resetBusy&&!compensationBusy&&!autoUpdateReloadLock){advance(now);deliverPendingCompensationCars();grantTaxiMasterReward(now);grantTruckMasterReward(now);if(activeWorld()==='taxi'){grantCityVehicles();grantEventVehicles();autoAcceptTaxiOffers(now);advanceTaxiOffers(now);}else{grantTruckEvent();grantTruckCity();fillTruckOffers();autoAcceptTruckOffers(now);}advanceProgression(now);advanceMenu(now);if((dirty||offersDirty)&&now-lastSave>=20)save(now);
+ if(ready&&!resetBusy&&!compensationBusy&&!autoUpdateReloadLock){advance(now);advanceBusWorld(now);deliverPendingCompensationCars();grantTaxiMasterReward(now);grantTruckMasterReward(now);if(activeWorld()==='taxi'){grantCityVehicles();grantEventVehicles();autoAcceptTaxiOffers(now);advanceTaxiOffers(now);}else{grantTruckEvent();grantTruckCity();fillTruckOffers();autoAcceptTruckOffers(now);}advanceProgression(now);advanceMenu(now);if((dirty||offersDirty)&&now-lastSave>=20)save(now);
   if(progressionDirty&&now-progressionLastSave>=2)saveProgression(now);
   if(menuDirty&&now-menuLastSave>=2)saveMenu(now);}
  draw(now);
@@ -3104,7 +3213,7 @@ function tick(){
 /* Only this read-only verification bridge is exposed to the separate updater.
    A navigation is forbidden until every existing saved record matches memory. */
 window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){
- if(!IS_LIVE||!ready||autoUpdateReloadLock||resetBusy||compensationBusy||
+ if(!IS_LIVE||!ready||autoUpdateReloadLock||resetBusy||compensationBusy||busBusy||
     fleetBusy||vehicleBusy||truckBuyBusy||truckAcceptBusy||worldSwitchBusy||
     compensationModalOpen||document.hidden)return false;
  const focus=document.activeElement;
@@ -3124,7 +3233,7 @@ window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){
   const records=[
    [KEY,state],[FINANCE_KEY,commonFunds],[LEDGER_KEY,financeLedger],
    [OWNED_KEY,ownedGarage],[TAXI_LEVEL_KEY,taxiLevel],[WORLD_KEY,worldProgress],
-   [TRUCK_GARAGE_KEY,truckGarage],[TAXI_OFFERS_KEY,taxiOffers],[TRUCK_OFFERS_KEY,truckOffers],
+   [TRUCK_GARAGE_KEY,truckGarage],[TAXI_OFFERS_KEY,taxiOffers],[TRUCK_OFFERS_KEY,truckOffers],[BUS_KEY,busState],
    [ASSISTANT_KEY,assistant],[COMPENSATION_KEY,compensation],
    [PROGRESSION_KEY,progression],[MENU_KEY,menuStudy],[PROFILE_KEY,profile]
   ];
@@ -3152,8 +3261,8 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
 (async()=>{
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
- if(IS_LIVE){await preserveSaveRestorePoint(now);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_48);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_49);}
- if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startCommonFunds();await startFinanceLedger(now);await startOwnedGarage();await startTaxiOffers(now);await startAssistant(now,true);purgeNonTaxiMissions();await startTaxiLevel();await startWorldState();await startCompensation();await startProgression(now,true);await startMenu(now,true);ready=true;tick();setInterval(tick,1000);return;}
+ if(IS_LIVE){await preserveSaveRestorePoint(now);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_48);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_49);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_52);}
+ if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startCommonFunds();await startFinanceLedger(now);await startOwnedGarage();await startTaxiOffers(now);await startAssistant(now,true);purgeNonTaxiMissions();await startTaxiLevel();await startWorldState();await startBusWorld(now);await startCompensation();await startProgression(now,true);await startMenu(now,true);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
@@ -3162,7 +3271,7 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
  if(firstVisit){
   // A vanished core mission key alongside other existing taxi saves must
   // never turn an established player into a brand-new game.
-  const others=await Promise.all([read(FINANCE_KEY),read(OWNED_KEY),read(TAXI_LEVEL_KEY),read(WORLD_KEY)]);
+  const others=await Promise.all([read(FINANCE_KEY),read(OWNED_KEY),read(TAXI_LEVEL_KEY),read(WORLD_KEY),read(BUS_KEY)]);
   if(others.some(Boolean))throw new Error('Mission record missing although existing player data is present; original data protected');
  }
  if(saved&&!validWorld(saved))throw new Error('Existing mission save invalid; preserve and block writes');
@@ -3188,6 +3297,7 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
  purgeNonTaxiMissions();
  await startTaxiLevel();
  await startWorldState();
+ await startBusWorld(now);
  await startCompensation();
  ready=true;
  advance(now);
