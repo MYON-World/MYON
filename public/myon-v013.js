@@ -1,4 +1,4 @@
-// MYON v0.13.32 — RPG taxi runs in isolated savings; legacy missions remain unchanged.
+// MYON v0.13.33 — two-tab navigation; RPG saves and simulations remain intact.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -10,7 +10,7 @@ const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,MAX_TOTAL=130,LOOKBACK=2*DAY,TAXI_OFFER_INTERVAL=600;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),supply:$('next-supply'),gear:$('top-settings-toggle'),version:$('top-version'),settings:$('settings-panel'),notify:$('notification-toggle')};
-const nav={home:$('home-screen'),character:$('character-screen'),world:$('world-screen'),bar:$('bottom-nav'),homeButton:$('bottom-home'),characterButton:$('bottom-character'),worldButton:$('bottom-world')};
+const nav={home:$('home-screen'),character:$('character-screen'),world:$('world-screen'),bar:$('bottom-nav'),homeButton:$('bottom-home'),characterButton:$('bottom-character')};
 const assistantContainer=$('assistant-slot');
 const dateFmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
 const weekdayFmt=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'});
@@ -910,8 +910,8 @@ function showManagement(section=null){
 }
 function showPage(target){
  // Legacy simulation remains active; only the visible panel changes.
- const pages={home:nav.home,character:nav.character,world:nav.world};
- const buttons={home:nav.homeButton,character:nav.characterButton,world:nav.worldButton};
+ const pages={home:nav.home,character:nav.character};
+ const buttons={home:nav.homeButton,character:nav.characterButton};
  if(!Object.prototype.hasOwnProperty.call(pages,target))return;
  for(const name of Object.keys(pages)){
   const selected=name===target;
@@ -920,6 +920,7 @@ function showPage(target){
   if(selected)buttons[name].setAttribute('aria-current','page');
   else buttons[name].removeAttribute('aria-current');
  }
+ nav.world.hidden=true; // The world UI remains stored for a future entry point.
  if(target==='character')showManagement();
  showWorldDirectory();
 }
@@ -941,7 +942,6 @@ function showRpgStartScreen(){
 function updateNav(){nav.bar.hidden=false;}
 nav.homeButton.addEventListener('click',()=>showPage('home'));
 nav.characterButton.addEventListener('click',()=>showPage('character'));
-nav.worldButton.addEventListener('click',()=>showPage('world'));
 $('world-rpg-open').addEventListener('click',showRpgStartScreen);
 $('rpg-back-to-worlds').addEventListener('click',showWorldDirectory);
 for(const button of document.querySelectorAll('[data-manage-target]')){
