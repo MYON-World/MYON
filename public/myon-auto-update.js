@@ -1,10 +1,10 @@
-// MYON v0.13.50 — restart the full one-hour rollout for every newly deployed commit.
+// MYON v0.13.51 — compact two-line update status with installed → pending versions.
 // Progress reflects deliberate waiting time, not simulated download/install work.
 (function(){
 'use strict';
 if(/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname))return;
 const WAIT_MS=60*60*1000,CHECK_MS=60000,STORAGE_KEY='myon-commit-rollout-v1';
-const CODE_VERSION='0.13.50';
+const CODE_VERSION='0.13.51';
 const params=new URLSearchParams(location.search||'');
 const buildId=params.get('build')||'';
 const sourceId=buildId||'version:'+CODE_VERSION;
@@ -16,7 +16,8 @@ let retryAfter=0,note='';
 function valid(x){
  return Boolean(x&&x.schema===1&&x.from===sourceId&&
   typeof x.target==='string'&&/^[a-f0-9]{40}$/i.test(x.target)&&
-  Number.isSafeInteger(x.startedAt)&&x.startedAt>0&&x.startedAt<Date.now()+60000);
+  Number.isSafeInteger(x.startedAt)&&x.startedAt>0&&x.startedAt<Date.now()+60000&&
+  (x.targetVersion===undefined||typeof x.targetVersion==='string'&&/^\d+\.\d+\.\d+$/.test(x.targetVersion)));
 }
 function stored(){
  try{
@@ -48,12 +49,17 @@ function draw(now=Date.now()){
  if(!pending)return;
  const remain=Math.max(0,Math.ceil((pending.startedAt+WAIT_MS-now)/1000)),pct=progress(now);
  const minutes=String(Math.floor(remain/60)).padStart(2,'0'),seconds=String(remain%60).padStart(2,'0');
+ const targetVersion=pending.targetVersion&&/^\d+\.\d+\.\d+$/.test(pending.targetVersion)?
+  'v'+pending.targetVersion:'최신 버전';
+ $('auto-update-version-from').textContent='v'+CODE_VERSION;
+ $('auto-update-version-to').textContent=targetVersion;
  $('auto-update-title').textContent=refreshIssued?'새 버전 여는 중':
-  applying?'데이터 저장 확인 중':pct>=100?'커밋 적용 준비 완료':'새 커밋 적용 중';
+  applying?'업데이트 저장 확인 중':pct>=100?'신규 업데이트 적용 준비':'신규 업데이트 적용 중';
  $('auto-update-percent').textContent=pct+'%';
  $('auto-update-fill').style.width=pct+'%';
+ $('auto-update-progress').setAttribute('aria-valuenow',String(pct));
  $('auto-update-detail').textContent=note||(pct>=100?'저장 확인 후 자동 새로고침':'1시간 순차 적용 · 기존 세이브 유지');
- $('auto-update-remaining').textContent=remain?'남은 '+minutes+':'+seconds:(refreshIssued?'이동 중':'적용 대기');
+ $('auto-update-remaining').textContent=minutes+':'+seconds;
 }
 async function check(){
  if(checking||refreshIssued||typeof fetch!=='function')return false;
@@ -62,13 +68,14 @@ async function check(){
   const response=await fetch('myon-build.json?check='+Date.now(),{cache:'no-store'});
   if(!response.ok)return false;
   const latest=await response.json();
-  if(!latest||typeof latest.revision!=='string'||!/^[a-f0-9]{40}$/i.test(latest.revision))return false;
+  if(!latest||typeof latest.revision!=='string'||!/^[a-f0-9]{40}$/i.test(latest.revision)||
+     typeof latest.version!=='string'||!/^\d+\.\d+\.\d+$/.test(latest.version))return false;
   if(buildId?latest.revision===buildId:!versionGreater(latest.version,CODE_VERSION)){
    // Keep an already verified pending rollout if an edge cache answers with stale metadata.
    return true;
   }
   const old=stored()||pending;
-  pending=old||{schema:1,from:sourceId,target:latest.revision,startedAt:Date.now()};
+  pending=old||{schema:1,from:sourceId,target:latest.revision,targetVersion:latest.version,startedAt:Date.now()};
   if(pending.target!==latest.revision){
    // A newer deployed commit replaces the target AND starts a fresh full hour.
    pending.target=latest.revision;
@@ -76,6 +83,7 @@ async function check(){
    retryAfter=0;
    note='새 커밋 확인 · 1시간 대기 다시 시작';
   }else note='';
+  pending.targetVersion=latest.version;
   persist();draw();
   return true;
  }catch(error){console.warn('MYON rollout check:',error);return false;}
