@@ -1,4 +1,4 @@
-// MYON v0.13.52 — shared stop-by-stop passenger / depot settlement engine.
+// MYON v0.13.53 — shared stop-by-stop passenger / depot settlement engine.
 // LV.1 Ddok bus is the first client. Rail and later buses can reuse these rules.
 (function(root){
 'use strict';
@@ -118,8 +118,8 @@ function advance(s,now){
  s.lastAt=now;
  return {changed,settlements};
 }
-function addVehicle(s,now){
- if(!valid(s)||s.vehicles.length>=MAX_VEHICLES)return null;
+function addVehicle(s,now,limit=MAX_VEHICLES){
+ if(!valid(s)||s.vehicles.length>=MAX_VEHICLES||s.vehicles.length>=Math.max(0,Math.min(MAX_VEHICLES,limit)))return null;
  const v=vehicle(s.nextId++,'new',now);
  s.vehicles.push(v);return v;
 }

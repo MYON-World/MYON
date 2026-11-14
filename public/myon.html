@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.52</title>
+<title>MYON v0.13.53</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -479,6 +479,12 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .bus-vehicle-copy small{font-size:10px;color:#9ebdb0;line-height:1.45}
 .bus-vehicle-row button{flex:none;font-size:10px;padding:6px}
 
+.world-upgrade-card{margin:8px 0;padding:10px 12px}
+.world-upgrade-head{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px}
+.world-upgrade-head span{font-size:11px;color:#a3c9bf}
+.world-upgrade-buy{width:100%;margin-top:8px}
+.world-upgrade-note{font-size:10px;color:#96b5aa;line-height:1.55;margin:6px 0 0}
+#world-auto-upgrade[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -492,11 +498,11 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
   </div>
   <div class="auto-update-sub">
     <div class="auto-update-version">
-      <span id="auto-update-version-from">v0.13.51</span>
+      <span id="auto-update-version-from">v0.13.53</span>
       <span class="auto-update-version-arrow" aria-hidden="true">→</span>
       <span id="auto-update-version-to" class="auto-update-version-new">최신 버전</span>
     </div>
-    <div class="auto-update-progress" role="progressbar" aria-label="신규 업데이트 대기 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div id="auto-update-progress" class="auto-update-progress" role="progressbar" aria-label="신규 업데이트 대기 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
       <div id="auto-update-fill"></div>
     </div>
   </div>
@@ -619,6 +625,17 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     <button id="world-switch-confirm" type="button" class="slot-button world-switch-confirm" hidden>전환 확정</button>
     <p class="world-switch-future">추가 신규 월드 · 준비 중</p>
    </article>
+   <section id="world-fleet-upgrade" class="slot world-upgrade-card" aria-label="월드 공용 차량 보유 한도 해금">
+      <div class="world-upgrade-head"><strong>월드 공용 차량 보유 한도</strong><span id="world-fleet-count">월드별 50 / 100대</span></div>
+      <button id="world-fleet-buy" type="button" class="slot-button world-upgrade-buy">차량 한도 +10대 · 200 M</button>
+      <p class="world-upgrade-note">구매 한도는 모든 월드 공용 · 첫 레벨 지원 차량은 별도로 최대 100대까지 지급</p>
+    </section>
+    <section id="world-auto-upgrade" class="slot world-upgrade-card" aria-label="자동수락 최적화 자금 해금" hidden>
+      <div class="world-upgrade-head"><strong>자동수락 최적화</strong><span id="world-auto-count">30분 자동수락</span></div>
+      <div id="world-auto-rate" class="world-upgrade-note">자동 정산율 40% · 수동 +50%</div>
+      <button id="world-auto-buy" type="button" class="slot-button world-upgrade-buy">자동수락 -1분 · 20 M</button>
+      <p class="world-upgrade-note">월드별 영구 해금 · 1분당 자동수익 -0.2%p · 기존 계약 보상 유지</p>
+    </section>
    <section id="bus-world-panel" aria-label="버스월드 LV.1 똑버스" hidden>
      <article class="slot bus-card">
       <div class="slot-head">
@@ -700,7 +717,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
    </section>
    <div id="home-running-separator" class="home-running-separator"><span>진행중 임무</span></div>
   <div id="slot-list" class="slot-list"></div>
-  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.52</span></footer>
+  <footer class="home-version-footer" aria-label="게임 버전">MYON · <span id="home-version" class="home-version-text">v0.13.53</span></footer>
 </main>
 <section id="character-screen" class="content manage-screen" aria-label="관리" hidden>
   <div id="management-menu" class="manage-menu">
@@ -941,11 +958,11 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 
 </div></div>
 
-<script src="myon-bus-engine.js?v=0.13.52"></script>
-<script src="myon-bus-ui.js?v=0.13.52"></script>
-<script src="myon-v013.js?v=0.13.52"></script>
+<script src="myon-bus-engine.js?v=0.13.53"></script>
+<script src="myon-bus-ui.js?v=0.13.53"></script>
+<script src="myon-v013.js?v=0.13.53"></script>
 <script src="myon-rpg-taxi.js?v=0.13.38"></script>
-<script src="myon-auto-update.js?v=0.13.52"></script>
+<script src="myon-auto-update.js?v=0.13.53"></script>
 
 </body>
 </html>

@@ -1,10 +1,10 @@
-// MYON v0.13.52 — compact Bus World dashboard, no save access.
+// MYON v0.13.53 — compact Bus World dashboard, no save access.
 (function(root){
 'use strict';
 const $=id=>document.getElementById(id);
 let handlers=null,lastSignature='';
 function init(callbacks){handlers=callbacks;}
-function draw(s,{rate,funds,busy,ready,format,engine}){
+function draw(s,{rate,funds,busy,ready,format,engine,fleetLimit=engine.MAX_VEHICLES}){
  if(!s)return;
  const fleet=s.vehicles,onboard=fleet.reduce((n,v)=>n+v.onboard,0);
  const gross=fleet.reduce((n,v)=>n+v.gross,0);
@@ -13,14 +13,14 @@ function draw(s,{rate,funds,busy,ready,format,engine}){
  $('bus-level-count').textContent=s.completed.toLocaleString('ko-KR')+' / '+target.toLocaleString('ko-KR')+'명';
  $('bus-level-progress').style.width=Math.min(100,s.completed/target*100).toFixed(2)+'%';
  $('bus-level-note').textContent=s.completed>=target?'목표 달성 · LV.1 계속 운영 가능':'목표까지 '+(target-s.completed).toLocaleString('ko-KR')+'명';
- $('bus-fleet-count').textContent='운행 차량 '+fleet.length+' / 100대';
+ $('bus-fleet-count').textContent='운행 차량 '+fleet.length+' / '+fleetLimit+'대';
  $('bus-onboard').textContent=onboard+' / '+(fleet.length*engine.CAPACITY)+'명';
  $('bus-gross').textContent=format(gross);
  $('bus-pending').textContent=format(projected);
  $('bus-rate').textContent=rate+'%';
  const buy=$('bus-purchase'),unlock=$('bus-revenue-buy');
- buy.disabled=!ready||busy||fleet.length>=engine.MAX_VEHICLES||funds<engine.PRICE;
- buy.textContent=fleet.length>=engine.MAX_VEHICLES?'보유 한도 100대':'MYON 솔라티 구매 · '+format(engine.PRICE);
+ buy.disabled=!ready||busy||fleet.length>=fleetLimit||funds<engine.PRICE;
+ buy.textContent=fleet.length>=fleetLimit?'보유 한도 '+fleetLimit+'대':'MYON 솔라티 구매 · '+format(engine.PRICE);
  unlock.disabled=!ready||busy||rate>=100||funds<engine.REVENUE_UNLOCK_PRICE;
  unlock.textContent=rate>=100?'해금 완료 · 100%':'수익률 +1%p · '+format(engine.REVENUE_UNLOCK_PRICE);
  const signature=fleet.map(v=>[v.id,v.phase,v.enabled,v.onboard,v.waiting,v.gross,v.lastBoarded,v.lastAlighted,v.lastSettlementAt].join(':')).join('|')+'|'+busy;

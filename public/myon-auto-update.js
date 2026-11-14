@@ -1,10 +1,10 @@
-// MYON v0.13.52 — compact two-line update status with installed → pending versions.
+// MYON v0.13.53 — compact two-line update status with installed → pending versions.
 // Progress reflects deliberate waiting time, not simulated download/install work.
 (function(){
 'use strict';
 if(/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname))return;
 const WAIT_MS=60*60*1000,CHECK_MS=60000,STORAGE_KEY='myon-commit-rollout-v1';
-const CODE_VERSION='0.13.52';
+const CODE_VERSION='0.13.53';
 const params=new URLSearchParams(location.search||'');
 const buildId=params.get('build')||'';
 const sourceId=buildId||'version:'+CODE_VERSION;
@@ -57,7 +57,8 @@ function draw(now=Date.now()){
   applying?'업데이트 저장 확인 중':pct>=100?'신규 업데이트 적용 준비':'신규 업데이트 적용 중';
  $('auto-update-percent').textContent=pct+'%';
  $('auto-update-fill').style.width=pct+'%';
- $('auto-update-progress').setAttribute('aria-valuenow',String(pct));
+ const progressBar=$('auto-update-progress');
+ if(progressBar)progressBar.setAttribute('aria-valuenow',String(pct));
  $('auto-update-detail').textContent=note||(pct>=100?'저장 확인 후 자동 새로고침':'1시간 순차 적용 · 기존 세이브 유지');
  $('auto-update-remaining').textContent=minutes+':'+seconds;
 }

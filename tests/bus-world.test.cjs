@@ -66,3 +66,22 @@ test('browser game wiring keeps existing saves and upgrade locked',()=>{
  assert.ok(html.indexOf('myon-bus-ui.js')<html.indexOf('myon-v013.js'));
  assert.doesNotThrow(()=>new Function('window','document','location',main));
 });
+
+test('bus purchases respect shared 50-car buying limit but original engine stays under absolute 100',()=>{
+ const e=engine(),now=at(2026,11,16,6),s=e.initial(now);
+ for(let i=2;i<=50;i++)assert.ok(e.addVehicle(s,now+i,50));
+ assert.equal(s.vehicles.length,50);
+ assert.equal(e.addVehicle(s,now+51,50),null);
+ assert.equal(e.valid(s),true);
+ assert.ok(e.addVehicle(s,now+52,60));
+});
+test('v0.13.53 shared fleet and auto upgrade UI is reachable in all worlds while bus LV2 stays locked',()=>{
+ const main=fs.readFileSync(path.join(root,'public/myon-v013.js'),'utf8');
+ const html=fs.readFileSync(path.join(root,'public/myon.html'),'utf8');
+ for(const id of ['world-fleet-buy','world-fleet-count','world-auto-buy','world-auto-rate'])
+  assert.ok(html.includes('id="'+id+'"'));
+ assert.ok(main.includes("fleetLimit:sharedFleetLimit()"));
+ assert.ok(main.includes("advanceTaxiOffers(now);autoAcceptTaxiOffers(now)"));
+ assert.ok(main.includes("truckAutoSeconds()>0&&now<truckOffers.nextAutoAt"));
+ assert.match(html,/LV\.2 업글 · 준비 중/);
+});

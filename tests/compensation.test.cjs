@@ -294,3 +294,67 @@ test('v0.13.49 restore point preserves claimed 7-day bonus record',async()=>{
  assert.equal(point.records[F.funds].balance,12345678);
  assert.equal(point.records[F.level].completed,625);
 });
+
+test('v0.13.53 upgrades old fleet claims by the highest pre-existing taxi/truck step',async()=>{
+ const data=fixture();
+ data.get(F.level).upgrades={distance:0,revenue:0,fleet:2};
+ data.get('v01341-truck-garage').upgrades={distance:0,revenue:0,fleet:3,roadtrain:0};
+ const a=await boot(data);assert.deepEqual(a.errors,[]);
+ assert.equal(data.get('v01341-world-switch').fleetUnlocks,3);
+ assert.match(a.e('world-fleet-count').textContent,/80 \/ 100대/);
+ const cash=data.get(F.funds).balance;
+ await a.click('world-fleet-buy');
+ assert.equal(data.get('v01341-world-switch').fleetUnlocks,4);
+ assert.equal(data.get(F.funds).balance,cash-2000000);
+ assert.equal(data.get(F.level).upgrades.fleet,2,'Legacy taxi upgrade must remain unchanged');
+});
+test('taxi auto acceptance upgrade persists -1 minute and does not recalculate frozen jobs',async()=>{
+ const data=fixture();
+ const frozen={id:9,kind:'taxi',shareUnits:4000,acceptMethod:'manual'};
+ const a=await boot(data);assert.deepEqual(a.errors,[]);
+ const cash=data.get(F.funds).balance;
+ await a.click('world-auto-buy');
+ assert.equal(data.get(F.level).upgrades.autoMinutes,1);
+ assert.equal(data.get('v01323-taxi-offers').autoInterval,1740);
+ assert.equal(data.get(F.funds).balance,cash-200000);
+ assert.equal(frozen.shareUnits,4000);
+});
+test('maximum taxi auto upgrade reaches a 5-minute matching dispatch interval',async()=>{
+ const data=fixture();data.get(F.level).upgrades={distance:0,revenue:0,fleet:0,autoMinutes:24};
+ const a=await boot(data);assert.deepEqual(a.errors,[]);
+ assert.equal(a.e('world-auto-count').textContent,'6분 자동수락');
+ await a.click('world-auto-buy');
+ assert.equal(data.get(F.level).upgrades.autoMinutes,25);
+ assert.equal(data.get('v01323-taxi-offers').autoInterval,300);
+ assert.equal(a.e('world-auto-count').textContent,'5분 자동수락');
+ assert.equal(a.e('world-auto-buy').disabled,true);
+});
+test('truck auto unlock reaches instant auto acceptance without changing taxi progress',async()=>{
+ const data=fixture(),world=data.get('v01341-world-switch');
+ world.active='truck';world.visited.truck=true;world.cycles.truck=1;
+ const garage=data.get('v01341-truck-garage');
+ garage.completed=110;garage.upgrades={distance:0,revenue:0,fleet:0,roadtrain:0,autoMinutes:29};
+ const a=await boot(data);assert.deepEqual(a.errors,[]);
+ assert.equal(a.e('world-auto-count').textContent,'1분 자동수락');
+ await a.click('world-auto-buy');
+ assert.equal(data.get('v01341-truck-garage').upgrades.autoMinutes,30);
+ assert.equal(a.e('world-auto-count').textContent,'즉시 자동수락');
+ assert.equal(data.get(F.level).completed,625);
+});
+test('at the absolute 100-car cap a vehicle sale immediately delivers an owed first-time level car',async()=>{
+ const data=fixture(),garage=data.get(F.taxi),world=data.get('v01341-world-switch');
+ garage.vehicles=Array.from({length:100},(_,i)=>oldTaxi(i+1,'event'));
+ garage.nextId=101;garage.eventGranted=2;
+ const a=await boot(data);assert.deepEqual(a.errors,[]);
+ assert.equal(data.get(F.taxi).vehicles.length,100);
+ assert.equal(data.get('v01341-world-switch').taxiSupportGranted,0);
+ const firstSale=()=>a.e('world-assets-list').children[0].children[0].children[1].handlers.click();
+ await firstSale();await microtasks();
+ await firstSale();await microtasks();
+ assert.equal(data.get(F.taxi).vehicles.length,100);
+ assert.equal(data.get('v01341-world-switch').taxiSupportGranted,1);
+ assert.equal(data.get(F.taxi).vehicles.filter(v=>v.origin==='city').length,1);
+ const b=await boot(data);assert.deepEqual(b.errors,[]);
+ assert.equal(data.get('v01341-world-switch').taxiSupportGranted,1);
+ assert.equal(data.get(F.taxi).vehicles.filter(v=>v.origin==='city').length,1,'Reload must never double-grant');
+});
