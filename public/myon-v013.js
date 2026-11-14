@@ -1,4 +1,4 @@
-// MYON v0.13.35 — legacy jobs finish normally; only new accept-style taxi offers spawn.
+// MYON v0.13.36 — taxi-world single home, contextual header and footer version.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -9,8 +9,8 @@ const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style',FINANCE_K
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,MAX_TOTAL=130,LOOKBACK=2*DAY,TAXI_OFFER_INTERVAL=600;
 const $=id=>document.getElementById(id);
-const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),gear:$('top-settings-toggle'),version:$('top-version'),settings:$('settings-panel'),notify:$('notification-toggle')};
-const nav={home:$('home-screen'),character:$('character-screen'),world:$('world-screen'),bar:$('bottom-nav'),homeButton:$('bottom-home'),characterButton:$('bottom-character')};
+const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),gear:$('top-settings-toggle'),version:$('home-version'),worldName:$('current-world-name'),settings:$('settings-panel'),notify:$('notification-toggle')};
+const nav={home:$('home-screen'),character:$('character-screen'),world:$('world-screen')};
 const assistantContainer=$('assistant-slot');
 const dateFmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
 const weekdayFmt=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'});
@@ -711,14 +711,12 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.23',title:'택시 외주 임무판·거리별 운임 정산',
+ version:'0.13.36',title:'택시 월드 단일 홈 화면',
  entries:[
-  '관리 → 임무판에서 10분마다 새로운 수락형 택시 임무가 등장합니다.',
-  '수락형 택시는 1시간 뒤 자동 폐기되며 빨간 3px 진행바로 경과 상태를 보여줍니다.',
-  '자동 관전 택시는 기존 매시간 배정·관람형 분야별 수량 설정을 유지합니다.',
-  '신규 택시 운임은 기본 0.48 M(1.6km), 추가 131m당 0.01 M이며 외주 수령액은 40%입니다.',
-  '수락 또는 자동 운행이 완료되면 공용자금에 정산하며 기존 진행 임무는 예전 규칙으로 완료합니다.',
-  '차량을 소유한 택시의 임무·구매·정비·시 지원 상환은 이후 차량 메뉴에서 별도로 설계합니다.'
+  '기존 월드는 택시 월드로 표시하며 하단 홈·관리 메뉴를 숨기고 단일 홈 화면으로 운영합니다.',
+  'MYON 바로 아래에 현재 월드명을 표시하고, 버전은 홈 페이지 맨 아래에 작게 표시합니다.',
+  '새로운 월드 진입 카드만 임시 숨김 처리하고, 임무판에는 수락형 택시 임무가 계속 등장합니다.',
+  '기존 임무 구분선의 제목을 진행중 임무로 변경했습니다. 모든 진행 중 임무와 저장 기록은 유지됩니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -868,23 +866,9 @@ function showManagement(section=null){
  if(selected==='vehicles')drawVehicles();
  nav.character.scrollTop=0;
 }
-function showPage(target){
- // Legacy simulation remains active; only the visible panel changes.
- const pages={home:nav.home,character:nav.character};
- const buttons={home:nav.homeButton,character:nav.characterButton};
- if(!Object.prototype.hasOwnProperty.call(pages,target))return;
- for(const name of Object.keys(pages)){
-  const selected=name===target;
-  pages[name].hidden=!selected;
-  buttons[name].classList.toggle('selected',selected);
-  if(selected)buttons[name].setAttribute('aria-current','page');
-  else buttons[name].removeAttribute('aria-current');
- }
- nav.world.hidden=true; // The world UI remains stored for a future entry point.
- if(target==='character')showManagement();
- showWorldDirectory();
-}
 function showWorldDirectory(){
+ // Future unlocked navigation will set the current-world subtitle on entry.
+ ui.worldName.textContent='택시 월드';
  window.MYON_RPG_TAXI?.exit();
  $('world-directory').hidden=false;
  $('rpg-start-screen').hidden=true;
@@ -893,15 +877,13 @@ function showWorldDirectory(){
 }
 function showRpgStartScreen(){
  // RPG runs independently from legacy missions and funds.
+ ui.worldName.textContent='RPG 월드';
  $('world-directory').hidden=true;
  $('rpg-start-screen').hidden=false;
  document.querySelector('.common-funds').hidden=true;
  nav.world.scrollTop=0;
  window.MYON_RPG_TAXI?.enter();
 }
-function updateNav(){nav.bar.hidden=false;}
-nav.homeButton.addEventListener('click',()=>showPage('home'));
-nav.characterButton.addEventListener('click',()=>showPage('character'));
 $('world-rpg-open').addEventListener('click',showRpgStartScreen);
 $('rpg-back-to-worlds').addEventListener('click',showWorldDirectory);
 for(const button of document.querySelectorAll('[data-manage-target]')){
@@ -1757,7 +1739,6 @@ function draw(now){
  reorder(now);
  drawAssistant(now);
  drawNotice(now);
- updateNav();
  updateSettings(now);
  for(const v of state.units){
   const slot=cards.get(v.id);if(!slot)continue;
