@@ -911,13 +911,13 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.44',title:'트럭 차량별 거리 고정 운임 도입',
+ version:'0.13.45',title:'MYON 트럭 4종 신차 명칭·가격 확정',
  entries:[
   '택시 LV.2 이후 직접 수락한 신규 외주 운송은 기본 기사 수익 40%에 보너스 50%를 추가해 총 운임의 60%를 정산합니다.',
   '매 00분·30분 대기 중인 보유 택시부터 자동수락하고 이후 외주 임무를 자동 수락합니다. 자동 운행은 기본 수익 그대로입니다.',
   '택시 외주 임무는 기존과 같이 5분마다 생성되며 LV.1은 보너스가 없고 미수락 시 1시간 뒤 폐기됩니다.',
   '이미 완료·정산한 보상과 수락해 운행 중인 기존 임무의 금액은 어떤 경우에도 소급 변경하지 않습니다.',
-  '트럭 신규 운행은 1톤 2,000원, 10톤 중형 4,000원, 25톤 대형 6,000원, 트레일러 10,000원/km로 계산하며 화물 중량은 반영하지 않습니다. 기존 수락 계약과 저장된 정산액은 그대로 유지합니다.'
+  'MYON 소형트럭 2,000만원, MYON 중형트럭 1억 5,000만원, MYON 대형트럭 2억 1,000만원, MYON 트랙터 1억 8,000만원으로 신차 가격을 확정합니다. 신규 구매부터 적용되며 기존 구매 차량·계약·정산은 유지합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;
@@ -2108,10 +2108,10 @@ initOwnedVehicleUi();
 
 // MYON v0.13.44 — distance-only, vehicle-specific freight rates; preserve prior contracts.
 const TRUCK_MODELS=[
- {key:'cargo1',name:'1톤 카고트럭',price:20000000,maxKm:200,kind:'cargo',kmRate:2000},
- {key:'medium',name:'10톤 중형 카고트럭',price:50000000,maxKm:500,kind:'cargo',kmRate:4000},
- {key:'large',name:'25톤 대형 카고트럭',price:120000000,maxKm:10000,kind:'cargo',kmRate:6000},
- {key:'tractor',name:'트랙터',price:180000000,maxKm:10000,kind:'trailer',kmRate:10000}
+ {key:'cargo1',name:'MYON 소형트럭',price:20000000,maxKm:200,kind:'cargo',kmRate:2000},
+ {key:'medium',name:'MYON 중형트럭',price:150000000,maxKm:500,kind:'cargo',kmRate:4000},
+ {key:'large',name:'MYON 대형트럭',price:210000000,maxKm:10000,kind:'cargo',kmRate:6000},
+ {key:'tractor',name:'MYON 트랙터',price:180000000,maxKm:10000,kind:'trailer',kmRate:10000}
 ];
 const TRUCK_CITIES=['하린','세온','미르','라온','노아','다온','서린','유안','가온','해온','온빛','나루','아라','새별','한울','바람'];
 const TRUCK_JOB_NAMES={outsource:'외주 운송',cargo:'카고 운송',single:'단일 트레일러',double:'더블 트레일러',triple:'트리플 트레일러',quad:'4중 트레일러'};
@@ -2145,8 +2145,8 @@ function truckRevenue(l=truckLevelNumber()){return 40+truckRewardCount('revenue'
 function truckMaxKm(l=truckLevelNumber()){return Math.min(10000,100+truckRewardCount('distance',l)*50);}
 function truckNextReward(l=truckLevelNumber()){
  const n=l+1,type=truckRewardType(n);
- if(type==='medium')return '중형 카고트럭 1대 시지원';
- if(type==='large')return '대형 카고트럭 1대 시지원 · 차량지원 종료';
+ if(type==='medium')return 'MYON 중형트럭 1대 시지원';
+ if(type==='large')return 'MYON 대형트럭 1대 시지원 · 차량지원 종료';
  if(type==='double')return '더블 트레일러 지원 · ×2 운송';
  if(type==='triple')return '트리플 트레일러 임무 추가 · ×3 운송';
  if(type==='quad')return '4중 트레일러 임무 추가 · ×4 운송';
@@ -2340,7 +2340,7 @@ function drawTruckPurchase(){
  if(!select.options.length)for(const m of TRUCK_MODELS){const o=document.createElement('option');o.value=m.key;o.textContent=m.name;select.append(o);}
  const model=TRUCK_MODELS.find(m=>m.key===select.value)||TRUCK_MODELS[0];
  $('truck-purchase-count').textContent='보유 '+truckGarage.vehicles.length+' / 50대';
- $('truck-event-status').textContent='신규 월드 이벤트 · 1톤 카고 + 트랙터 각 1대 · 최초 1회';
+ $('truck-event-status').textContent='신규 월드 이벤트 · MYON 소형트럭 + MYON 트랙터 각 1대 · 최초 1회';
  $('truck-purchase-spec').textContent='km당 '+model.kmRate.toLocaleString('ko-KR')+'원 · 운송거리 '+model.maxKm.toLocaleString('ko-KR')+'km 한도 · 신차 '+formatManwon(model.price);
  $('truck-purchase-action').textContent='차량 구입 · '+formatCommonFunds(model.price);
  $('truck-purchase-action').disabled=truckBuyBusy||worldSwitchBusy||truckGarage.vehicles.length>=50||commonFunds.balance<model.price;
