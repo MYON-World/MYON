@@ -1,4 +1,4 @@
-// MYON v0.13.39 — renewal taxis and refined mission cadence, contextual header and footer version.
+// MYON v0.13.40 — data-driven taxi levels, capped reward list and hidden scrollbar, contextual header and footer version.
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
@@ -183,27 +183,66 @@ function taxiFareUnits(distanceMeters){
 function taxiOutsourceShare(fareUnits){return fareUnits*40/100;}
 // Level is unbounded; one completed taxi job earns one record after the initial legacy snapshot.
 function levelNumber(){return taxiLevel?Math.floor(taxiLevel.completed/100)+1:1;}
-function cityEntitlement(l=levelNumber()){return l<3?0:Math.min(10,Math.floor((l-3)/3)+1);}
+// A single cycle table drives actual earnings, city grants, max trip distance,
+// the next-level reward and the expanded level preview. Revenue grows every
+// level from LV.49 onward; distance tops out at LV.48 (200 km).
+const TAXI_LEVEL_RULES={
+ base:{revenue:40,distanceKm:20,cityCars:0},
+ steps:{revenue:1,distanceKm:10,cityCars:1},
+ caps:{distanceKm:200,cityCars:10},
+ previewLastLevel:48,
+ milestones:{2:'auto',3:'city'},
+ phases:[
+  {from:4,to:30,cycle:['revenue','distance','city']},
+  {from:31,to:48,cycle:['revenue','distance']},
+  {from:49,to:Infinity,cycle:['revenue']}
+ ]
+};
+function taxiRewardType(level){
+ if(TAXI_LEVEL_RULES.milestones[level])return TAXI_LEVEL_RULES.milestones[level];
+ const phase=TAXI_LEVEL_RULES.phases.find(p=>level>=p.from&&level<=p.to);
+ return phase?phase.cycle[(level-phase.from)%phase.cycle.length]:null;
+}
+// Count all occurrences without looping over level history or constructing a
+// potentially unbounded array (the level can keep rising indefinitely).
+function taxiRewardCount(type,level){
+ let count=type==='city'&&level>=3?1:0;
+ for(const phase of TAXI_LEVEL_RULES.phases){
+  const steps=Math.max(0,Math.min(level,phase.to)-phase.from+1);
+  if(!steps)continue;
+  const repeats=Math.floor(steps/phase.cycle.length);
+  count+=repeats*phase.cycle.filter(v=>v===type).length;
+  for(let i=0;i<steps%phase.cycle.length;i++)if(phase.cycle[i]===type)count++;
+ }
+ return count;
+}
+function cityEntitlement(l=levelNumber()){
+ const rules=TAXI_LEVEL_RULES;
+ return Math.min(rules.caps.cityCars,rules.base.cityCars+rules.steps.cityCars*taxiRewardCount('city',l));
+}
 function levelMaxKm(l=levelNumber()){
- if(l<5)return 20;
- const early=Math.floor((Math.min(l,29)-5)/3)+1;
- const late=l<32?0:Math.floor((Math.min(l,48)-32)/2)+1;
- return Math.min(200,20+10*(early+late));
+ const rules=TAXI_LEVEL_RULES;
+ return Math.min(rules.caps.distanceKm,rules.base.distanceKm+rules.steps.distanceKm*taxiRewardCount('distance',l));
 }
 function levelRevenue(l=levelNumber()){
- const early=l<4?0:Math.min(9,Math.floor((Math.min(l,28)-4)/3)+1);
- const late=l<31?0:Math.floor((l-31)/2)+1;
- return 40+early+late;
+ const rules=TAXI_LEVEL_RULES;
+ return rules.base.revenue+rules.steps.revenue*taxiRewardCount('revenue',l);
 }
-function levelRateText(l=levelNumber()){const n=levelRevenue(l);return n<=100?'수익률 '+n+'%':'수익률 100% · 보너스 +'+(n-100)+'%';}
+function levelRateText(l=levelNumber()){
+ const n=levelRevenue(l);
+ return n<=100?'수익률 '+n+'%':'수익률 100% · 보너스 +'+(n-100)+'%';
+}
 function levelNextReward(l=levelNumber()){
- const n=l+1;
- if(n===2)return '10분마다 남은 외주 임무 자동수락 · 폐기 없음';
- if(n===3)return '시지원 차량 1대 · 운행거리 최대 20km';
- if(n<=30)return n%3===1?'차량 수익률 +1%p → '+levelRevenue(n)+'%':
-  n%3===2?'장거리 최대 '+levelMaxKm(n)+'km':'시지원 차량 +1대 → 총 '+cityEntitlement(n)+'대';
- if(n%2===1)return '차량 '+levelRateText(n);
- return levelMaxKm(n)>levelMaxKm(l)?'장거리 최대 '+levelMaxKm(n)+'km':'장거리 200km 상한 · 다음 보상 준비 중';
+ const n=l+1,type=taxiRewardType(n);
+ if(type==='auto')return '10분마다 남은 외주 임무 자동수락 · 폐기 없음';
+ if(type==='city')return n===3?'시지원 차량 1대 · 운행거리 최대 '+levelMaxKm(n)+'km':
+  '시지원 차량 +1대 → 총 '+cityEntitlement(n)+'대';
+ if(type==='distance')return '장거리 최대 '+levelMaxKm(n)+'km';
+ if(type==='revenue'){
+  const rate=levelRevenue(n);
+  return '차량 수익률 +1%p → '+(rate<=100?rate+'%':'100% + 보너스 '+(rate-100)+'%');
+ }
+ return '다음 보상 준비 중';
 }
 function drawTaxiLevel(){
  if(!taxiLevel)return;
@@ -214,34 +253,33 @@ function drawTaxiLevel(){
  $('taxi-level-count').textContent='누적 완료 '+taxiLevel.completed.toLocaleString('ko-KR')+'건';
  $('taxi-level-current').textContent=ownedGarage?.vehicles.length?levelRateText(l)+' · 최대 '+levelMaxKm(l)+'km':'외주 40% · 3~10km';
  $('taxi-next-reward').textContent=levelNextReward(l);
+ const future=$('taxi-level-details');
+ future.hidden=l>TAXI_LEVEL_RULES.previewLastLevel;
+ if(future.hidden)future.open=false;
  renderTaxiFutureRewards();
  $('taxi-offer-rule').textContent=l>=2?
   '외주 임무 5분마다 등장 · 수동 수락 가능 · 10분마다 자동수락 · 폐기 없음':
   '외주 임무 5분마다 등장 · 수동 수락 · 미수락 시 1시간 뒤 폐기';
 }
-// Infinite levels are paged in 20-level increments to avoid an infinite DOM.
-// The existing next-level reward stays visible even with the list collapsed.
-let futureRewardCount=20;
+// Only finite LV.48 milestone rewards appear in the drop-down. Beyond that,
+// one immutable explanation summarizes the unlimited +1%p revenue cycle.
 function renderTaxiFutureRewards(){
- const details=$('taxi-level-details');if(!details||!details.open)return;
- const level=levelNumber(),signature=level+':'+futureRewardCount;
- if(renderTaxiFutureRewards.signature===signature)return;
+ const details=$('taxi-level-details');
+ if(!details||!details.open||details.hidden)return;
+ const level=levelNumber();
+ if(renderTaxiFutureRewards.level===level)return;
  const list=$('taxi-level-future-list'),fragment=document.createDocumentFragment();
- for(let rewardLevel=level+2;rewardLevel<level+2+futureRewardCount;rewardLevel++){
-  const item=element('div','taxi-level-future-row');
-  const no=element('span','','LV.'+rewardLevel.toLocaleString('ko-KR'));
-  const reward=element('strong','',levelNextReward(rewardLevel-1));
-  item.append(no,reward);fragment.append(item);
+ for(let n=level+2;n<=TAXI_LEVEL_RULES.previewLastLevel;n++){
+  const row=element('div','taxi-level-future-row');
+  row.append(element('span','','LV.'+n.toLocaleString('ko-KR')),
+   element('strong','',levelNextReward(n-1)));
+  fragment.append(row);
  }
  list.replaceChildren(fragment);
- $('taxi-level-more').textContent='이후 20레벨 더 보기';
- renderTaxiFutureRewards.signature=signature;
+ renderTaxiFutureRewards.level=level;
 }
 function initTaxiFutureUi(){
  $('taxi-level-details').addEventListener('toggle',renderTaxiFutureRewards);
- $('taxi-level-more').addEventListener('click',()=>{
-  futureRewardCount+=20;renderTaxiFutureRewards();
- });
 }
 initTaxiFutureUi();
 async function startTaxiLevel(){
@@ -827,15 +865,15 @@ const RESEARCH=[
  {title:'설정 시스템 연구',duration:DAY,remaining:'연구 완료까지'}
 ];
 const RELEASE_DEFAULT={
- version:'0.13.39',title:'택시 월드 리뉴얼 · MYON 택시 2대 무상 지급',
+ version:'0.13.40',title:'택시 월드 레벨 보상 전체보기 최적화',
  entries:[
-  '외주 임무는 5분마다 등장하며 LV.2 이상 자동수락은 독립된 10분 주기로 작동합니다.',
-  'LV.2부터 외주 임무 폐기 없음과 수동 수락 버튼을 유지합니다.',
-  '택시 진행중 임무명에서 중복되는 승객 운송 문구를 제거합니다.',
-  '레벨 카드의 다음 보상 아래에 2레벨 뒤부터 펼쳐보는 보상 목록과 더 보기 기능을 추가합니다.',
-  '리뉴얼 기념 MYON 택시 신차 2대를 계정당 최초 1회 무상 지급합니다. 현금 지원은 없습니다.',
-  '이벤트 차량 2대는 시지원 무료 차량 10대와 별도로 지급되며 전체 차량 50대 한도에는 포함됩니다.',
-  '이벤트 차량도 대기 → 수락 → 운행 → 정산 → 대기로 순환하는 동일한 택시 로직을 사용합니다.'
+  '레벨 보상 전체보기는 현재 레벨보다 2레벨 뒤부터 LV.48까지만 표시하며, 20레벨 더 보기 버튼을 제거합니다.',
+  'LV.48에서 차량 최대 운행거리 200km에 도달한 뒤에는 더 이상 거리 보상이 발생하지 않습니다.',
+  'LV.49부터는 매 레벨 차량 수익률이 +1%p씩 무한 증가하고, LV.90에서 100%, 이후에는 보너스로 증가합니다.',
+  '전체보기 마지막에 LV.49 이후 무한 수익률 증가 안내를 표시합니다. LV.49 이후에는 전체보기 버튼을 숨깁니다.',
+  '레벨 보상 목록의 터치·마우스 휠 스크롤은 유지하면서 스크롤바만 숨깁니다.',
+  '레벨 보상은 단일 규칙 데이터로 실제 운행 수익·최대거리·시지원 차량과 전체보기 내용에 동일 적용됩니다.',
+  '기존 이벤트 MYON 택시 2대, 차량 50대 상한, 외주 5분 등장·10분 자동수락과 모든 저장 기록을 유지합니다.'
  ]
 };
 releaseManifest=RELEASE_DEFAULT;

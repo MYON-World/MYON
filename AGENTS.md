@@ -1,3 +1,13 @@
+# MYON v0.13.40 — 택시 월드 데이터 기반 레벨 보상 (2026-11-14)
+
+- 최종 승인된 택시 월드 기본 운행/대기/정산 규칙(v0.13.39)을 유지한 채 **레벨 산식과 보상 목록만** v0.13.40으로 갱신. 추후 다른 월드 개발에서도 이 택시 월드 규칙을 임의로 변경하지 말 것.
+- **`TAXI_LEVEL_RULES`이 유일한 레벨 규칙 소스**. `base:{revenue:40,distanceKm:20,cityCars:0}`, `steps:{revenue:1,distanceKm:10,cityCars:1}`, `caps:{distanceKm:200,cityCars:10}`, `milestones:{2:'auto',3:'city'}`, `phases:[{from:4,to:30,cycle:['revenue','distance','city']},{from:31,to:48,cycle:['revenue','distance']},{from:49,to:Infinity,cycle:['revenue']}]`. `taxiRewardCount(type,level)`는 phase 길이를 수학적으로 센다(레벨 1개씩 반복하면 안 됨). `cityEntitlement`, `levelMaxKm`, `levelRevenue`, `levelNextReward`, 실제 `makeOwnedTrip` 정산·구입 지원금 계산을 모두 이 규칙표에서 유도한다.
+- 정확한 경계값: LV.30 무료 시지원 차량 총10대·최대 110km·수익률49%; LV.31 50%·110km; LV.47 58%·190km; **LV.48 58%·200km**; **LV.49 59%·200km**; LV.50 60%·200km; **LV.90 100%**, LV.91 101% (100% + 보너스1%). LV.49+는 거리 증가 없음, 매 레벨 수익률 +1%p와 상한 없는 초과 보너스만 누적. 구입 시 플레이어 부담률은 기존처럼 최대 100%.
+- UI `#taxi-next-reward`: 다음 레벨 보상은 항상 노출. `#taxi-level-details`: 현재LV+2부터 **LV.48까지만** 모든 목록을 표시(20개씩 추가 버튼 없음). 마지막에 `LV.49부터 무한 성장` 간단 안내. 현재LV.48은 무한 성장 안내만 남기고, **LV.49 이상은 드롭다운 자체 숨김**. `#taxi-level-future-list`는 `max-height:280px; overflow-y:auto; scrollbar-width:none`로 터치/휠 스크롤 허용하되 스크롤바를 제거, WebKit용 `::-webkit-scrollbar`도 숨김.
+- LV.1~48에 대한 기존 계산 결과와 완전 동일해야 한다. 레벨이 오르면 펼쳐진 목록만 다시 갱신하고, 아직 닫혔다면 렌더링할 필요가 없다. 레벨 1000 이상도 계산 효율은 일정해야 한다.
+- 이전 v0.13.39 로직: 외주 5분마다 임무 등장, LV.2 이상 10분 독립 자동수락·미수락 폐기 없음, LV.1만 1시간 미수락 폐기. 이벤트 MYON 택시 신차 2대 무상(`origin:'event'`, `eventGranted` 지급횟수, 현금지급 없음), 시무료 지원 10대·이벤트 2대·유료구입 전부 차량 50대 포함. 각 차량은 임무판 대기→수락→운행→정산→대기, 구입 가격 2,000만원 및 레벨 비례 본인 부담 유지. 기존 IndexedDB 스키마와 모든 저장 자금/차량/임무 지속.
+- GitHub 커밋은 사용자 명시적 요청 이후에만 실행, 빌드·배포 결과 확인.
+
 # MYON v0.13.39 — 택시 월드 고정 운영 / 리뉴얼 이벤트 (2026-11-14)
 
 - 사용자 최종 설계: 현재 택시 월드는 **이 v0.13.39 규칙으로 고정**한다. 다른 월드 출시 시 이 월드의 차량 임무/정산 기본 로직은 임의로 재설계하지 말 것.
