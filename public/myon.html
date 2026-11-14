@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.46</title>
+<title>MYON v0.13.47</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -324,7 +324,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 #top-settings-toggle{display:none!important}
 /* v0.13.42: taxi-only operation level and compact fleet on the single home. */
 .taxi-level-card{padding:13px 14px;margin-bottom:15px}
-#taxi-level-panel[hidden],#taxi-master-panel[hidden],#taxi-event-status[hidden],#world-keep[hidden]{display:none!important}
+#taxi-level-panel[hidden],#taxi-master-panel[hidden],#truck-master-panel[hidden],#taxi-event-status[hidden],#truck-event-status[hidden],#world-keep[hidden]{display:none!important}
 .taxi-master-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .taxi-master-name{font-size:16px;font-weight:800;color:#dff3e9}
 .taxi-master-rank{font-size:13px;font-weight:800;color:#e6c978;white-space:nowrap}
@@ -473,6 +473,42 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
       <button id="taxi-master-fleet-buy" type="button" class="slot-button">200 M</button>
     </div>
   </section>
+  <section id="truck-master-panel" class="slot taxi-level-card" aria-label="트럭 마스터 능력 해금" hidden>
+    <div class="taxi-master-head">
+      <strong class="taxi-master-name">트럭 운영</strong>
+      <strong class="taxi-master-rank">마스터</strong>
+    </div>
+    <div id="truck-master-summary" class="taxi-master-summary">수익률 44% · 운송최대거리 250km</div>
+    <div class="taxi-master-divider"></div>
+    <div class="taxi-master-upgrade">
+      <div class="taxi-master-upgrade-text">
+        <strong id="truck-master-distance-title">운송거리 +50km</strong>
+        <small id="truck-master-distance-detail">최대 10,000km</small>
+      </div>
+      <button id="truck-master-distance-buy" type="button" class="slot-button">20 M</button>
+    </div>
+    <div class="taxi-master-upgrade">
+      <div class="taxi-master-upgrade-text">
+        <strong id="truck-master-revenue-title">수익률 +1%p</strong>
+        <small id="truck-master-revenue-detail">최대 100%</small>
+      </div>
+      <button id="truck-master-revenue-buy" type="button" class="slot-button">50 M</button>
+    </div>
+    <div class="taxi-master-upgrade">
+      <div class="taxi-master-upgrade-text">
+        <strong id="truck-master-fleet-title">차량 보유 한도 +10대</strong>
+        <small id="truck-master-fleet-detail">현재 50대 · 최대 100대</small>
+      </div>
+      <button id="truck-master-fleet-buy" type="button" class="slot-button">300 M</button>
+    </div>
+    <div class="taxi-master-upgrade">
+      <div class="taxi-master-upgrade-text">
+        <strong id="truck-master-roadtrain-title">로드트레인 +1 트레일러</strong>
+        <small id="truck-master-roadtrain-detail">현재 1대 · 수익 ×1 · 최대 10대</small>
+      </div>
+      <button id="truck-master-roadtrain-buy" type="button" class="slot-button">200 M</button>
+    </div>
+  </section>
   <section class="home-mission-board" aria-labelledby="home-mission-board-title">
     <h2 id="home-mission-board-title" class="home-mission-heading">임무판</h2>
       <article id="world-switch-card" class="slot world-switch-card" hidden>
@@ -492,7 +528,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
         <div id="truck-offer-list" class="slot-list" hidden></div>
         <p id="taxi-offer-empty" class="preference-note">현재 수락 가능한 택시 임무가 없습니다.</p>
         <p id="taxi-offer-rule" class="preference-note board-style-note">외주 택시 임무는 5분마다 등장하고, 미수락 시 1시간 뒤 자동 폐기됩니다.</p>
-        <p id="truck-offer-rule" class="preference-note board-style-note" hidden>가상도시 운송 계약 상시 5건 · 수락 즉시 새 계약 보충 · 차량별 운송거리 제한</p>
+        <p id="truck-offer-rule" class="preference-note board-style-note" hidden>도시별 배송 계약 상시 5건 · 차종별 랜덤 상하차 · LV.2부터 30분 자동수락</p>
       </div>
     <div id="taxi-vehicle-waiting" class="slot-list" aria-label="대기중인 택시"></div>
 
@@ -511,7 +547,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
     </div>
   </section>
   <section id="truck-purchase-area" class="taxi-purchase-area" aria-label="트럭 차량 구입" hidden>
-     <div class="taxi-fleet-heading"><strong>차량 구입</strong><span id="truck-purchase-count">전체 0 / 50대</span></div>
+     <div class="taxi-fleet-heading"><strong>차량 구입</strong><span id="truck-purchase-count">보유 0 / 50대</span></div>
      <p id="truck-event-status" class="taxi-event-status">신규 월드 이벤트 · MYON 소형트럭과 MYON 트랙터 무상 지원</p>
      <div class="taxi-fleet-card">
        <div class="taxi-purchase-title"><strong>트럭 차량 선택</strong></div>
@@ -753,7 +789,7 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 
 </div></div>
 
-<script src="myon-v013.js?v=0.13.46"></script>
+<script src="myon-v013.js?v=0.13.47"></script>
 <script src="myon-rpg-taxi.js?v=0.13.38"></script>
 
 </body>
