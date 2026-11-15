@@ -103,7 +103,7 @@ test('game engine isolates DEV/TEST progress databases and leaves LIVE name unch
  assert.doesNotMatch(app,/createRolloutHost\(/);
 });
 
-test('version history shows latest to exact LIVE inclusive, grouped once per version, with current server badges',async()=>{
+test('version history shows only pinned LIVE TEST DEV revisions grouped per configured version',async()=>{
  const {visibleVersionHistory}=await import('../src/core/myon-version-history.mjs');
  const L='l'.repeat(40).replace(/l/g,'a'),S='b'.repeat(40),U='c'.repeat(40),D='d'.repeat(40),E='e'.repeat(40),F='f'.repeat(40);
  const history=[
@@ -115,12 +115,11 @@ test('version history shows latest to exact LIVE inclusive, grouped once per ver
   {revision:F,version:'0.13.66',title:'developer',entries:['한국어 변경 설명']}
  ];
  const visible=visibleVersionHistory(history,{live:{revision:S},test:{revision:E},dev:{revision:F}});
- assert.deepEqual(visible.map(x=>x.version),['0.13.66','0.13.65','0.13.64','0.13.63']);
+ assert.deepEqual(visible.map(x=>x.version),['0.13.66','0.13.65','0.13.63']);
  assert.deepEqual(visible[0].servers,['DEV']);
  assert.deepEqual(visible[1].servers,['TEST']);
- assert.deepEqual(visible[2].servers,[]);
- assert.equal(visible[2].revisions.length,2);
- assert.deepEqual(visible[3].servers,['LIVE']);
+ assert.deepEqual(visible[2].servers,['LIVE']);
+ assert.ok(visible.every(x=>x.servers.length>0));
  assert.deepEqual(visible[0].entries,['한국어 변경 설명']);
  assert.deepEqual(visibleVersionHistory(history,{live:{revision:'0'.repeat(40)},dev:{revision:F}}),[]);
 });
@@ -341,7 +340,7 @@ test('DEV portal and embedded page pass the verified version through to the matc
  assert.ok(app.includes("if(server==='dev')"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.76'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.77'"));
  assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
  assert.ok(html.includes("devSaveReady=prepareCitizenVersion()"));
  assert.ok(html.includes("citizen=devSaveReady?readCitizen():null"));
@@ -352,8 +351,10 @@ test('DEV portal and embedded page pass the verified version through to the matc
 test('DEV starts at structured development desk and keeps the existing gameplay entry intact',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  assert.ok(html.includes('id="dev-notes" class="dev-notes" hidden'));
- assert.ok(html.includes('id="dn-tab-status"'));
- assert.ok(html.includes('id="dn-tab-notes"'));
+ assert.ok(html.includes('id="dn-back"'));
+ assert.ok(html.includes('id="dn-home"'));
+ assert.ok(html.includes('id="dn-crumbs"'));
+ assert.ok(html.includes('id="dn-view"'));
  assert.ok(html.includes('id="dn-start-test"'));
  assert.ok(html.includes('id="dev-notes-open"'));
  assert.ok(html.includes('myon-world-baseline.json'));
@@ -370,7 +371,7 @@ test('DEV starts at structured development desk and keeps the existing gameplay 
 test('world baseline records verified policy, draft industry list and unknown fields without invented metrics',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.76');
+ assert.equal(data.release,'0.13.77');
  assert.equal(data.stage.status,'설계 중');
  assert.equal(data.domains.length,14);
  assert.ok(data.domains.every(d=>d.status==='분야 초안'));
@@ -380,4 +381,46 @@ test('world baseline records verified policy, draft industry list and unknown fi
   assert.ok(data.principles.some(p=>p.id===id&&p.status==='확정'));
  assert.equal(data.connections.status,'미조사');
  assert.equal(data.designOrder.length,6);
+});
+
+
+test('DEV notebook uses button-based navigation through actual structured world data',()=>{
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
+ assert.match(html,/function buildDevNotebook\(data\)/);
+ assert.match(html,/dnGroup\('전체 산업 분야',data\.domains\.map/);
+ assert.match(html,/dnGroup\('도시별 현황',data\.cities\.map/);
+ assert.match(html,/dnLeaf\('현재 운영 현황',c\.current/);
+ assert.match(html,/devNotebookGo\(\[\.\.\.dnTrail,i\]\)/);
+ assert.match(html,/devNotebookBack\(\)/);
+ assert.match(html,/devNotebookGo\(\[\]\)/);
+ assert.ok(html.includes('id="dn-start-test"'));
+ assert.ok(html.includes("function resumeDevGame(){if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')}"));
+ assert.ok(html.includes("showScreen('notes');\nloadDevNotes();"));
+ assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
+ assert.equal(data.domains.length,14);
+ assert.equal(data.cities.length,3);
+ assert.doesNotMatch(html,/id="dn-tab-status"|id="dn-tab-notes"/);
+ const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
+ for(const script of scripts)new (require('node:vm').Script)(script[1]);
+});
+
+
+test('portal version history excludes unconfigured releases and combines coincident server version pins',async()=>{
+ const {visibleVersionHistory}=await import('../src/core/myon-version-history.mjs');
+ const A='a'.repeat(40),B='b'.repeat(40),C='c'.repeat(40),D='d'.repeat(40);
+ const releases=[
+  {revision:A,version:'0.13.63',title:'LIVE'},
+  {revision:B,version:'0.13.64',title:'intermediate'},
+  {revision:C,version:'0.13.77',title:'DEV first'},
+  {revision:D,version:'0.13.77',title:'DEV stable',entries:['구성 완료']}
+ ];
+ const shared=visibleVersionHistory(releases,{live:{revision:A},test:{revision:C},dev:{revision:D}});
+ assert.deepEqual(shared.map(v=>v.version),['0.13.77','0.13.63']);
+ assert.deepEqual(shared[0].servers,['TEST','DEV']);
+ assert.deepEqual(shared[0].revisions,[C,D]);
+ assert.deepEqual(shared[0].entries,['구성 완료']);
+ const noTest=visibleVersionHistory(releases,{live:{revision:A},dev:{revision:D}});
+ assert.deepEqual(noTest.map(v=>v.servers),[['DEV'],['LIVE']]);
+ assert.ok(noTest.every(v=>v.version!=='0.13.64'));
 });

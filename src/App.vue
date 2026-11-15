@@ -224,22 +224,21 @@ onMounted(async()=>{
     </div>
     <details class="version-history">
      <summary class="version-history-summary">
-      <span class="version-history-heading"><strong>버전 변경사항</strong><small>개발 버전부터 LIVE까지 · 서버 적용 현황</small></span>
-      <span class="version-history-expand">전체 기록 보기 <span aria-hidden="true">⌄</span></span>
+      <span class="version-history-heading"><strong>버전 변경사항</strong><small>현재 서버에 설정된 버전만 표시</small></span>
+      <span class="version-history-expand">적용 버전 보기 <span aria-hidden="true">⌄</span></span>
      </summary>
      <div class="version-history-body">
       <p v-if="!changes.length" class="version-history-empty">버전 변경기록을 확인할 수 없습니다. 잠시 후 새로고침해 주세요.</p>
-      <div v-for="(change,i) in changes" :key="change.version" class="version-history-item">
+      <div v-for="change in changes" :key="change.version" class="version-history-item">
        <div class="version-history-line">
         <strong>v{{ change.version }}</strong>
         <span v-for="server in change.servers" :key="server" class="version-history-badge" :class="'tag-'+server.toLowerCase()">{{ server }} 적용 중</span>
-        <span v-if="i===changes.length-1" class="version-history-boundary">기록 종료 · LIVE 기준</span>
        </div>
        <div class="version-history-title">{{ change.title }}</div>
        <ul v-if="change.entries.length" class="version-history-notes"><li v-for="(entry,j) in change.entries" :key="j">{{ entry }}</li></ul>
        <p v-else class="version-history-empty">변경 상세: {{ change.commits.join(' · ')||'커밋 기록 참조' }}</p>
       </div>
-      <p class="version-history-footnote">LIVE보다 이전 기록은 보관되지만 시작화면에는 표시하지 않습니다.</p>
+      <p class="version-history-footnote">과거 버전 기록은 보관하며, 통합화면에는 LIVE·TEST·DEV의 실제 설정 버전만 표시합니다.</p>
      </div>
     </details>
     <div class="details">

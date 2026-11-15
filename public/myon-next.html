@@ -256,46 +256,38 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 @media(max-height:530px){.ch-brief{display:none}.ch-gender{height:74px;min-height:65px}.path-card{min-height:35px}.ch-label{font-size:11px}}
 @media(max-width:740px) and (max-height:530px){.ch-head{min-height:28px}.ch-head h1{font-size:18px}.path-icon{font-size:14px}.gender-card .gender-caption{font-size:12px;padding:6px 8px}}
 
-/* DEV-only reference desk: deliberately text-first, no decorative images. */
-.dev-notes{width:min(1120px,100%);flex:1;min-height:0;display:flex;flex-direction:column;margin:auto;overflow:hidden;padding:clamp(10px,2vh,22px) clamp(12px,3vw,30px) 0}
-.dn-header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex:none;margin-bottom:13px}
-.dn-kicker{font-size:10px;color:#8fbed2;letter-spacing:.11em;margin-bottom:5px}
-.dn-header h1{font-size:clamp(21px,3vw,29px);margin:0 0 4px;font-weight:780}
-.dn-header p{font-size:12px;color:#a7bed2;margin:0;line-height:1.5}
-.dn-test,.dn-tab,.dev-note-link{background:#122b3f;border:1px solid #45627b;border-radius:7px;color:#e2f4ff;font-weight:700}
-.dn-test{padding:11px 15px;white-space:nowrap;font-size:12px}
-.dn-tabs{display:flex;gap:8px;padding:0 0 11px;flex:none;border-bottom:1px solid #2b4459}
-.dn-tab{padding:9px 13px;font-size:12px}
-.dn-tab[aria-selected="true"]{background:#31516a;border-color:#89b8d0}
-.dn-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:13px 1px 26px;scrollbar-color:#466982 transparent}
-.dn-panel{display:grid;gap:16px;align-content:start}
-.dn-section{display:grid;gap:9px}
-.dn-section h2{font-size:15px;margin:0 0 1px}
-.dn-stage{border:1px solid #37556d;border-radius:8px;background:#101f30;padding:15px}
-.dn-stage strong{display:block;font-size:17px;margin-bottom:5px}
-.dn-stage p{margin:0;font-size:12px;line-height:1.65;color:#b7cada}
-.dn-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
-.dn-lines{border:1px solid #2e495f;border-radius:8px;padding:10px 13px}
-.dn-line{padding:9px 0;font-size:12px;line-height:1.55}
-.dn-line+.dn-line{border-top:1px solid #243e50}
-.dn-line strong{display:block;font-size:12px;margin-bottom:3px}
-.dn-meta{font-size:10px;color:#9cbfd0;display:block;margin-bottom:3px}
-.dn-sub{color:#b6cddd;font-size:11px;line-height:1.6}
-.dn-search{width:100%;border:1px solid #3d596b;background:#071827;color:#e8f6ff;border-radius:7px;padding:10px 12px;font-size:12px}
-.dev-note-link{padding:7px 9px;font-size:10px;margin-right:2px}
-.dn-foot{font-size:11px;color:#8da9bb;line-height:1.6;margin:0}
-@media(max-width:740px){
- .dn-header{align-items:start}
- .dn-header p{font-size:11px}
- .dn-grid{grid-template-columns:1fr}
- .dn-test{padding:9px 10px}
- .dn-scroll{padding-bottom:16px}
- .dn-tab{flex:1}
- .dev-note-link{font-size:10px;padding:6px}
-}
-@media(max-height:550px){
- .dn-header{margin-bottom:7px}.dn-header p{display:none}.dn-tabs{padding-bottom:6px}
-}
+
+/* DEV reference desk: button-by-button navigation (data first, no illustrations) */
+.dev-notes{width:min(1100px,100%);flex:1;min-height:0;display:flex;flex-direction:column;margin:0 auto;overflow:hidden;padding:clamp(10px,2vh,23px) clamp(12px,3vw,32px) 0}
+.dnb-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;padding-bottom:11px;border-bottom:1px solid #2d485c}
+.dnb-kicker{font-size:10px;color:#82acc4;letter-spacing:.11em;margin-bottom:4px}
+.dnb-head h1{font-size:clamp(19px,3vw,26px);margin:0 0 2px}.dnb-head p{font-size:11px;color:#a8c2d3;margin:0;line-height:1.5}
+.dnb-game,.dnb-nav-btn{background:#132d40;color:#e3f3fc;border:1px solid #44687f;border-radius:7px;font-size:11px;font-weight:700;white-space:nowrap}
+.dnb-game{padding:10px 13px}.dnb-nav-btn{padding:8px 11px}
+.dnb-toolbar{display:flex;align-items:center;gap:7px;flex:none;padding:10px 0;min-height:43px}
+.dnb-nav-btn:hover,.dnb-game:hover,.dnb-tile:hover{background:#214055;border-color:#80bdd8}
+.dnb-nav-btn:disabled{opacity:.35;cursor:default}
+.dnb-crumbs{display:flex;align-items:center;gap:3px;flex-wrap:wrap;min-width:0}
+.dnb-crumb{border:0;background:none;color:#accddd;font:inherit;font-size:11px;padding:6px 4px;cursor:pointer}
+.dnb-crumb:last-child{color:#f1faff;font-weight:750}.dnb-divider{font-size:11px;color:#718da1}
+.dnb-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:7px 1px 24px;scrollbar-color:#466982 transparent}
+.dnb-intro{display:flex;justify-content:space-between;align-items:start;gap:10px;margin:3px 0 16px}
+.dnb-title{font-size:clamp(19px,2.7vw,25px);margin:0 0 5px}
+.dnb-sub{margin:0;font-size:12px;color:#a7bfd0;line-height:1.6}
+.dnb-count{font-size:11px;color:#94b3c8;white-space:nowrap;padding-top:6px}
+.dnb-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-content:start}
+.dnb-tile{display:flex;align-items:center;justify-content:space-between;gap:9px;min-height:75px;width:100%;padding:16px 17px;background:#112739;border:1px solid #34536b;border-radius:9px;color:#eff8ff;text-align:left}
+.dnb-tile-name{display:block;font-size:14px;font-weight:740;line-height:1.35}.dnb-tile-sub{display:block;color:#9abacd;font-size:11px;line-height:1.45;margin-top:5px}
+.dnb-chevron{font-size:19px;color:#8fb5c8;flex:none}
+.dnb-detail{border:1px solid #355267;border-radius:9px;background:#102436;padding:18px}
+.dnb-detail h2{font-size:17px;margin:0 0 12px}
+.dnb-status{display:inline-block;font-size:11px;color:#b7dcef;border:1px solid #42657a;border-radius:5px;padding:4px 8px;margin-bottom:13px}
+.dnb-detail p{font-size:13px;line-height:1.9;color:#c6dce8;white-space:pre-line;margin:0}
+.dnb-foot{margin:19px 1px 0;font-size:11px;color:#91aebf;line-height:1.65}
+.dnb-error{color:#f1b6b6;font-size:12px;padding:10px}
+@media(min-width:860px){.dnb-tiles.dnb-root{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:560px){.dev-notes{padding-top:9px}.dnb-head p{display:none}.dnb-game{padding:8px 10px}.dnb-toolbar{flex-wrap:wrap;gap:5px}.dnb-crumbs{width:100%}.dnb-scroll{padding-top:4px}.dnb-intro{margin-bottom:12px}.dnb-tiles{grid-template-columns:1fr;gap:7px}.dnb-tile{min-height:62px;padding:12px 13px}.dnb-tile-name{font-size:13px}.dnb-detail{padding:14px}.dnb-count{display:none}}
+@media(max-height:550px){.dnb-head{padding-bottom:7px}.dnb-toolbar{padding:5px 0}.dnb-intro{margin-bottom:8px}}
 
 </style></head>
 <body>
@@ -308,37 +300,23 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
  </header>
 
 
- <main id="dev-notes" class="dev-notes" hidden aria-label="개발 현황 및 개발노트">
-  <div class="dn-header">
-   <div><div class="dn-kicker">MYON WORLD / DEV REFERENCE</div><h1>세계 기반 설계</h1><p>완성형 세계부터 설계하고, 도시마다 다른 현재 현황을 기록합니다.</p></div>
-   <button type="button" class="dn-test" id="dn-start-test">게임 테스트 →</button>
+
+ <main id="dev-notes" class="dev-notes" hidden aria-label="MYON DEV 개발 현황 및 개발노트">
+  <div class="dnb-head">
+   <div><div class="dnb-kicker">MYON WORLD / DEV</div><h1>개발 현황 · 개발노트</h1><p>세계의 기반 자료부터 순서대로 설계합니다.</p></div>
+   <button type="button" class="dnb-game" id="dn-start-test">게임 테스트 →</button>
   </div>
-  <div class="dn-tabs" role="tablist" aria-label="개발 정보">
-   <button type="button" class="dn-tab" id="dn-tab-status" role="tab" aria-selected="true" aria-controls="dn-status">개발 현황</button>
-   <button type="button" class="dn-tab" id="dn-tab-notes" role="tab" aria-selected="false" aria-controls="dn-notes">개발노트</button>
+  <div class="dnb-toolbar">
+   <button type="button" class="dnb-nav-btn" id="dn-back">← 이전</button>
+   <button type="button" class="dnb-nav-btn" id="dn-home">처음으로</button>
+   <nav class="dnb-crumbs" id="dn-crumbs" aria-label="개발노트 메뉴 위치"></nav>
   </div>
-  <div class="dn-scroll">
-   <p class="dn-foot" id="dn-loading" role="status" aria-live="polite">설계 기준 자료를 불러오는 중입니다.</p>
-   <section class="dn-panel" id="dn-status" role="tabpanel" aria-labelledby="dn-tab-status" hidden>
-    <div class="dn-stage"><strong id="dn-stage-title"></strong><p id="dn-stage-desc"></p></div>
-    <div class="dn-grid">
-     <section class="dn-section"><h2>확보한 기준</h2><div class="dn-lines" id="dn-done"></div></section>
-     <section class="dn-section"><h2>다음 설계</h2><div class="dn-lines" id="dn-next"></div></section>
-    </div>
-    <p class="dn-foot">진행률은 임의로 표시하지 않습니다. 실제로 확정된 데이터만 완료 처리합니다.</p>
-   </section>
-   <section class="dn-panel" id="dn-notes" role="tabpanel" aria-labelledby="dn-tab-notes" hidden>
-    <input type="search" class="dn-search" id="dn-search" aria-label="개발노트 검색" placeholder="도시 · 산업 · 규칙 검색" autocomplete="off">
-    <section class="dn-section"><h2>세계 공통 규칙</h2><div class="dn-lines" id="dn-rules"></div></section>
-    <section class="dn-section"><h2>산업 분야 · 분류 초안</h2><div class="dn-lines" id="dn-domains"></div></section>
-    <section class="dn-section"><h2>시작 도시 3곳 · 현재 현황</h2><div class="dn-lines" id="dn-cities"></div></section>
-    <section class="dn-section"><h2>도시 간 연결 현황</h2><div class="dn-lines" id="dn-connections"></div></section>
-    <section class="dn-section"><h2>역순 설계 순서</h2><div class="dn-lines" id="dn-order"></div></section>
-    <p class="dn-foot">확정 / 초안 / 미조사는 서로 구분합니다. 인구·수요·시설 수량은 아직 임의로 채우지 않았습니다.</p>
-   </section>
+  <div class="dnb-scroll" id="dn-scroll">
+   <div class="dnb-intro"><div><h2 class="dnb-title" id="dn-title">개발노트</h2><p class="dnb-sub" id="dn-subtitle">상위 메뉴를 선택하세요.</p></div><span class="dnb-count" id="dn-count"></span></div>
+   <div id="dn-view" aria-live="polite"><p class="dnb-foot">설계 기준 자료를 불러오는 중입니다.</p></div>
+   <p class="dnb-foot">확정 · 초안 · 미조사 항목을 구분합니다. 미확정 수치는 임의로 입력하지 않습니다.</p>
   </div>
  </main>
-
  <main id="character" class="character" hidden aria-label="캐릭터 만들기">
   <div class="ch-head">
     <div><span class="ch-mark">MYON WORLD</span><h1>캐릭터 만들기</h1></div>
@@ -412,7 +390,7 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 const devSaveParams=new URLSearchParams(location.search)
 const requestedDevVersion=devSaveParams.get('dev_version')
 const isVersionedDevSave=devSaveParams.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(devSaveParams.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'')
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.76'
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.77'
 const DEV_VERSION_MARKER='MYON_DEV_ACTIVE_VERSION_V1'
 const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION
 let devSaveReady=false
@@ -452,58 +430,115 @@ function confirmCitizen(){if(citizen)return;const name=$('citizen-name').value.t
 
 const $=id=>document.getElementById(id);
 
-// DEV development notes are read from structured world data, not authored as an image.
-let dnLoaded=false,dnActiveTab='status'
-function appendDevNote(id,title,description,meta=''){
- const container=$(id),line=document.createElement('div')
- line.className='dn-line'
- if(meta){const status=document.createElement('span');status.className='dn-meta';status.textContent=meta;line.append(status)}
- const strong=document.createElement('strong');strong.textContent=title
- const summary=document.createElement('div');summary.className='dn-sub';summary.textContent=description
- line.append(strong,summary);line.dataset.search=[title,description,meta].join(' ').toLowerCase()
- container.append(line)
+
+// DEV developer notebook follows the approved button-screen hierarchy.
+// The source of truth is the structured JSON used by the previous release.
+let dnLoaded=false,dnTrail=[],dnMenu=[]
+function dnLeaf(title,detail,status='현황 초안'){return {title,detail,status}}
+function dnGroup(title,children,subtitle=''){return {title,children,subtitle}}
+function buildDevNotebook(data){
+ return [
+  dnGroup('개발 현황',[
+   dnLeaf('현재 개발 단계',data.stage.title+' — '+data.stage.summary,data.stage.status),
+   dnGroup('확보한 기준',data.stage.done.map(s=>dnLeaf(s,'실제 구현 또는 합의된 항목입니다.','확인')),'완료된 기준'),
+   dnGroup('다음 설계',data.stage.next.map(s=>dnLeaf(s,'현황 확인 후 확정할 설계 작업입니다.','다음')),'이후 진행할 항목')
+  ],'현재 진행 단계와 다음 작업'),
+  dnGroup('세계 공통 규칙',data.principles.map(x=>dnLeaf(x.title,x.body,x.status)),'확정된 세계 운영 원칙'),
+  dnGroup('전체 산업 분야',data.domains.map(x=>dnGroup(x.name,x.scope.map(z=>dnLeaf(z,'공통 분야의 세부 항목입니다. 도시별 시설·인력·운영량·수요는 현황 설계에서 채웁니다.',x.status)),x.status+' · '+x.scope.length+'개 항목')),'14개 공통 분야 · 세부 항목'),
+  dnGroup('도시별 현황',data.cities.map(c=>dnGroup(c.name,[
+   dnLeaf('지형·지역 특징',c.terrain+' / '+c.identity,'도시 기본 설정'),
+   dnLeaf('현재 운영 현황',c.current,'현황 일부 미확정'),
+   dnGroup('신규 도입 변수',c.conditions.map(s=>dnLeaf(s,'실제 도입 규모와 기존 산업 상태에 따라 발생 조건이 달라집니다.','설계 방향')),'건설·도입에 영향을 주는 조건'),
+   dnGroup('미확정 자료',c.unknown.map(s=>dnLeaf(s,'아직 현황 자료를 확정하지 않았습니다. 수치와 세부 사항은 추후 입력합니다.','미조사')),'확정할 자료')
+  ],c.terrain+' · '+c.identity)),'리엔시 · 하렌 · 세린시'),
+  dnGroup('도시 간 연결',[
+   dnLeaf('연결 현황',data.connections.description,data.connections.status),
+   dnLeaf('교통망','도시 간 도로·철도·항공·해운 연결 현황을 정리할 예정입니다.','미조사'),
+   dnLeaf('자원·물류','공급 계약과 자재 운송 관계를 정리할 예정입니다.','미조사'),
+   dnLeaf('인력·수요','도시별 노동력 이동과 수요 변화를 정리할 예정입니다.','미조사')
+  ],'도시 간 실제 연결 관계'),
+  dnGroup('역순 설계 순서',data.designOrder.map((s,i)=>dnLeaf(String(i+1).padStart(2,'0')+' · '+s,'해당 단계의 자료는 각 메뉴에서 확정합니다.','설계 순서')),'미래 완성형부터 화면까지')
+ ]
 }
-function switchDevTab(tab){
- if(!['status','notes'].includes(tab))return
- dnActiveTab=tab
- $('dn-status').hidden=tab!=='status';$('dn-notes').hidden=tab!=='notes'
- for(const item of ['status','notes'])$('dn-tab-'+item).setAttribute('aria-selected',String(tab===item))
- $('dn-loading').hidden=dnLoaded
+function devNotebookAt(path){
+ let node={title:'개발노트',children:dnMenu,subtitle:'상위 메뉴 버튼을 선택하면 다음 단계로 이동합니다.'}
+ for(const i of path){if(!node.children?.[i])return null;node=node.children[i]}
+ return node
 }
-function filterDevNotes(){
- const q=$('dn-search').value.trim().toLowerCase()
- for(const row of document.querySelectorAll('#dn-notes .dn-line'))row.hidden=!!q&&!row.dataset.search.includes(q)
- for(const section of document.querySelectorAll('#dn-notes .dn-section')){
-  section.hidden=!!q&&!section.querySelector('.dn-line:not([hidden])')
+function devNotebookElement(tag,text,cls){
+ const node=document.createElement(tag)
+ if(text!==undefined)node.textContent=text
+ if(cls)node.className=cls
+ return node
+}
+function devNotebookGo(path){
+ if(!devNotebookAt(path))return
+ dnTrail=path.slice()
+ devNotebookRender()
+ $('dn-scroll').scrollTop=0
+}
+function devNotebookRender(){
+ const node=devNotebookAt(dnTrail)
+ if(!node)return
+ const children=node.children||[]
+ $('dn-back').disabled=dnTrail.length===0
+ $('dn-title').textContent=node.title
+ $('dn-subtitle').textContent=node.subtitle||(children.length?'원하는 항목을 선택하세요.':'선택한 항목의 현재 설계 내용입니다.')
+ $('dn-count').textContent=children.length?children.length+'개 항목':'상세 자료'
+ const crumbs=$('dn-crumbs')
+ crumbs.replaceChildren()
+ const parts=[{title:'개발노트',path:[]}]
+ for(let i=1;i<=dnTrail.length;i++)parts.push({title:devNotebookAt(dnTrail.slice(0,i)).title,path:dnTrail.slice(0,i)})
+ for(const [i,item] of parts.entries()){
+  if(i)crumbs.append(devNotebookElement('span','/','dnb-divider'))
+  const button=devNotebookElement('button',item.title,'dnb-crumb')
+  button.type='button'
+  button.addEventListener('click',()=>devNotebookGo(item.path))
+  crumbs.append(button)
+ }
+ const view=$('dn-view')
+ view.replaceChildren()
+ if(children.length){
+  const tiles=devNotebookElement('div',undefined,'dnb-tiles'+(dnTrail.length===0?' dnb-root':''))
+  for(const [i,item] of children.entries()){
+   const tile=devNotebookElement('button',undefined,'dnb-tile')
+   tile.type='button'
+   const content=devNotebookElement('div')
+   content.append(devNotebookElement('span',item.title,'dnb-tile-name'))
+   if(item.subtitle||item.status)content.append(devNotebookElement('small',item.subtitle||item.status,'dnb-tile-sub'))
+   tile.append(content,devNotebookElement('span','›','dnb-chevron'))
+   tile.addEventListener('click',()=>devNotebookGo([...dnTrail,i]))
+   tiles.append(tile)
+  }
+  view.append(tiles)
+ }else{
+  const detail=devNotebookElement('div',undefined,'dnb-detail')
+  if(node.status)detail.append(devNotebookElement('span',node.status,'dnb-status'))
+  detail.append(devNotebookElement('h2',node.title))
+  detail.append(devNotebookElement('p',node.detail||'세부 현황은 아직 설계 중입니다.'))
+  view.append(detail)
  }
 }
-function renderDevNotes(data){
- if(data?.schema!==1||!data.stage||!Array.isArray(data.domains)||!Array.isArray(data.cities)||!Array.isArray(data.principles))throw Error('개발노트 자료 형식이 맞지 않습니다.')
- $('dn-stage-title').textContent=data.stage.title+' · '+data.stage.status+' · v'+data.release
- $('dn-stage-desc').textContent=data.stage.summary
- for(const name of data.stage.done)appendDevNote('dn-done',name,'','확인')
- for(const name of data.stage.next)appendDevNote('dn-next',name,'','다음')
- for(const rule of data.principles)appendDevNote('dn-rules',rule.title,rule.body,rule.status)
- for(const domain of data.domains)appendDevNote('dn-domains',domain.name,domain.scope.join(' · '),domain.status)
- for(const city of data.cities)appendDevNote('dn-cities',city.name+' · '+city.terrain,
-  city.identity+' / '+city.current+' / '+city.conditions.join(' · ')+' / 미확정: '+city.unknown.join(', '),
-  city.startingCity?'시작 도시 · 현황 일부 미확정':'도시 현황')
- appendDevNote('dn-connections','도시 간 연결 관계',data.connections.description,data.connections.status)
- for(const [i,step] of data.designOrder.entries())appendDevNote('dn-order',String(i+1).padStart(2,'0')+' · '+step,'','역순 설계')
- dnLoaded=true
- $('dn-loading').hidden=true
- switchDevTab(dnActiveTab)
+function devNotebookBack(){
+ if(dnTrail.length){devNotebookGo(dnTrail.slice(0,-1));return}
+ resumeDevGame()
 }
 async function loadDevNotes(){
- if(dnLoaded)return
+ if(dnLoaded){devNotebookRender();return}
  const archived=/\/releases\/[a-f0-9]{40}\/myon-next\.html$/i.test(location.pathname)
  const url=new URL(archived?'../../myon-world-baseline.json':'./myon-world-baseline.json',location.href)
  try{
   const response=await fetch(url,{cache:'no-store'})
   if(!response.ok)throw Error('HTTP '+response.status)
   const data=await response.json()
-  renderDevNotes(data)
- }catch(error){$('dn-loading').textContent='개발노트 데이터를 열 수 없습니다. DEV의 자료 파일 배포 상태를 확인해주세요.';console.warn('DEV notes unavailable',error)}
+  if(data?.schema!==1||!data.stage||!Array.isArray(data.domains)||!Array.isArray(data.cities)||!Array.isArray(data.principles)||!Array.isArray(data.designOrder))throw Error('자료 형식 오류')
+  dnMenu=buildDevNotebook(data)
+  dnLoaded=true
+  devNotebookGo([])
+ }catch(error){
+  $('dn-view').replaceChildren(devNotebookElement('p','개발노트 자료를 불러올 수 없습니다. 다시 접속하거나 DEV 자료 파일을 확인해 주세요.','dnb-error'))
+  console.warn('DEV reference error',error)
+ }
 }
 function resumeDevGame(){if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')}
 
@@ -591,7 +626,7 @@ function act(action,button){
 }
 function back(){
  if(modal.classList.contains('open')){closeModal();return;}
- if(currentScreen==='notes'){resumeDevGame();return;}
+ if(currentScreen==='notes'){devNotebookBack();return;}
  if(currentScreen==='character')return;
  if(cityLocked){showScreen('arrival');return;}
  if(currentScreen==='picker')showScreen('welcome');else showScreen('picker');
@@ -610,10 +645,9 @@ $('switch-city').addEventListener('click',()=>showScreen('picker'));
 $('go-city').addEventListener('click',()=>showScreen('picker'));
 $('back').addEventListener('click',back);
 $('dn-start-test').addEventListener('click',resumeDevGame);
-$('dev-notes-open').addEventListener('click',()=>{showScreen('notes');loadDevNotes()});
-$('dn-tab-status').addEventListener('click',()=>switchDevTab('status'));
-$('dn-tab-notes').addEventListener('click',()=>switchDevTab('notes'));
-$('dn-search').addEventListener('input',filterDevNotes);
+$('dev-notes-open').addEventListener('click',()=>{showScreen('notes');devNotebookGo([]);loadDevNotes()});
+$('dn-back').addEventListener('click',devNotebookBack);
+$('dn-home').addEventListener('click',()=>devNotebookGo([]));
 modal.addEventListener('click',event=>{if(event.target===modal)closeModal()});
 document.addEventListener('keydown',event=>{
  if(event.key==='Escape'){
