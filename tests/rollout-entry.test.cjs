@@ -207,7 +207,8 @@ test('DEV city selection remains isolated from pinned LIVE and stored progress',
   assert.ok(next.includes('data-city-button="'+name+'"'));
  }
  const sprite=/data:image\/webp;base64,([A-Za-z0-9+/=]+)/.exec(next); 
- assert.ok(sprite,'Male/female portrait image should be embedded');\n const data=Buffer.from(sprite[1],'base64'); 
+ assert.ok(sprite,'Male/female portrait image should be embedded');
+ const data=Buffer.from(sprite[1],'base64'); 
  assert.equal(data.toString('ascii',0,4),'RIFF'); 
  assert.equal(data.toString('ascii',8,12),'WEBP'); 
  assert.ok(data.length>6000);
