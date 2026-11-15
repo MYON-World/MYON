@@ -53,7 +53,8 @@ test('permanent revenue +1pp; 100% payout maximum; vehicle capacity 100',()=>{
 test('browser game wiring keeps existing saves and upgrade locked',()=>{
  const main=fs.readFileSync(path.join(root,'public/myon-v013.js'),'utf8');
  const html=fs.readFileSync(path.join(root,'public/myon.html'),'utf8');
- assert.ok(main.includes("const DB='myon-v00804-progress',STORE='game'"));
+ assert.ok(main.includes("const DB=SERVER==='live'?'myon-v00804-progress':'myon-v00804-progress-'+SERVER;"));
+ assert.ok(main.includes("if(!['live','test','dev'].includes(SERVER))"));
  assert.ok(main.includes("BUS_KEY='v01352-bus-world'"));
  assert.ok(main.includes('store.put(busSnapshot,BUS_KEY)'));
  assert.ok(main.includes('[BUS_KEY,busState]'));
