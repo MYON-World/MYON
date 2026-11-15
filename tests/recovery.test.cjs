@@ -33,5 +33,5 @@ test('old and new MYON saves are not modified from a diagnostic page',()=>{
  assert.ok(page.includes('읽기 전용'));
  assert.ok(page.includes('개인정보가 일부 포함'));
  assert.ok(page.includes('시크릿 모드'));
- assert.ok(page.includes('자동 복원'));
+ assert.ok(page.includes('자동으로 덮어쓰거나'));
 });
