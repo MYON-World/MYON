@@ -329,6 +329,9 @@ test('maximum taxi auto upgrade reaches a 5-minute matching dispatch interval',a
  assert.equal(data.get('v01323-taxi-offers').autoInterval,300);
  assert.equal(a.e('world-auto-count').textContent,'5분 자동수락');
  assert.equal(a.e('world-auto-buy').disabled,true);
+ assert.equal(a.e('world-auto-upgrade').hidden,true,'Completed taxi auto card must disappear');
+ const b=await boot(data);assert.deepEqual(b.errors,[]);
+ assert.equal(b.e('world-auto-upgrade').hidden,true,'Completed taxi auto card stays hidden after reload');
 });
 test('truck auto unlock reaches instant auto acceptance without changing taxi progress',async()=>{
  const data=fixture(),world=data.get('v01341-world-switch');
@@ -340,7 +343,10 @@ test('truck auto unlock reaches instant auto acceptance without changing taxi pr
  await a.click('world-auto-buy');
  assert.equal(data.get('v01341-truck-garage').upgrades.autoMinutes,30);
  assert.equal(a.e('world-auto-count').textContent,'즉시 자동수락');
+ assert.equal(a.e('world-auto-upgrade').hidden,true,'Completed truck auto card must disappear');
  assert.equal(data.get(F.level).completed,625);
+ const b=await boot(data);assert.deepEqual(b.errors,[]);
+ assert.equal(b.e('world-auto-upgrade').hidden,true,'Completed truck auto card stays hidden after reload');
 });
 test('at the absolute 100-car cap a vehicle sale immediately delivers an owed first-time level car',async()=>{
  const data=fixture(),garage=data.get(F.taxi),world=data.get('v01341-world-switch');
@@ -429,4 +435,36 @@ test('special passes are purchased separately, cannot overlap, and cooldown is p
  passes=data.get('v01354-special-passes');
  assert.equal(passes.income.activeAt,Math.floor(clock.ms/1000));
  assert.equal(passes.golden.owned,true);
+});
+
+test('maxed shared vehicle limit hides only its card in every world, retaining unlocks',async()=>{
+ const data=fixture();
+ const a=await boot(data);assert.deepEqual(a.errors,[]);
+ assert.equal(a.e('world-fleet-upgrade').hidden,false);
+ assert.equal(a.e('world-auto-upgrade').hidden,false);
+ const fundsBefore=data.get(F.funds).balance;
+ const world=data.get('v01341-world-switch');
+ world.fleetUnlocks=5;
+ const b=await boot(data);assert.deepEqual(b.errors,[]);
+ assert.equal(b.e('world-fleet-upgrade').hidden,true);
+ assert.equal(b.e('world-auto-upgrade').hidden,false,'Unfinished taxi auto still visible');
+ assert.ok(b.e('world-fleet-count').textContent.includes('100 / 100대'));
+ assert.equal(data.get('v01341-world-switch').fleetUnlocks,5);
+ assert.equal(data.get(F.funds).balance,fundsBefore,'Hidden UI must never change money');
+ world.active='bus';world.visited.bus=true;world.cycles.bus=1;
+ const c=await boot(data);assert.deepEqual(c.errors,[]);
+ assert.equal(c.e('world-fleet-upgrade').hidden,true);
+ assert.equal(c.e('world-auto-upgrade').hidden,true);
+});
+test('completed taxi automation hides independently of unfinished fleet upgrade',async()=>{
+ const data=fixture();
+ data.get(F.level).upgrades={distance:0,revenue:0,fleet:0,autoMinutes:25};
+ const a=await boot(data);assert.deepEqual(a.errors,[]);
+ assert.equal(a.e('world-auto-upgrade').hidden,true);
+ assert.equal(a.e('world-fleet-upgrade').hidden,false);
+ assert.equal(a.e('world-auto-count').textContent,'5분 자동수락');
+});
+test('upgrade cards have explicit hidden styles',()=>{
+ const page=fs.readFileSync(path.resolve(__dirname,'../public/myon.html'),'utf8');
+ assert.ok(page.includes('#world-fleet-upgrade[hidden],#world-auto-upgrade[hidden]{display:none!important}'));
 });

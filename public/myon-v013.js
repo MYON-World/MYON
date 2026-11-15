@@ -3342,12 +3342,15 @@ function drawCommonFunds(){
 function drawWorldUpgrades(){
  if(!worldProgress||!taxiLevel||!truckGarage||!commonFunds)return;
  const cap=sharedFleetLimit(),fleet=$('world-fleet-buy');
+ // A completely unlocked upgrade no longer occupies space on the mission board.
+ $('world-fleet-upgrade').hidden=cap>=100;
  $('world-fleet-count').textContent='월드별 '+cap+' / 100대 · 해금 '+sharedFleetSteps()+'/5';
  fleet.textContent=cap>=100?'최대 100대 해금 완료':'차량 한도 +10대 · '+formatCommonFunds(SHARED_FLEET_PRICE);
  fleet.disabled=cap>=100||!ready||worldUpgradeBusy||worldSwitchBusy||autoUpdateReloadLock||commonFunds.balance<SHARED_FLEET_PRICE;
- const world=activeWorld(),section=$('world-auto-upgrade');section.hidden=world==='bus';
- if(world==='bus')return;
+ const world=activeWorld(),section=$('world-auto-upgrade');
+ if(world==='bus'){section.hidden=true;return;}
  const taxi=world==='taxi',steps=taxi?taxiAutoSteps():truckAutoSteps(),max=taxi?25:30;
+ section.hidden=steps>=max;
  const seconds=taxi?taxiAutoSeconds():truckAutoSeconds();
  const active=taxi?levelNumber()>=2:truckLevelNumber()>=2;
  const rate=autoEarningsRate(taxi?40:truckRevenue(),steps);
