@@ -219,7 +219,12 @@ test('DEV city selection offers interactive no-scroll arrival on mobile',()=>{
  assert.ok(html.includes('height:100dvh'));
  assert.doesNotMatch(html,/scrollIntoView|window\.scrollTo/);
  // The DEV reference desk scrolls its own content while gameplay stays fixed.
- assert.match(html,/\.dnb-scroll\{flex:1;min-height:0;overflow-y:auto/);
+ assert.match(html,/\.dnb-scroll\{flex:1;min-height:0;overflow:hidden/);
+ assert.match(html,/#dn-view\{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden/);
+ assert.match(html,/function devNotebookPager\(view,totalPages\)/);
+ assert.match(html,/function devNotebookDetailChunks\(panel,paragraph,fullText,availableHeight\)/);
+ assert.match(html,/devNotebookPager\(view,totalPages\)/);
+ assert.match(html,/devNotebookPager\(view,pages.length\)/);
  assert.ok(html.includes("function selectCity(id)"));
  assert.ok(html.includes("function openModal()"));
  assert.ok(html.includes("function enterCity()"));
@@ -403,6 +408,11 @@ test('DEV notebook uses button-based navigation through actual structured world 
  assert.equal(data.domains.length,14);
  assert.equal(data.cities.length,3);
  assert.doesNotMatch(html,/id="dn-tab-status"|id="dn-tab-notes"/);
+ assert.doesNotMatch(html,/\.dnb-scroll\{[^}]*overflow-y:auto/);
+ assert.doesNotMatch(html,/\.dnb-scroll\{[^}]*scrollbar-color/);
+ assert.doesNotMatch(html,/\$\('dn-scroll'\)\.scrollTop/);
+ assert.match(html,/dnPage=0/);
+ assert.match(html,/children\.slice\(start,start\+perPage\)/);
  const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
  for(const script of scripts)new (require('node:vm').Script)(script[1]);
 });
