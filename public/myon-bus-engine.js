@@ -62,15 +62,16 @@ function moveSeconds(v){
  const meters=random(v,300,800),speed=random(v,15,25);
  return Math.max(30,Math.ceil(meters*3.6/speed)+random(v,20,60));
 }
-function stop(s,v,first){
- const alight=first?0:random(v,0,v.onboard);
+function stop(s,v,first,at,golden){
+ const boosted=golden&&at>=golden.goldenFrom&&at<golden.goldenUntil;
+ const alight=first?0:(boosted?v.onboard:random(v,0,v.onboard));
  v.onboard-=alight;s.completed+=alight;v.alighted+=alight;
- const waiting=random(v,0,10);
- const boarded=random(v,0,Math.min(waiting,CAPACITY-v.onboard));
+ const waiting=boosted?10:random(v,0,10);
+ const boarded=boosted?Math.min(waiting,CAPACITY-v.onboard):random(v,0,Math.min(waiting,CAPACITY-v.onboard));
  v.onboard+=boarded;v.waiting=waiting;
  v.lastBoarded=boarded;v.lastAlighted=alight;v.boarded+=boarded;v.gross+=boarded*FARE;
 }
-function advance(s,now){
+function advance(s,now,golden=null){
  if(!valid(s)||!Number.isSafeInteger(now)||now<=s.lastAt)return {changed:false,settlements:[]};
  // Cap offline replay to 7 real days, avoiding years of heavy synchronous work.
  const from=Math.max(s.lastAt,now-7*DAY),settlements=[];
@@ -85,7 +86,7 @@ function advance(s,now){
     cursor=Math.max(cursor,shift.start);
     v.shiftEnd=shift.end;v.shiftLabel=shift.label;
     v.phase='running';v.gross=0;v.boarded=0;v.alighted=0;v.onboard=0;
-    stop(s,v,true);
+    stop(s,v,true,cursor,golden);
     v.nextAt=Math.min(v.shiftEnd,cursor+moveSeconds(v));
     changed=true;
    }else if(v.phase==='running'){
@@ -95,7 +96,7 @@ function advance(s,now){
      // 12:00 / 21:00 is the LAST stop departure, not settlement time.
      v.phase='returning';v.nextAt=cursor+moveSeconds(v);changed=true;
     }else{
-     stop(s,v,false);
+     stop(s,v,false,cursor,golden);
      v.nextAt=Math.min(v.shiftEnd,cursor+moveSeconds(v));
      changed=true;
     }

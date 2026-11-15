@@ -1,156 +1,124 @@
-// MYON v0.13.53 — compact two-line update status with installed → pending versions.
-// Progress reflects deliberate waiting time, not simulated download/install work.
+// MYON sequential release coordinator. Each deployed commit is an immutable game snapshot.
+// A commit gets 60 minutes of rollout; after application, the next waits 60 minutes.
 (function(){
 'use strict';
 if(/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname))return;
-const WAIT_MS=60*60*1000,CHECK_MS=60000,STORAGE_KEY='myon-commit-rollout-v1';
-const CODE_VERSION='0.13.53';
-const params=new URLSearchParams(location.search||'');
-const buildId=params.get('build')||'';
-const sourceId=buildId||'version:'+CODE_VERSION;
-const $=id=>document.getElementById(id);
-const banner=$('auto-update-banner');
-if(!banner)return;
-let pending=null,checking=false,applying=false,refreshIssued=false;
-let retryAfter=0,note='';
-function valid(x){
- return Boolean(x&&x.schema===1&&x.from===sourceId&&
-  typeof x.target==='string'&&/^[a-f0-9]{40}$/i.test(x.target)&&
-  Number.isSafeInteger(x.startedAt)&&x.startedAt>0&&x.startedAt<Date.now()+60000&&
-  (x.targetVersion===undefined||typeof x.targetVersion==='string'&&/^\d+\.\d+\.\d+$/.test(x.targetVersion)));
-}
-function stored(){
+const KEY='myon-release-state-v2',WAIT=3600000,CHECK=60000;
+const build=new URLSearchParams(location.search||'').get('build')||'';
+const manifestUrl=location.pathname.match(/\/releases\/[a-f0-9]{40}\//i)?
+ '../../myon-rollouts.json':'myon-rollouts.json';
+const $=id=>document.getElementById(id),banner=$('auto-update-banner');
+if(!banner||!/^[a-f0-9]{40}$/i.test(build))return;
+let releases=[],busy=false,applying=false,reloading=false,retryAt=0,note='';
+function read(){
  try{
-  const raw=window.localStorage&&window.localStorage.getItem(STORAGE_KEY);
-  if(!raw)return null;
-  const x=JSON.parse(raw);
-  return valid(x)?x:null;
- }catch(error){console.warn('MYON rollout storage read:',error);return null;}
+  const s=JSON.parse(localStorage.getItem(KEY)||'null');
+  return s&&s.schema===2&&/^[a-f0-9]{40}$/i.test(s.installed)&&
+   ['idle','rollout','cooldown'].includes(s.phase)&&
+   Number.isSafeInteger(s.startedAt)&&s.startedAt>=0&&
+   (s.target===''||/^[a-f0-9]{40}$/i.test(s.target))?s:null;
+ }catch(e){console.warn('MYON release state:',e);return null;}
 }
-function persist(){
- try{
-  if(!window.localStorage)return;
-  if(pending)window.localStorage.setItem(STORAGE_KEY,JSON.stringify(pending));
-  else if(stored())window.localStorage.removeItem(STORAGE_KEY);
- }catch(error){console.warn('MYON rollout storage write:',error);}
+function save(s){localStorage.setItem(KEY,JSON.stringify(s));}
+function label(sha){const v=releases.find(x=>x.revision===sha);return v?'v'+v.version:'commit '+sha.slice(0,8);}
+function nextAfter(sha){
+ const i=releases.findIndex(x=>x.revision===sha);
+ return i<0||i===releases.length-1?null:releases[i+1];
 }
-function versionGreater(candidate,base){
- const a=String(candidate).split('.').map(Number),b=String(base).split('.').map(Number);
- if(a.length!==3||b.length!==3||[...a,...b].some(n=>!Number.isSafeInteger(n)||n<0))return false;
- for(let i=0;i<3;i++){if(a[i]>b[i])return true;if(a[i]<b[i])return false;}
- return false;
-}
-function progress(now=Date.now()){
- if(!pending)return 0;
- return Math.max(0,Math.min(100,Math.floor((now-pending.startedAt)*100/WAIT_MS)));
-}
+function duration(s,now){return Math.max(0,WAIT-(now-s.startedAt));}
 function draw(now=Date.now()){
- banner.hidden=!pending;
- if(!pending)return;
- const remain=Math.max(0,Math.ceil((pending.startedAt+WAIT_MS-now)/1000)),pct=progress(now);
- const minutes=String(Math.floor(remain/60)).padStart(2,'0'),seconds=String(remain%60).padStart(2,'0');
- const targetVersion=pending.targetVersion&&/^\d+\.\d+\.\d+$/.test(pending.targetVersion)?
-  'v'+pending.targetVersion:'최신 버전';
- $('auto-update-version-from').textContent='v'+CODE_VERSION;
- $('auto-update-version-to').textContent=targetVersion;
- $('auto-update-title').textContent=refreshIssued?'새 버전 여는 중':
-  applying?'업데이트 저장 확인 중':pct>=100?'신규 업데이트 적용 준비':'신규 업데이트 적용 중';
+ const s=read();
+ if(!s||s.installed!==build){banner.hidden=true;return;}
+ const next=s.phase==='rollout'?releases.find(v=>v.revision===s.target):nextAfter(build);
+ banner.hidden=!(next&&s.phase!=='idle');
+ if(banner.hidden)return;
+ const isCool=s.phase==='cooldown',remain=duration(s,now),pct=isCool?0:Math.min(100,Math.floor((1-remain/WAIT)*100));
+ const seconds=Math.ceil(remain/1000);
+ $('auto-update-title').textContent=isCool?'다음 커밋 대기 중':reloading?'다음 버전 여는 중':applying?'세이브 보호 확인 중':'신규 업데이트 적용 중';
+ $('auto-update-version-from').textContent=label(build);
+ $('auto-update-version-to').textContent=label(next.revision);
  $('auto-update-percent').textContent=pct+'%';
- $('auto-update-fill').style.width=pct+'%';
- const progressBar=$('auto-update-progress');
- if(progressBar)progressBar.setAttribute('aria-valuenow',String(pct));
- $('auto-update-detail').textContent=note||(pct>=100?'저장 확인 후 자동 새로고침':'1시간 순차 적용 · 기존 세이브 유지');
- $('auto-update-remaining').textContent=minutes+':'+seconds;
+ const fill=$('auto-update-fill');if(fill)fill.style.width=pct+'%';
+ const bar=$('auto-update-progress');if(bar)bar.setAttribute('aria-valuenow',String(pct));
+ $('auto-update-remaining').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+ const detail=$('auto-update-detail');if(detail)detail.textContent=note||(isCool?'다음 커밋 시작까지 1시간 대기':'현재 버전 유지 · 적용까지 1시간');
 }
 async function check(){
- if(checking||refreshIssued||typeof fetch!=='function')return false;
- checking=true;
+ if(busy||reloading)return false;
+ busy=true;
  try{
-  const response=await fetch('myon-build.json?check='+Date.now(),{cache:'no-store'});
-  if(!response.ok)return false;
-  const latest=await response.json();
-  if(!latest||typeof latest.revision!=='string'||!/^[a-f0-9]{40}$/i.test(latest.revision)||
-     typeof latest.version!=='string'||!/^\d+\.\d+\.\d+$/.test(latest.version))return false;
-  if(buildId?latest.revision===buildId:!versionGreater(latest.version,CODE_VERSION)){
-   // Keep an already verified pending rollout if an edge cache answers with stale metadata.
-   return true;
+  const response=await fetch(manifestUrl+'?t='+Date.now(),{cache:'no-store'});
+  if(!response.ok)throw Error('Manifest unavailable');
+  const doc=await response.json();
+  if(!doc||doc.schema!==1||!Array.isArray(doc.releases)||!doc.releases.length||
+   !doc.releases.every(v=>v&&/^[a-f0-9]{40}$/i.test(v.revision)&&/^\d+\.\d+\.\d+$/.test(v.version)))
+   throw Error('Invalid release manifest');
+  releases=doc.releases;
+  const s=read();
+  if(!s)return false;
+  if(s.installed!==build){draw();return true;}
+  if(s.phase==='cooldown'&&duration(s,Date.now())===0){
+   s.phase='idle';s.startedAt=0;s.target='';save(s);
   }
-  const old=stored()||pending;
-  pending=old||{schema:1,from:sourceId,target:latest.revision,targetVersion:latest.version,startedAt:Date.now()};
-  if(pending.target!==latest.revision){
-   // A newer deployed commit replaces the target AND starts a fresh full hour.
-   pending.target=latest.revision;
-   pending.startedAt=Date.now();
-   retryAfter=0;
-   note='새 커밋 확인 · 1시간 대기 다시 시작';
-  }else note='';
-  pending.targetVersion=latest.version;
-  persist();draw();
-  return true;
- }catch(error){console.warn('MYON rollout check:',error);return false;}
- finally{checking=false;}
+  if(s.phase==='idle'){
+   const next=nextAfter(build);
+   if(next){s.phase='rollout';s.target=next.revision;s.startedAt=Date.now();save(s);}
+  }
+  // A new commit never changes the current rollout target or start time.
+  note='';draw();return true;
+ }catch(error){console.warn('MYON release manifest:',error);note='연결 확인 중 · 현재 버전 유지';draw();return false;}
+ finally{busy=false;}
 }
 async function apply(){
- if(!pending||applying||refreshIssued||Date.now()<retryAfter||progress()<100)return;
- if(document.hidden){note='화면 복귀 시 적용';draw();return;}
- if(checking){note='새 배포 최종 확인 중';draw();return;}
- applying=true;note='최신 배포와 저장 자료 확인 중';draw();
- let checkpointGranted=false;
+ if(applying||reloading||document.hidden||Date.now()<retryAt)return;
+ const s=read();if(!s||s.installed!==build||s.phase!=='rollout'||duration(s,Date.now())>0)return;
+ applying=true;note='업데이트 파일 및 기존 세이브 확인 중';draw();
+ let locked=false;
  try{
-  const target=pending.target,startedAt=pending.startedAt;
-  const samePending=()=>pending&&pending.target===target&&pending.startedAt===startedAt&&progress()===100;
-  // Even if the last poll was seconds ago, check before applying: a newer
-  // deployment resets the timer instead of being silently included.
-  if(!await check())throw Error('Deployment verification unavailable');
-  if(!samePending())throw Error('NEW_COMMIT_RESTARTED_HOUR');
-  const checkpoint=window.MYON_SAFE_UPDATE_CHECKPOINT;
-  if(typeof checkpoint!=='function')throw Error('Save verification bridge unavailable');
-  checkpointGranted=await checkpoint();
-  if(!checkpointGranted)throw Error('Game or save is not safe for reload');
-  // A newer release might land while IndexedDB is being checked.
-  if(!await check())throw Error('Deployment changed or is unavailable');
-  if(!samePending())throw Error('NEW_COMMIT_RESTARTED_HOUR');
+  if(!await check())throw Error('Manifest unavailable');
+  const fresh=read();
+  if(!fresh||fresh.installed!==build||fresh.target!==s.target||fresh.startedAt!==s.startedAt||
+   !releases.some(v=>v.revision===s.target))throw Error('Pending release changed');
+  if(typeof window.MYON_SAFE_UPDATE_CHECKPOINT!=='function')throw Error('Safe checkpoint unavailable');
+  locked=await window.MYON_SAFE_UPDATE_CHECKPOINT();
+  if(!locked)throw Error('Save checkpoint rejected');
+  if(!await check()||!releases.some(v=>v.revision===s.target))throw Error('Snapshot no longer available');
+  const verified=read();
+  if(!verified||verified.installed!==build||verified.target!==s.target)throw Error('Concurrent release change');
   const parent=window.parent&&window.parent.location;
-  if(!parent||typeof parent.replace!=='function'||typeof parent.href!=='string')
-   throw Error('Parent refresh is unavailable');
-  const next=new URL(parent.href);
-  next.searchParams.set('myon_commit',target.slice(0,12));
-  note='기존 세이브 확인 완료 · 최신 버전 적용';
-  refreshIssued=true;draw();
-  parent.replace(next.href); // Reload the Vue host, not just the stale iframe.
+  if(!parent||typeof parent.replace!=='function')throw Error('Parent navigation unavailable');
+  const next=new URL(parent.href);next.searchParams.set('myon_commit',s.target.slice(0,12));
+  save({schema:2,installed:s.target,phase:'cooldown',target:'',startedAt:Date.now()});
+  reloading=true;note='세이브 확인 완료 · 다음 커밋 적용';draw();
+  parent.replace(next.href);
  }catch(error){
-  console.warn('MYON update postponed without reload:',error);
-  refreshIssued=false;
-  if(error.message==='NEW_COMMIT_RESTARTED_HOUR'){
-   note='새 커밋 확인 · 1시간 대기 다시 시작';
-   retryAfter=0;
-  }else{
-   note='세이브 보호 · 안전 확인 후 자동 적용';
-   retryAfter=Date.now()+30000;
-  }
-  if(checkpointGranted&&typeof window.MYON_CANCEL_UPDATE_LOCK==='function')
-   window.MYON_CANCEL_UPDATE_LOCK();
+  console.warn('MYON safe update deferred:',error);
+  note='세이브 보호 · 30초 후 다시 확인';retryAt=Date.now()+30000;
+  if(locked&&typeof window.MYON_CANCEL_UPDATE_LOCK==='function')window.MYON_CANCEL_UPDATE_LOCK();
  }finally{applying=false;draw();}
 }
-function syncSharedTimer(){
- // A second open MYON tab may detect the newer commit first.
- const shared=stored();
- if(shared&&(!pending||shared.target!==pending.target||shared.startedAt!==pending.startedAt)){
-  pending=shared;retryAfter=0;note='새 커밋 확인 · 1시간 대기 다시 시작';
- }
-}
 function tick(){
- if(refreshIssued)return;
- syncSharedTimer();
- if(!pending)return;
+ if(reloading)return;
+ const s=read();
+ if(s&&s.installed!==build){
+  // Another tab installed a new revision. Never run mismatched game code against its save.
+  if(!applying&&typeof window.MYON_SAFE_UPDATE_CHECKPOINT==='function'&&!document.hidden){
+   applying=true;
+   Promise.resolve(window.MYON_SAFE_UPDATE_CHECKPOINT()).then(ok=>{
+    if(ok){reloading=true;window.parent.location.replace(window.parent.location.href);}
+    else applying=false;
+   }).catch(()=>{applying=false;});
+  }
+  return;
+ }
+ if(s&&s.phase==='cooldown'&&duration(s,Date.now())===0)void check();
  draw();
- if(progress()===100&&!applying)void apply();
+ if(s&&s.phase==='rollout'&&duration(s,Date.now())===0)void apply();
 }
-pending=stored();
-draw();
-void check();
-setInterval(check,CHECK_MS);
+draw();void check();
+setInterval(()=>{void check();},CHECK);
 setInterval(tick,1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){void check();tick();}});
 window.addEventListener('online',()=>{void check();tick();});
+window.addEventListener('storage',e=>{if(e.key===KEY)tick();});
 })();

@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -23,18 +25,20 @@ jobs:
       - name: Build MYON official game
         run: |
           npm ci
-          # A successful Pages deployment publishes this commit revision.
-          # Old clients only begin the 1-hour rollout after seeing this file.
           VERSION=$(node -p "require('./package.json').version")
           printf '{"revision":"%s","version":"%s"}\n' "$GITHUB_SHA" "$VERSION" > public/myon-build.json
           npm test
           npm run build
-      - name: Check published game
+          node scripts/build-rollouts.cjs
+      - name: Check immutable releases and official game
         run: |
           test -f dist/index.html
           test -f dist/myon.html
           test -f dist/myon-v013.js
           test -f dist/myon-build.json
+          test -f dist/myon-rollouts.json
+          test -f "dist/releases/$GITHUB_SHA/myon.html"
+          test -f "dist/releases/$GITHUB_SHA/myon-v013.js"
           ! test -e dist/test
           ! test -e dist/dev
       - uses: actions/upload-pages-artifact@v3

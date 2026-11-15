@@ -11,7 +11,12 @@ const PROFILE_KEY='v01319-player-profile',PREF_KEY='v01319-play-style',FINANCE_K
 // Only the official main path can read or write the player save.
 const IS_LIVE=!/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname);
 const HOUR=3600,DAY=86400,WEEK=7*DAY,KST=9*HOUR,MAX=30,MAX_TOTAL=130,LOOKBACK=2*DAY,TAXI_OFFER_INTERVAL=300,TAXI_AUTO_INTERVAL=1800;
-const COMPENSATION_DURATION=7*DAY,COMPENSATION_FUNDS_UNITS=1000000000; // 100,000 M; no M_UNITS early access
+const COMPENSATION_DURATION=7*DAY,COMPENSATION_FUNDS_UNITS=1000000000; // 100,000 M
+const COMPENSATION_CLAIM_END=1794709396; // 2026-11-15 11:23:16 KST
+const MONTHLY_KEY='v01354-monthly-asset-reward',BOOSTER_KEY='v01354-special-passes';
+const BOOSTER_DURATION=DAY,BOOSTER_COOLDOWN=DAY;
+const BOOSTER_PRICES={golden:5000*10000,income:3000*10000};
+const compensationClaimOpen=now=>now<COMPENSATION_CLAIM_END;
 const $=id=>document.getElementById(id);
 const ui={list:$('slot-list'),date:$('clock-date'),clock:$('clock-time'),gear:$('top-settings-toggle'),version:$('home-version'),worldName:$('current-world-name'),settings:$('settings-panel'),notify:$('notification-toggle')};
 const nav={home:$('home-screen'),character:$('character-screen'),world:$('world-screen')};
@@ -178,6 +183,7 @@ let menuStudy=null,menuDirty=false,menuLastSave=0,menuSaveChain=Promise.resolve(
 let profile=null,preferences=null,resetBusy=false,commonFunds=null,taxiOffers=null,financeLedger=null,offersDirty=false,taxiLevel=null,worldProgress=null,truckGarage=null,truckOffers=null,worldSwitchBusy=false,worldSwitchTarget=null,assetSalePending=null;
 let profileSaveChain=Promise.resolve();
 let compensation=null,compensationModalOpen=false,compensationBusy=false,compensationError='';
+let monthlyRecord=null,monthlyBusy=false,boosterState=null,boosterBusy=false;
 let busState=null,busBusy=false,worldUpgradeBusy=false;
 let autoUpdateReloadLock=false;
 const cards=new Map(),offerCards=new Map(),waitingVehicleCards=new Map(),tripCache=new Map(),routeRows=new Map(),routeEndCache=new Map();
@@ -776,7 +782,7 @@ function advanceTaxiOffers(now){
  for(let at=first;at<=now;at+=TAXI_OFFER_INTERVAL){
   const seed=mix((taxiOffers.seed^Math.imul(Math.floor(at/TAXI_OFFER_INTERVAL),0x9e3779b9))>>>0);
   if(range(seed,6,0,99)>=taxiOutsourcePercent())continue;
-  const distanceMeters=range(seed,0,30,100)*100;
+  const distanceMeters=(activePass('golden',at)?100:range(seed,0,30,100))*100;
   const fareUnits=taxiFareUnits(distanceMeters);
   if(taxiOffers.offers.length<5000)taxiOffers.offers.push({at,expiresAt:at+HOUR,distanceMeters,fareUnits,
    shareUnits:taxiOutsourceShare(fareUnits)});
@@ -978,6 +984,8 @@ function save(now){
  const busSnapshot=busState?JSON.parse(JSON.stringify(busState)):null;
  const assistantSnapshot=assistant?JSON.parse(JSON.stringify(assistant)):null;
  const compensationSnapshot=compensation?JSON.parse(JSON.stringify(compensation)):null;
+ const monthlySnapshot=monthlyRecord?JSON.parse(JSON.stringify(monthlyRecord)):null;
+ const boosterSnapshot=boosterState?JSON.parse(JSON.stringify(boosterState)):null;
  lastSave=now;dirty=false;offersDirty=false;
  saveChain=saveChain.catch(()=>{}).then(async()=>{
   const db=await openDb();
@@ -986,6 +994,10 @@ function save(now){
    const store=tx.objectStore(STORE);
    // Prevent a stale open tab from overwriting a newly claimed reward.
    const compensationGuard=store.get(COMPENSATION_KEY);
+   const monthlyGuard=store.get(MONTHLY_KEY),passGuard=store.get(BOOSTER_KEY);
+   const unchanged=(a,b)=>JSON.stringify(a||null)===JSON.stringify(b||null);
+   monthlyGuard.onsuccess=()=>{if(!unchanged(monthlyGuard.result,monthlySnapshot))tx.abort();};
+   passGuard.onsuccess=()=>{if(!unchanged(passGuard.result,boosterSnapshot))tx.abort();};
    compensationGuard.onsuccess=()=>{
     const persisted=compensationGuard.result;
     if((persisted||compensationSnapshot)&&
@@ -1006,6 +1018,8 @@ function save(now){
     if(busSnapshot)store.put(busSnapshot,BUS_KEY);
    if(assistantSnapshot)store.put(assistantSnapshot,ASSISTANT_KEY);
    if(compensationSnapshot)store.put(compensationSnapshot,COMPENSATION_KEY);
+    if(monthlySnapshot)store.put(monthlySnapshot,MONTHLY_KEY);
+    if(boosterSnapshot)store.put(boosterSnapshot,BOOSTER_KEY);
    };
    tx.oncomplete=resolve;
    tx.onerror=()=>reject(tx.error||new Error('MYON world/finance/ledger/owned/offers write failed'));
@@ -1729,7 +1743,7 @@ const FINANCE_HISTORY_LIMIT=100;
 function newFinanceLedger(now){
  return {schema:1,openedAt:now,openingBalance:commonFunds?commonFunds.balance:0,totalIncome:0,totalExpenses:0,entries:[]};
 }
-const FINANCE_CATEGORIES=['bus-operation','taxi-outsource','taxi-owned','truck-outsource','truck-owned','vehicle-purchase','vehicle-repayment','vehicle-repair','vehicle-sale','vehicle-sale-payoff','level-reward','ability-unlock','compensation-grant','compensation-income'];
+const FINANCE_CATEGORIES=['bus-operation','taxi-outsource','taxi-owned','truck-outsource','truck-owned','vehicle-purchase','vehicle-repayment','vehicle-repair','vehicle-sale','vehicle-sale-payoff','level-reward','ability-unlock','compensation-grant','compensation-income','monthly-asset-reward','booster-purchase','booster-income'];
 function validFinanceLedger(v){
  return Boolean(v&&v.schema===1&&Number.isSafeInteger(v.openedAt)&&v.openedAt>0&&
   Number.isSafeInteger(v.openingBalance)&&v.openingBalance>=0&&
@@ -1764,10 +1778,19 @@ function compensationExtra(base,at){
  const extra=compensationActiveAt(at)&&Number.isSafeInteger(base)&&base>0?base*2:0;
  return Number.isSafeInteger(extra)?extra:0;
 }
-function compensationSettlementAmount(base,at){return base+compensationExtra(base,at);}
+function activePass(kind,at){
+ const v=boosterState&&boosterState[kind];
+ return Boolean(v&&v.activeAt>0&&at>=v.activeAt&&at<v.endsAt);
+}
+function incomePassExtra(base,at){
+ return activePass('income',at)&&Number.isSafeInteger(base)&&base>0?Math.floor(base/2):0;
+}
+function compensationSettlementAmount(base,at){return base+compensationExtra(base,at)+incomePassExtra(base,at);}
 function recordCompensationIncome(base,at,id){
  const extra=compensationExtra(base,at);
  if(extra)recordFinanceTransaction('compensation-income',extra,at,id);
+ const passExtra=incomePassExtra(base,at);
+ if(passExtra)recordFinanceTransaction('booster-income',passExtra,at,id);
 }
 function compensationPurchasePrice(price,at=Math.floor(Date.now()/1000)){
  return compensationActiveAt(at)?Math.floor(price/2):price;
@@ -1935,7 +1958,7 @@ function ownedTaxiFare(distance,at){
 }
 function makeOwnedTrip(v,now,acceptMethod='manual'){
  const base=jobIdentity(now,null),seed=base.seed;
- const distance=range(seed,22,30,levelMaxKm()*10)*100;
+ const distance=(activePass('golden',now)?levelMaxKm()*10:range(seed,22,30,levelMaxKm()*10))*100;
  const fare=ownedTaxiFare(distance,now);
  // The city-out-of-town tariff remains. LV.5 unlocks an extra 1% on >10km.
  const longFare=levelNumber()>=5&&distance>10000?Math.ceil(fare.total/100):0;
@@ -2568,7 +2591,7 @@ function generateTruckOffer(forCity=null,forKind=null,limitKm=null){
  const startIdx=TRUCK_CITIES.indexOf(from);
  let endIdx=range(seed,2,0,TRUCK_CITIES.length-2);if(endIdx>=startIdx)endIdx++;
  const max=Math.max(20,Math.min(truckMaxKm(),limitKm||10000));
- const distanceKm=range(seed,3,20,max);
+ const distanceKm=activePass('golden',Math.floor(Date.now()/1000))?max:range(seed,3,20,max);
  return {id,type,from,to:TRUCK_CITIES[endIdx],distanceKm};
 }
 function truckEligibleVehicle(offer){
@@ -2993,7 +3016,7 @@ async function startCompensation(){
  }else{
   if(financeLedger&&financeLedger.entries.some(e=>e.category==='compensation-grant'))
    throw new Error('Compensation payment exists without claim record; duplicate payout blocked');
-  compensationModalOpen=true;
+  compensationModalOpen=compensationClaimOpen(Math.floor(Date.now()/1000));
  }
 }
 function insertGiftTaxi(garage){
@@ -3019,7 +3042,7 @@ function compensationCountdown(now){
 }
 function drawCompensation(now){
  const active=compensation&&now<compensation.expiresAt;
- $('compensation-notice').hidden=Boolean(compensation&&!active);
+ $('compensation-notice').hidden=!compensationClaimOpen(now)||Boolean(compensation&&!active);
  $('compensation-benefit').hidden=!active;
  if(active){
   $('compensation-countdown').textContent='남은 시간 '+compensationCountdown(now);
@@ -3027,21 +3050,23 @@ function drawCompensation(now){
    ' · 택시 '+(2-compensation.giftIssued)+'대 지급 대기':'';
  }
  $('compensation-notice-action').textContent=compensation?'보상 내역':'보상 확인';
+ if(!compensation&&!compensationClaimOpen(now))compensationModalOpen=false;
  $('compensation-overlay').hidden=!compensationModalOpen;
- $('compensation-claim').hidden=Boolean(compensation);
- $('compensation-claim').disabled=compensationBusy;
+ $('compensation-claim').hidden=Boolean(compensation)||!compensationClaimOpen(now);
+ $('compensation-claim').disabled=compensationBusy||!compensationClaimOpen(now);
  $('compensation-popup-subtitle').textContent=compensation?
   '공용자금 100,000 M 지급 완료 · '+(active?'남은 혜택 '+compensationCountdown(now):'혜택 기간 종료'):
-  '세이브 오류 복구 사과 보상 · 수락 시 즉시 지급';
+  '세이브 오류 복구 사과 보상 · 남은 수령시간 '+hms(Math.max(0,COMPENSATION_CLAIM_END-now));
  $('compensation-error').textContent=compensationError;
 }
 
 
 async function claimCompensation(){
- if(!ready||!IS_LIVE||compensationBusy||compensation||!commonFunds||!ownedGarage||!financeLedger)return;
+ if(!ready||!IS_LIVE||!compensationClaimOpen(Math.floor(Date.now()/1000))||compensationBusy||compensation||!commonFunds||!ownedGarage||!financeLedger)return;
  compensationBusy=true;compensationError='';
  try{
   const now=Math.floor(Date.now()/1000);
+  if(!compensationClaimOpen(now))return;
   advance(now);
   // Drain pending saves before the award; no stale funds snapshot may follow it.
   await save(now);
@@ -3066,6 +3091,9 @@ async function claimCompensation(){
      }
      if(ledger.entries.some(e=>e.category==='compensation-grant')){
       abort('Previously recorded compensation: refuse duplicate grant');return;
+     }
+     if(!compensationClaimOpen(Math.floor(Date.now()/1000))){
+      abort('Compensation window closed');return;
      }
      const balance=funds.balance+COMPENSATION_FUNDS_UNITS,total=ledger.totalIncome+COMPENSATION_FUNDS_UNITS;
      if(!Number.isSafeInteger(balance)||!Number.isSafeInteger(total)){
@@ -3105,12 +3133,182 @@ async function claimCompensation(){
  }finally{compensationBusy=false;draw(Math.floor(Date.now()/1000));}
 }
 $('compensation-notice-action').addEventListener('click',()=>{
- compensationModalOpen=true;drawCompensation(Math.floor(Date.now()/1000));
+ if(compensationClaimOpen(Math.floor(Date.now()/1000))||compensation)compensationModalOpen=true;
+ drawCompensation(Math.floor(Date.now()/1000));
 });
 $('compensation-close').addEventListener('click',()=>{
  compensationModalOpen=false;compensationError='';drawCompensation(Math.floor(Date.now()/1000));
 });
 $('compensation-claim').addEventListener('click',claimCompensation);
+
+
+ // Automatic KST monthly reward, one atomic grant per month on first connection during days 1–7.
+function monthlyPeriod(now){
+ const kst=new Date((now+KST)*1000);
+ return kst.getUTCFullYear()+'-'+pad(kst.getUTCMonth()+1);
+}
+function monthlyEligible(now){return new Date((now+KST)*1000).getUTCDate()<=7;}
+function validMonthly(v){
+ return Boolean(v&&v.schema===1&&/^\d{4}-\d{2}$/.test(v.period)&&
+  Number.isSafeInteger(v.claimedAt)&&v.claimedAt>0&&
+  Number.isSafeInteger(v.amount)&&v.amount>=0);
+}
+function paidVehicleValue(taxi,truck,bus){
+ const taxis=taxi.vehicles.reduce((sum,v)=>sum+(['new','used'].includes(v.origin)?v.price:0),0);
+ const trucks=truck.vehicles.reduce((sum,v)=>sum+(v.origin==='new'?v.newPrice:0),0);
+ const buses=bus.vehicles.reduce((sum,v)=>sum+(v.origin==='new'?(v.purchasePrice||0):0),0);
+ return taxis+trucks+buses;
+}
+async function grantMonthlyReward(now){
+ if(!IS_LIVE||!ready||monthlyBusy||!monthlyEligible(now)||!commonFunds||!ownedGarage||!truckGarage||!busState||!financeLedger)return;
+ const period=monthlyPeriod(now);
+ if(monthlyRecord&&monthlyRecord.period>=period)return;
+ monthlyBusy=true;
+ try{
+  advance(now);advanceBusWorld(now);await save(now);
+  const db=await openDb();
+  const result=await new Promise((resolve,reject)=>{
+   const tx=db.transaction(STORE,'readwrite'),store=tx.objectStore(STORE);
+   const keys=[MONTHLY_KEY,FINANCE_KEY,OWNED_KEY,TRUCK_GARAGE_KEY,BUS_KEY,LEDGER_KEY],loaded={};
+   let remaining=keys.length,final=null,problem=null;
+   const abort=msg=>{problem=new Error(msg);tx.abort();};
+   for(const key of keys){
+    const req=store.get(key);
+    req.onsuccess=()=>{
+     loaded[key]=req.result;
+     if(--remaining)return;
+     const prev=loaded[MONTHLY_KEY],funds=loaded[FINANCE_KEY],taxi=loaded[OWNED_KEY],
+      truck=loaded[TRUCK_GARAGE_KEY],bus=loaded[BUS_KEY],ledger=loaded[LEDGER_KEY];
+     if(prev&&!validMonthly(prev)){abort('Invalid monthly record; original protected');return;}
+     if(prev&&prev.period>=period){final={already:true,record:prev};return;}
+     if(!validCommonFunds(funds)||!validGarage(taxi)||!validTruckGarage(truck)||
+        !busEngine.valid(bus)||!validFinanceLedger(ledger)){
+      abort('Invalid saved assets: monthly grant blocked');return;
+     }
+     const assets=paidVehicleValue(taxi,truck,bus),amount=Math.floor((funds.balance+assets)/10);
+     if(!Number.isSafeInteger(assets)||!Number.isSafeInteger(amount)||
+        !Number.isSafeInteger(funds.balance+amount)||!Number.isSafeInteger(ledger.totalIncome+amount)){
+      abort('Monthly reward exceeds safe integer');return;
+     }
+     const record={schema:1,period,claimedAt:now,amount};
+     funds.balance+=amount;
+     if(amount){
+      ledger.totalIncome+=amount;
+      ledger.entries.unshift({id:54,at:now,category:'monthly-asset-reward',amount});
+      if(ledger.entries.length>FINANCE_HISTORY_LIMIT)ledger.entries.length=FINANCE_HISTORY_LIMIT;
+     }
+     store.put(record,MONTHLY_KEY);store.put(funds,FINANCE_KEY);store.put(ledger,LEDGER_KEY);
+     final={record,funds,ledger};
+    };
+   }
+   tx.oncomplete=()=>resolve(final);
+   tx.onerror=()=>reject(problem||tx.error||Error('Monthly award transaction failed'));
+   tx.onabort=()=>reject(problem||tx.error||Error('Monthly award transaction aborted'));
+  });
+  if(result.already){
+   monthlyRecord=result.record;
+   if(monthlyRecord.period===period){console.warn('Monthly reward claimed in another tab; reload required');ready=false;}
+  }else{
+   monthlyRecord=result.record;commonFunds=result.funds;financeLedger=result.ledger;
+   dirty=true;await save(now);
+  }
+ }catch(error){console.error('MYON monthly reward:',error);}
+ finally{monthlyBusy=false;draw(Math.floor(Date.now()/1000));}
+}
+function drawMonthlyReward(now){
+ const el=$('monthly-reward-notice');
+ el.hidden=!(monthlyRecord&&monthlyRecord.period===monthlyPeriod(now)&&now-monthlyRecord.claimedAt<120);
+ if(!el.hidden)$('monthly-reward-amount').textContent='+'+formatCommonFunds(monthlyRecord.amount)+' 지급 완료';
+}
+// User-purchased special passes; never automatically granted by the monthly event.
+function blankBooster(){return {owned:false,activeAt:0,endsAt:0,cooldownUntil:0};}
+function newBoosters(){return {schema:1,golden:blankBooster(),income:blankBooster()};}
+function validBoosters(s){
+ return Boolean(s&&s.schema===1&&['golden','income'].every(k=>{
+  const v=s[k];return v&&typeof v.owned==='boolean'&&
+   ['activeAt','endsAt','cooldownUntil'].every(f=>Number.isSafeInteger(v[f])&&v[f]>=0)&&
+   (v.activeAt===0&&v.endsAt===0&&v.cooldownUntil===0||
+    v.activeAt>0&&v.endsAt===v.activeAt+BOOSTER_DURATION&&v.cooldownUntil===v.endsAt+BOOSTER_COOLDOWN);
+ }));
+}
+async function startBoosters(){
+ boosterState=newBoosters();
+ if(!IS_LIVE)return;
+ const saved=await read(BOOSTER_KEY);
+ if(saved){if(!validBoosters(saved))throw Error('Invalid pass state; original protected');boosterState=saved;}
+ else await putRecord(BOOSTER_KEY,boosterState);
+}
+function passStatus(kind,now){
+ const v=boosterState[kind],other=boosterState[kind==='golden'?'income':'golden'];
+ if(v.activeAt&&now<v.endsAt)return {label:'사용 중 '+hms(v.endsAt-now),disabled:true};
+ if(v.owned){
+  if(other.activeAt&&now<other.endsAt)return {label:'다른 이용권 사용 중',disabled:true};
+  if(now<v.cooldownUntil)return {label:'사용 제한 '+hms(v.cooldownUntil-now),disabled:true};
+  return {label:'사용하기',disabled:false};
+ }
+ return {label:'구매 '+formatCommonFunds(BOOSTER_PRICES[kind]),disabled:now<v.endsAt||commonFunds.balance<BOOSTER_PRICES[kind]};
+}
+function drawBoosters(now){
+ if(!boosterState||!commonFunds)return;
+ for(const kind of ['golden','income']){
+  const v=boosterState[kind],s=passStatus(kind,now),button=$('pass-'+kind+'-action');
+  button.textContent=s.label;button.disabled=s.disabled||boosterBusy||!ready||autoUpdateReloadLock;
+  $('pass-'+kind+'-status').textContent=v.activeAt&&now<v.endsAt?'효과 적용 중':
+   v.owned?'보유 1장'+(now<v.cooldownUntil?' · 쿨타임 중':''):
+   now<v.cooldownUntil?'재구매 가능 · 사용 쿨타임':'미보유';
+ }
+}
+async function useOrBuyPass(kind){
+ if(!ready||boosterBusy||monthlyBusy||autoUpdateReloadLock||!boosterState||!commonFunds||!financeLedger)return;
+ const now=Math.floor(Date.now()/1000);
+ if(passStatus(kind,now).disabled)return;
+ boosterBusy=true;
+ try{
+  advance(now);advanceBusWorld(now);await save(now);
+  const db=await openDb(),cost=BOOSTER_PRICES[kind];
+  const result=await new Promise((resolve,reject)=>{
+   const tx=db.transaction(STORE,'readwrite'),store=tx.objectStore(STORE);
+   const keys=[BOOSTER_KEY,FINANCE_KEY,LEDGER_KEY],loaded={};
+   let remaining=keys.length,final=null,problem=null;
+   const abort=m=>{problem=Error(m);tx.abort();};
+   for(const key of keys){
+    const req=store.get(key);
+    req.onsuccess=()=>{
+     loaded[key]=req.result;
+     if(--remaining)return;
+     const stored=loaded[BOOSTER_KEY],funds=loaded[FINANCE_KEY],ledger=loaded[LEDGER_KEY];
+     if(!validBoosters(stored)||!validCommonFunds(funds)||!validFinanceLedger(ledger)){
+      abort('Pass or funds corrupt; refuse write');return;
+     }
+     const v=stored[kind],other=stored[kind==='golden'?'income':'golden'];
+     const at=Math.floor(Date.now()/1000);
+     if(v.owned){
+      if(at<v.cooldownUntil||at<v.endsAt||other.activeAt&&at<other.endsAt){abort('Pass not ready');return;}
+      v.owned=false;v.activeAt=at;v.endsAt=at+BOOSTER_DURATION;v.cooldownUntil=v.endsAt+BOOSTER_COOLDOWN;
+     }else{
+      if(at<v.endsAt||funds.balance<cost){abort('Purchase not allowed');return;}
+      if(!Number.isSafeInteger(ledger.totalExpenses+cost)){abort('Ledger overflow');return;}
+      v.owned=true;funds.balance-=cost;ledger.totalExpenses+=cost;
+      ledger.entries.unshift({id:kind==='golden'?56:57,at,category:'booster-purchase',amount:-cost});
+      if(ledger.entries.length>FINANCE_HISTORY_LIMIT)ledger.entries.length=FINANCE_HISTORY_LIMIT;
+      store.put(funds,FINANCE_KEY);store.put(ledger,LEDGER_KEY);
+     }
+     store.put(stored,BOOSTER_KEY);
+     final={booster:stored,funds,ledger};
+    };
+   }
+   tx.oncomplete=()=>resolve(final);
+   tx.onerror=()=>reject(problem||tx.error||Error('Pass transaction failed'));
+   tx.onabort=()=>reject(problem||tx.error||Error('Pass transaction aborted'));
+  });
+  if(!result||!validBoosters(result.booster))throw Error('Pass confirmation failed');
+  boosterState=result.booster;commonFunds=result.funds;financeLedger=result.ledger;
+  dirty=true;await save(now);
+ }catch(error){console.warn('MYON pass action:',error);}
+ finally{boosterBusy=false;draw(Math.floor(Date.now()/1000));}
+}
+$('pass-golden-action').addEventListener('click',()=>useOrBuyPass('golden'));
+$('pass-income-action').addEventListener('click',()=>useOrBuyPass('income'));
 
 // Shared funds use an isolated save record; legacy missions and progression remain untouched.
 function validCommonFunds(value){
@@ -3198,15 +3396,21 @@ async function startBusWorld(now){
 }
 function advanceBusWorld(now){
  if(!busState||!worldProgress?.visited.bus||!commonFunds||!financeLedger)return;
- const result=busEngine.advance(busState,now);
+ const golden=boosterState&&boosterState.golden;
+ const result=busEngine.advance(busState,now,golden&&golden.activeAt>0?
+  {goldenFrom:golden.activeAt,goldenUntil:golden.endsAt}:null);
  if(result.changed)dirty=true;
  for(const entry of result.settlements){
   if(entry.payout<=0)continue;
-  if(!Number.isSafeInteger(commonFunds.balance+entry.payout)||!Number.isSafeInteger(financeLedger.totalIncome+entry.payout)){
+  const bonus=incomePassExtra(entry.payout,entry.at);
+  const total=entry.payout+bonus;
+  if(!Number.isSafeInteger(commonFunds.balance+total)||!Number.isSafeInteger(financeLedger.totalIncome+total)){
    console.error('MYON bus settlement overflow: preserve previous saved state');ready=false;return;
   }
-  commonFunds.balance+=entry.payout;
-  recordFinanceTransaction('bus-operation',entry.payout,entry.at,entry.id);dirty=true;
+  commonFunds.balance+=total;
+  recordFinanceTransaction('bus-operation',entry.payout,entry.at,entry.id);
+  if(bonus)recordFinanceTransaction('booster-income',bonus,entry.at,entry.id);
+  dirty=true;
  }
 }
 function drawBusWorld(){
@@ -3261,6 +3465,7 @@ function draw(now){
  drawCommonFunds();
  if(!ready)return;
  drawCompensation(now);
+ drawMonthlyReward(now);drawBoosters(now);
  renderWorldChrome();
   drawWorldUpgrades();
  if(activeWorld()==='bus'){
@@ -3318,7 +3523,11 @@ function draw(now){
 }
 function tick(){
  const now=Math.floor(Date.now()/1000);
- if(ready&&!resetBusy&&!compensationBusy&&!autoUpdateReloadLock){advance(now);advanceBusWorld(now);deliverPendingCompensationCars();grantTaxiMasterReward(now);grantTruckMasterReward(now);if(activeWorld()==='taxi'){grantCityVehicles();grantEventVehicles();syncTaxiAutoCursor(now);advanceTaxiOffers(now);autoAcceptTaxiOffers(now);}
+ if(ready&&!resetBusy&&!compensationBusy&&!boosterBusy&&!monthlyBusy&&!autoUpdateReloadLock){
+  if(monthlyEligible(now)&&(!monthlyRecord||monthlyRecord.period<monthlyPeriod(now))){
+   void grantMonthlyReward(now);draw(now);return;
+  }
+  advance(now);advanceBusWorld(now);deliverPendingCompensationCars();grantTaxiMasterReward(now);grantTruckMasterReward(now);if(activeWorld()==='taxi'){grantCityVehicles();grantEventVehicles();syncTaxiAutoCursor(now);advanceTaxiOffers(now);autoAcceptTaxiOffers(now);}
   else if(activeWorld()==='truck'){grantTruckEvent();grantTruckCity();fillTruckOffers();autoAcceptTruckOffers(now);}advanceProgression(now);advanceMenu(now);if((dirty||offersDirty)&&now-lastSave>=20)save(now);
   if(progressionDirty&&now-progressionLastSave>=2)saveProgression(now);
   if(menuDirty&&now-menuLastSave>=2)saveMenu(now);}
@@ -3328,7 +3537,7 @@ function tick(){
 /* Only this read-only verification bridge is exposed to the separate updater.
    A navigation is forbidden until every existing saved record matches memory. */
 window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){
- if(!IS_LIVE||!ready||autoUpdateReloadLock||resetBusy||compensationBusy||busBusy||
+ if(!IS_LIVE||!ready||autoUpdateReloadLock||resetBusy||compensationBusy||monthlyBusy||boosterBusy||busBusy||
     fleetBusy||vehicleBusy||truckBuyBusy||truckAcceptBusy||worldSwitchBusy||worldUpgradeBusy||
     compensationModalOpen||document.hidden)return false;
  const focus=document.activeElement;
@@ -3349,7 +3558,7 @@ window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){
    [KEY,state],[FINANCE_KEY,commonFunds],[LEDGER_KEY,financeLedger],
    [OWNED_KEY,ownedGarage],[TAXI_LEVEL_KEY,taxiLevel],[WORLD_KEY,worldProgress],
    [TRUCK_GARAGE_KEY,truckGarage],[TAXI_OFFERS_KEY,taxiOffers],[TRUCK_OFFERS_KEY,truckOffers],[BUS_KEY,busState],
-   [ASSISTANT_KEY,assistant],[COMPENSATION_KEY,compensation],
+   [ASSISTANT_KEY,assistant],[COMPENSATION_KEY,compensation],[MONTHLY_KEY,monthlyRecord],[BOOSTER_KEY,boosterState],
    [PROGRESSION_KEY,progression],[MENU_KEY,menuStudy],[PROFILE_KEY,profile]
   ];
   for(const [key,expected] of records){
@@ -3377,7 +3586,7 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
  const now=Math.floor(Date.now()/1000);
  let saved=null,oldVehicles=null,oldConstruction=null;
  if(IS_LIVE){await preserveSaveRestorePoint(now);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_48);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_49);await preserveSaveRestorePoint(now,SAVE_RESTORE_POINT_52);}
- if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startCommonFunds();await startFinanceLedger(now);await startOwnedGarage();await startTaxiOffers(now);await startAssistant(now,true);purgeNonTaxiMissions();await startTaxiLevel();await startWorldState();await startBusWorld(now);await startCompensation();await startProgression(now,true);await startMenu(now,true);ready=true;tick();setInterval(tick,1000);return;}
+ if(!IS_LIVE){state=initial(now);await startPlayerSettings();await startCommonFunds();await startFinanceLedger(now);await startOwnedGarage();await startTaxiOffers(now);await startAssistant(now,true);purgeNonTaxiMissions();await startTaxiLevel();await startWorldState();await startBusWorld(now);await startCompensation();await startBoosters();monthlyRecord=IS_LIVE?await read(MONTHLY_KEY):null;await startProgression(now,true);await startMenu(now,true);ready=true;tick();setInterval(tick,1000);return;}
  try{
   saved=await read(KEY);
   if(!saved){oldVehicles=await read(OLD_VEHICLES);oldConstruction=await read(OLD_CONSTRUCTION);}
@@ -3414,6 +3623,8 @@ window.addEventListener('pagehide',()=>{const now=Math.floor(Date.now()/1000);if
  await startWorldState();
  await startBusWorld(now);
  await startCompensation();
+ await startBoosters();monthlyRecord=await read(MONTHLY_KEY);
+ if(monthlyRecord&&!validMonthly(monthlyRecord))throw Error('Invalid monthly award record');
  ready=true;
  advance(now);
  grantCityVehicles();

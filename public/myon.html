@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e171b">
-<title>MYON v0.13.53</title>
+<title>MYON v0.13.54</title>
 <style>
 :root{color-scheme:dark;font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#0b1217;color:#edf5f0}
 *{box-sizing:border-box}
@@ -485,6 +485,14 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
 .world-upgrade-buy{width:100%;margin-top:8px}
 .world-upgrade-note{font-size:10px;color:#96b5aa;line-height:1.55;margin:6px 0 0}
 #world-auto-upgrade[hidden]{display:none!important}
+.special-pass-dock{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;background:#132429;border-top:1px solid #345155;padding:8px 10px calc(8px + env(safe-area-inset-bottom));flex:none}
+.special-pass-card{display:flex;flex-direction:column;align-items:center;gap:4px;background:#1a3037;border:1px solid #35575e;border-radius:9px;padding:6px;min-width:0}
+.special-pass-card strong{font-size:12px;color:#e2f6ec}
+.special-pass-card small{font-size:10px;color:#9ebcb3;white-space:nowrap}
+.special-pass-card button{width:100%;padding:7px 4px;border-radius:7px;border:1px solid #518a8d;background:#28575d;color:#eefbf6;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.special-pass-card button:disabled{opacity:.66;cursor:default}
+.monthly-reward-notice{padding:9px 12px;background:#183d2e;border-bottom:1px solid #34684b;color:#a5edbc;font-size:12px;display:flex;justify-content:space-between}
+.monthly-reward-notice[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -512,7 +520,8 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
   <span class="common-funds-label">공용자금</span>
   <strong id="common-funds-amount" class="common-funds-value">0 M</strong>
 </div>
-<div id="compensation-notice" class="compensation-notice" hidden role="status">
+<div id="monthly-reward-notice" class="monthly-reward-notice" hidden role="status"><span>한달간 수고했어요.</span><strong id="monthly-reward-amount"></strong></div>
+ <div id="compensation-notice" class="compensation-notice" hidden role="status">
   <span class="compensation-notice-icon">!</span><span class="compensation-notice-copy">GPT 코딩 초기화 오류 · 세이브 로딩 문제 복구</span>
   <button id="compensation-notice-action" type="button" class="compensation-notice-action">보상 확인</button>
  </div>
@@ -955,14 +964,17 @@ button:focus-visible{outline:2px solid #8bdec3;outline-offset:2px}
   <div id="compensation-error" class="compensation-error" role="status"></div>
  </section>
 </div>
-
+<div id="special-pass-dock" class="special-pass-dock" aria-label="특별 이용권">
+  <div class="special-pass-card"><strong>황금권 · 24시간</strong><small id="pass-golden-status">미보유</small><button id="pass-golden-action" type="button">구매 5,000 M</button></div>
+  <div class="special-pass-card"><strong>수익 +50% · 24시간</strong><small id="pass-income-status">미보유</small><button id="pass-income-action" type="button">구매 3,000 M</button></div>
+</div>
 </div></div>
 
-<script src="myon-bus-engine.js?v=0.13.53"></script>
-<script src="myon-bus-ui.js?v=0.13.53"></script>
-<script src="myon-v013.js?v=0.13.53"></script>
+<script src="myon-bus-engine.js?v=0.13.54"></script>
+<script src="myon-bus-ui.js?v=0.13.54"></script>
+<script src="myon-v013.js?v=0.13.54"></script>
 <script src="myon-rpg-taxi.js?v=0.13.38"></script>
-<script src="myon-auto-update.js?v=0.13.53"></script>
+<script src="myon-auto-update.js?v=0.13.54"></script>
 
 </body>
 </html>

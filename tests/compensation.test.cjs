@@ -1,4 +1,5 @@
 'use strict';
+const TEST_NOW=Date.UTC(2026,10,15,0,0,0); // 09:00 KST, before the fixed compensation cutoff
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -16,7 +17,7 @@ function oldTaxi(id,origin='event'){
  return {id,fleetNo:id,model:'myon',origin,newPrice:20000000,price:0,
   remaining:0,durability:100000,serviceRuns:0,trips:0,location:'차고지',activeMissionId:0};
 }
-function fixture(time=Date.now()){
+function fixture(time=TEST_NOW){
  const now=Math.floor(time/1000);
  return new Map(Object.entries({
   [F.world]:{schema:2,nextId:40,nextSupplyAt:Math.floor(now/3600)*3600+3600,pending:false,rng:123456,units:[]},
@@ -32,7 +33,7 @@ function fixture(time=Date.now()){
  }));
 }
 async function microtasks(){for(let n=0;n<500;n++)await Promise.resolve()}
-async function boot(data,clock={ms:Date.now()}){
+async function boot(data,clock={ms:TEST_NOW}){
  const elements=new Map(),errors=[],events={};
  const el=id=>{
   if(elements.has(id))return elements.get(id);
@@ -121,7 +122,7 @@ test('original taxi save survives first visit and atomic one-time award survives
  assert.equal(data.get(F.ledger).entries.filter(v=>v.category==='compensation-grant').length,1);
 });
 test('owned taxi already running when claimed settles once with separate +200 percent bonus',async()=>{
- const clock={ms:Date.now()},data=fixture(clock.ms),now=Math.floor(clock.ms/1000);
+ const clock={ms:TEST_NOW},data=fixture(clock.ms),now=Math.floor(clock.ms/1000);
  const vehicle=data.get(F.taxi).vehicles[0];vehicle.activeMissionId=41;
  data.get(F.world).nextId=42;data.get('v01313-assistant').baselineNextId=42;
  data.get('v01313-assistant').baselineActive=1;
@@ -151,7 +152,7 @@ test('discount halves fresh taxi purchase price without changing existing vehicl
  assert.equal(v.playerPaidUnits,4200000);
 });
 test('expired period does not discount new cars or modify future settlements',async()=>{
- const clock={ms:Date.now()},data=fixture(clock.ms),now=Math.floor(clock.ms/1000);
+ const clock={ms:TEST_NOW},data=fixture(clock.ms),now=Math.floor(clock.ms/1000);
  data.set(F.comp,{schema:1,claimedAt:now-8*DAY,expiresAt:now-DAY,giftIssued:2});
  const a=await boot(data,clock);
  assert.deepEqual(a.errors,[]);
@@ -212,7 +213,7 @@ test('claim on stale second tab never duplicates funds or taxis',async()=>{
 
 
 test('in-progress truck delivery is preserved across reload and pays +200 percent bonus',async()=>{
- const clock={ms:Date.now()},data=fixture(clock.ms),now=Math.floor(clock.ms/1000);
+ const clock={ms:TEST_NOW},data=fixture(clock.ms),now=Math.floor(clock.ms/1000);
  const world=data.get('v01341-world-switch');
  world.active='truck';world.visited.truck=true;world.cycles.truck=1;
  data.get(F.world).nextId=42;data.get('v01313-assistant').baselineNextId=42;
@@ -235,7 +236,7 @@ test('in-progress truck delivery is preserved across reload and pays +200 percen
  assert.equal(data.get(F.ledger).entries.find(e=>e.category==='compensation-income').amount,200000);
 });
 test('truck purchases use a 50 percent discounted cost only during the claimed week',async()=>{
- const clock={ms:Date.now()},data=fixture(clock.ms);
+ const clock={ms:TEST_NOW},data=fixture(clock.ms);
  const world=data.get('v01341-world-switch');
  world.active='truck';world.visited.truck=true;world.cycles.truck=1;
  const a=await boot(data,clock);assert.deepEqual(a.errors,[]);
@@ -283,7 +284,7 @@ test('update checkpoint refuses while emergency award is being reviewed',async()
 });
 
 test('v0.13.49 restore point preserves claimed 7-day bonus record',async()=>{
- const data=fixture(),now=Math.floor(Date.now()/1000);
+ const data=fixture(),now=Math.floor(TEST_NOW/1000);
  const claim={schema:1,claimedAt:now-60,expiresAt:now-60+7*DAY,giftIssued:2};
  data.set(F.comp,claim);
  const a=await boot(data);
@@ -368,4 +369,64 @@ test('5-minute taxi automation aligns its first dispatch with actual 5-minute of
  assert.equal(next%300,0);
  assert.ok(next>now&&next-now<=300);
  assert.equal(data.get('v01323-taxi-offers').autoInterval,300);
+});
+
+test('v0.13.48 emergency claim closes exactly six hours after its commit',async()=>{
+ const cutoff=Date.UTC(2026,10,15,2,23,16);
+ const clock={ms:cutoff},data=fixture(cutoff);
+ const a=await boot(data,clock);
+ assert.equal(a.e('compensation-overlay').hidden,true);
+ assert.equal(a.e('compensation-notice').hidden,true);
+ await a.click('compensation-claim');
+ assert.equal(data.has(F.comp),false);
+ assert.equal(data.get(F.funds).balance,12345678);
+});
+test('monthly KST first-week entry pays ten percent of cash plus paid-vehicle values exactly once',async()=>{
+ const at=Date.UTC(2026,11,1,3,0,0),clock={ms:at},data=fixture(at);
+ const taxi=data.get(F.taxi);
+ taxi.vehicles.push({...oldTaxi(3,'new'),price:20000000,remaining:0,playerPaidUnits:20000000});
+ taxi.nextId=4;
+ const initial=data.get(F.funds).balance;
+ const reward=Math.floor((initial+20000000)/10);
+ const a=await boot(data,clock);await microtasks();
+ assert.deepEqual(a.errors,[]);
+ const record=data.get('v01354-monthly-asset-reward');
+ assert.equal(record?.period,'2026-12');
+ assert.equal(record.amount,reward);
+ assert.equal(data.get(F.funds).balance,initial+reward);
+ const b=await boot(data,clock);await microtasks();
+ assert.deepEqual(b.errors,[]);
+ assert.equal(data.get(F.funds).balance,initial+reward);
+ assert.equal(data.get(F.ledger).entries.filter(x=>x.category==='monthly-asset-reward').length,1);
+});
+test('missing first seven days forfeits monthly reward without retroactive credit',async()=>{
+ const at=Date.UTC(2026,11,10,2,0,0),data=fixture(at),a=await boot(data,{ms:at});
+ assert.deepEqual(a.errors,[]);
+ assert.equal(data.has('v01354-monthly-asset-reward'),false);
+});
+test('special passes are purchased separately, cannot overlap, and cooldown is per type',async()=>{
+ const at=Date.UTC(2026,10,15,3,30,0),clock={ms:at},data=fixture(at);
+ data.get(F.funds).balance=200000000; // 20,000 M
+ const a=await boot(data,clock);assert.deepEqual(a.errors,[]);
+ await a.click('pass-golden-action'); // Purchase 5,000 M.
+ assert.equal(data.get('v01354-special-passes').golden.owned,true);
+ assert.equal(data.get(F.funds).balance,150000000);
+ await a.click('pass-golden-action'); // Activate 24h.
+ let passes=data.get('v01354-special-passes');
+ assert.equal(passes.golden.owned,false);
+ assert.equal(passes.golden.endsAt,Math.floor(at/1000)+DAY);
+ assert.equal(passes.golden.cooldownUntil,Math.floor(at/1000)+2*DAY);
+ await a.click('pass-income-action'); // Buy other pass during golden run.
+ assert.equal(data.get(F.funds).balance,120000000);
+ await a.click('pass-income-action'); // Overlap must not activate.
+ assert.equal(data.get('v01354-special-passes').income.activeAt,0);
+ clock.ms+=DAY*1000+1000;await a.tick();
+ await a.click('pass-golden-action'); // Can rebuy during its cooldown.
+ assert.equal(data.get('v01354-special-passes').golden.owned,true);
+ await a.click('pass-golden-action'); // Cannot use until the cooldown ends.
+ assert.equal(data.get('v01354-special-passes').golden.activeAt,Math.floor(at/1000));
+ await a.click('pass-income-action'); // Other type can run immediately.
+ passes=data.get('v01354-special-passes');
+ assert.equal(passes.income.activeAt,Math.floor(clock.ms/1000));
+ assert.equal(passes.golden.owned,true);
 });
