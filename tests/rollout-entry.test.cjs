@@ -102,3 +102,37 @@ test('game engine isolates DEV/TEST progress databases and leaves LIVE name unch
  assert.match(app,/DEV/);
  assert.doesNotMatch(app,/createRolloutHost\(/);
 });
+
+test('version history shows latest to exact LIVE inclusive, grouped once per version, with current server badges',async()=>{
+ const {visibleVersionHistory}=await import('../src/core/myon-version-history.mjs');
+ const L='l'.repeat(40).replace(/l/g,'a'),S='b'.repeat(40),U='c'.repeat(40),D='d'.repeat(40),E='e'.repeat(40),F='f'.repeat(40);
+ const history=[
+  {revision:L,version:'0.13.62',title:'old'},
+  {revision:S,version:'0.13.63',title:'approved live'},
+  {revision:U,version:'0.13.64',title:'initial',subject:'first'},
+  {revision:D,version:'0.13.64',title:'latest',subject:'second'},
+  {revision:E,version:'0.13.65',title:'testing'},
+  {revision:F,version:'0.13.66',title:'developer',entries:['한국어 변경 설명']}
+ ];
+ const visible=visibleVersionHistory(history,{live:{revision:S},test:{revision:E},dev:{revision:F}});
+ assert.deepEqual(visible.map(x=>x.version),['0.13.66','0.13.65','0.13.64','0.13.63']);
+ assert.deepEqual(visible[0].servers,['DEV']);
+ assert.deepEqual(visible[1].servers,['TEST']);
+ assert.deepEqual(visible[2].servers,[]);
+ assert.equal(visible[2].revisions.length,2);
+ assert.deepEqual(visible[3].servers,['LIVE']);
+ assert.deepEqual(visible[0].entries,['한국어 변경 설명']);
+ assert.deepEqual(visibleVersionHistory(history,{live:{revision:'0'.repeat(40)},dev:{revision:F}}),[]);
+});
+test('build publishes per-commit descriptions while portal places history below server selection',()=>{
+ const builder=fs.readFileSync(path.resolve(__dirname,'../scripts/build-rollouts.cjs'),'utf8');
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ const notes=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-version-notes.json'),'utf8'));
+ assert.match(builder,/versionNotes\[pkg.version\]/);
+ assert.match(builder,/subject,entries:/);
+ assert.ok(app.indexOf('class="servers"')<app.indexOf('class="version-history"'));
+ assert.ok(app.indexOf('class="version-history"')<app.indexOf('class="details"'));
+ assert.match(app,/visibleVersionHistory\(releases,\{live:LIVE_RELEASE,test:TEST_RELEASE,dev:current\}\)/);
+ assert.match(app,/v-for="server in change.servers"/);
+ assert.ok(notes['0.13.66'].entries.length>=2);
+});

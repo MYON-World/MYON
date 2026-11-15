@@ -1,6 +1,7 @@
 <script setup>
 import {onMounted,ref} from 'vue'
 import {validReleases} from './core/myon-release-state.mjs'
+import {visibleVersionHistory} from './core/myon-version-history.mjs'
 import {LIVE_RELEASE,TEST_RELEASE,dbForServer,targetForServer,
  archiveUrl,verifyArchive,createEntryCheckpoint,readGameRecords} from './core/myon-server-entry.mjs'
 
@@ -25,6 +26,7 @@ function closeEntryResult(){if(!entering.value)entryFailed.value=false}
 const latestRevision=ref(''),latestVersion=ref('—'),liveVersion=ref('v'+LIVE_RELEASE.version)
 const testVersion=ref(TEST_RELEASE?'v'+TEST_RELEASE.version:'미승인')
 const activeVersion=ref('—'),saveStatus=ref('기존 기록 확인은 입장 시 진행합니다.')
+const changes=ref([])
 let releases=null
 
 const SERVER_LABELS={live:'LIVE',test:'TEST',dev:'DEV'}
@@ -39,6 +41,7 @@ async function refreshReleases(){
  const current=targetForServer('dev',releases)
  latestRevision.value=current.revision
  latestVersion.value='v'+current.version
+ changes.value=visibleVersionHistory(releases,{live:LIVE_RELEASE,test:TEST_RELEASE,dev:current})
  return releases
 }
 async function enterServer(server){
@@ -169,6 +172,29 @@ onMounted(async()=>{
      <div class="server-side"><span class="server-ver">{{ latestVersion }}</span><span class="entry-text">개발 서버 입장 ›</span></div>
     </button>
    </div>
+   <details class="version-history">
+    <summary class="version-history-summary">
+     <span class="version-history-heading"><strong>버전 변경사항</strong>
+      <small>최신 개발 버전부터 LIVE까지 · 서버 적용 현황</small></span>
+     <span class="version-history-expand">변경내역 보기 <span aria-hidden="true">⌄</span></span>
+    </summary>
+    <div class="version-history-body">
+     <p v-if="!changes.length" class="version-history-empty">버전 변경기록을 확인할 수 없습니다. 잠시 후 새로고침해 주세요.</p>
+     <div v-for="(change,i) in changes" :key="change.version" class="version-history-item">
+      <div class="version-history-line">
+       <strong>v{{ change.version }}</strong>
+       <span v-for="server in change.servers" :key="server" class="version-history-badge" :class="'tag-'+server.toLowerCase()">{{ server }} 적용 중</span>
+       <span v-if="i===changes.length-1" class="version-history-boundary">기록 종료 · LIVE 기준</span>
+      </div>
+      <div class="version-history-title">{{ change.title }}</div>
+      <ul v-if="change.entries.length" class="version-history-notes">
+       <li v-for="(entry,j) in change.entries" :key="j">{{ entry }}</li>
+      </ul>
+      <p v-else class="version-history-empty">변경 상세: {{ change.commits.join(' · ')||'커밋 기록 참조' }}</p>
+     </div>
+     <p class="version-history-footnote">LIVE보다 이전 기록은 보관되지만 시작화면에는 표시하지 않습니다.</p>
+    </div>
+   </details>
    <div class="details">
     <section class="panel">
      <div class="panel-head"><h2>입장 안정화</h2><span class="tag">공통 규칙</span></div>
@@ -245,6 +271,30 @@ button.server-row:disabled{cursor:not-allowed;opacity:.65}
 .server-side{display:grid;gap:8px;text-align:right;flex:none}
 .server-ver{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
 .entry-text{font-size:12px;color:#9eebc7;font-weight:700}.locked{font-size:11px;color:#829d94}
+.version-history{margin-top:16px;background:#172722;border:1px solid #3d6153;border-radius:15px;overflow:hidden}
+.version-history-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:17px 18px;cursor:pointer;list-style:none}
+.version-history-summary::-webkit-details-marker{display:none}
+.version-history-summary:focus-visible{outline:2px solid #8ee4b7;outline-offset:-3px}
+.version-history-heading{display:grid;gap:5px}
+.version-history-heading strong{font-size:14px}
+.version-history-heading small{font-size:11px;color:#9db8aa}
+.version-history-expand{display:flex;align-items:center;gap:7px;font-size:11px;color:#91dcb6;white-space:nowrap}
+.version-history-expand span{font-size:16px;transition:transform .2s}
+.version-history[open] .version-history-expand span{transform:rotate(180deg)}
+.version-history-body{border-top:1px solid #324b40;padding:0 17px 14px}
+.version-history-item{padding:14px 1px 13px}
+.version-history-item+.version-history-item{border-top:1px solid #2d443a}
+.version-history-line{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.version-history-line>strong{font-size:14px}
+.version-history-badge{border:1px solid #496955;background:#294638;color:#b9ebcc;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700}
+.version-history-badge.tag-live{border-color:#57a480;color:#b8f1d1}
+.version-history-badge.tag-dev{border-color:#618eb6;color:#c0dcf5;background:#283e50}
+.version-history-badge.tag-test{border-color:#b89862;color:#f7deab;background:#51432c}
+.version-history-boundary{font-size:10px;color:#9caea3}
+.version-history-title{font-size:12px;color:#e0f0e6;margin-top:8px}
+.version-history-notes{padding-left:18px;margin:7px 0 0;color:#9ab3a4;font-size:11px;line-height:1.7}
+.version-history-empty,.version-history-footnote{font-size:11px;color:#97afa0;line-height:1.65}
+.version-history-footnote{border-top:1px solid #2d443a;margin:0;padding-top:13px}
 .details{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
 .panel{background:#172622;border:1px solid #30473f;padding:19px;border-radius:16px;min-width:0}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:15px}

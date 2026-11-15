@@ -9,6 +9,8 @@ const cmd=(...args)=>execFileSync('git',args,{cwd:root,maxBuffer:10*1024*1024,en
 const revisions=cmd('rev-list','--first-parent','--reverse',anchor+'^..HEAD').split(/\s+/).filter(Boolean);
 if(!revisions.length||revisions[0]!==anchor)throw Error('Immutable release history anchor missing');
 const latestUpdater=fs.readFileSync(path.join(root,'public/myon-auto-update.js'));
+const versionNotes=JSON.parse(fs.readFileSync(path.join(root,'public/myon-version-notes.json'),'utf8'));
+
 const releases=[];
 for(const sha of revisions){
  if(!/^[a-f0-9]{40}$/.test(sha))throw Error('Malformed revision');
@@ -33,7 +35,11 @@ for(const sha of revisions){
  fs.writeFileSync(archivePath,archiveHtml.replace('<head>','<head>'+guard));
  // Coordinator is infrastructure, not game logic: even old games use latest safe FIFO protocol.
  fs.writeFileSync(path.join(out,'myon-auto-update.js'),latestUpdater);
- releases.push({revision:sha,version:pkg.version});
+ const subject=cmd('show','-s','--format=%s',sha);
+ const note=versionNotes[pkg.version];
+ releases.push({revision:sha,version:pkg.version,
+  title:note?.title||subject.replace(/^v\d+\.\d+\.\d+:\s*/,''),
+  subject,entries:Array.isArray(note?.entries)?note.entries:[]});
 }
 fs.writeFileSync(path.join(dist,'myon-rollouts.json'),JSON.stringify({schema:1,releases})+'\n');
 // The legacy /MYON/myon.html shortcut previously served HEAD immediately,
