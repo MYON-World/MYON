@@ -137,11 +137,16 @@ test('archived iframe updater delegates and cannot start its own timer',()=>{
   console:{warn(){}},setInterval:(fn,t)=>intervals.push(t)}, {timeout:2000});
  assert.equal(intervals.length,0,'Iframe updater must never compete with parent host');
 });
-test('launcher visibly delegates commit advancement to the parent and retains a safe checkpoint',()=>{
+test('new portal suppresses archived FIFO updater and enters LIVE only by choice',()=>{
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
- const engine=fs.readFileSync(path.resolve(__dirname,'../public/myon-v013.js'),'utf8');
- assert.match(app,/createRolloutHost/);
+ const main=fs.readFileSync(path.resolve(__dirname,'../src/main.js'),'utf8');
  assert.match(app,/MYON_ROLLOUT_HOST_ACTIVE=true/);
  assert.match(app,/@load="onGameLoad"/);
- assert.match(engine,/MYON_SAFE_UPDATE_CHECKPOINT/);
+ assert.match(app,/function enterLive\(\)/);
+ assert.match(app,/function leaveLive\(\)/);
+ assert.doesNotMatch(app,/coordinator\.start\(\)/);
+ assert.doesNotMatch(app,/createRolloutHost\(/);
+ assert.doesNotMatch(main,/initializeMyonIndex\(/);
+ assert.match(app,/transaction\(STORE,'readonly'\)/);
+ assert.doesNotMatch(app,/localStorage\.setItem\(ROLLOUT_KEY/);
 });

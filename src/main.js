@@ -1,15 +1,7 @@
 import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
-import { initializeMyonIndex } from './core/myon-index.js'
-import { initializeMyonEconomy } from './core/myon-economy.js'
 
-// Shared metadata initializes independently of the legacy iframe game.
-// Never block the existing UI or touch its world/funds/vehicle records.
+// Emergency launcher: do not initialize or modify the player's legacy IndexedDB
+// until they explicitly enter LIVE. The portal's backup actions are read-only.
 createApp(App).mount('#app')
-
-void initializeMyonIndex()
-  .then(() => initializeMyonEconomy())
-  .catch(error => {
-    console.error('MYON shared storage initialization:', error)
-  })

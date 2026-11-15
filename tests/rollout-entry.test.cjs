@@ -62,8 +62,14 @@ test('production builder redirects direct root and archived top-level visits to 
  assert.match(src,/new URL\("\.\.\/\.\.\/",location\.href\)/);
  assert.match(src,/window\.self===window\.top/);
 });
-test('official parent displays installed commit version, not HEAD in browser title',()=>{
+test('official launcher shows server selection before game, preserving the installed pin',()=>{
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
- assert.match(app,/document\.title=version\?'MYON v'\+version/);
  assert.match(app,/reconcileState\(saved,releases,now\)/);
+ assert.match(app,/v-if="!playing"/);
+ assert.match(app,/LIVE/);
+ assert.match(app,/TEST/);
+ assert.match(app,/DEV/);
+ assert.match(app,/activeRevision.value=pinned.revision/);
+ assert.match(app,/function openPinned\(sha,version\)/);
+ assert.match(app,/readonly/);
 });
