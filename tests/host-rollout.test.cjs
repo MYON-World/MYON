@@ -152,3 +152,20 @@ test('portal never starts FIFO coordinator, and uses entry-time checkpoint befor
  assert.match(helper,/const tx=db.transaction\(STORE,'readonly'\)/);
  assert.doesNotMatch(app,/localStorage\.setItem\(ROLLOUT_KEY/);
 });
+
+test('portal entry visibly shows only completed checks with a staged progress overlay',()=>{
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ assert.match(app,/const ENTRY_CHECKS=\[/);
+ assert.match(app,/function showVerifiedStep/);
+ assert.match(app,/await new Promise\(resolve=>setTimeout\(resolve,700\)\)/);
+ assert.match(app,/await showVerifiedStep\(0\)/);
+ assert.match(app,/await showVerifiedStep\(1\)/);
+ assert.match(app,/await showVerifiedStep\(2\)/);
+ assert.match(app,/await showVerifiedStep\(3\)/);
+ assert.match(app,/role="progressbar"/);
+ assert.match(app,/role="dialog"/);
+ assert.match(app,/:class="\{complete:i<entryCompleted/);
+ assert.match(app,/entryFailed.value=true/);
+ assert.ok(app.indexOf('await createEntryCheckpoint') < app.indexOf('await showVerifiedStep(2)'));
+ assert.ok(app.indexOf('await showVerifiedStep(3)') < app.indexOf('playing.value=true'));
+});

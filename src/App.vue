@@ -8,6 +8,20 @@ const BASE=String(import.meta.env.BASE_URL)
 const frameUrl=ref(''),gameFrame=ref(null),playing=ref(false),currentServer=ref('')
 const entering=ref(false),leaving=ref(false),backupBusy=ref(false)
 const entryStep=ref(''),message=ref(''),manualBackup=ref('')
+const entryServer=ref(''),entryIndex=ref(0),entryCompleted=ref(0),entryFailed=ref(false)
+const entryVersion=ref('—'),entryRevision=ref(''),entrySaveNote=ref('')
+const ENTRY_CHECKS=[
+ {title:'커밋 · 버전 확인',note:'서버에 적용될 정확한 배포 버전을 확인합니다.'},
+ {title:'게임 파일 검사',note:'해당 버전의 실제 게임 파일을 확인합니다.'},
+ {title:'세이브 안전 검증',note:'기존 세이브를 읽고 백업본을 다시 확인합니다.'},
+ {title:'입장 준비 완료',note:'검사가 끝난 버전으로 게임에 접속합니다.'}
+]
+// Display completed checks long enough to read; never mark a check done before it resolves.
+async function showVerifiedStep(index){
+ entryCompleted.value=index+1
+ await new Promise(resolve=>setTimeout(resolve,700))
+}
+function closeEntryResult(){if(!entering.value)entryFailed.value=false}
 const latestRevision=ref(''),latestVersion=ref('—'),liveVersion=ref('v'+LIVE_RELEASE.version)
 const testVersion=ref(TEST_RELEASE?'v'+TEST_RELEASE.version:'미승인')
 const activeVersion=ref('—'),saveStatus=ref('기존 기록 확인은 입장 시 진행합니다.')
@@ -31,22 +45,36 @@ async function enterServer(server){
  if(entering.value||playing.value)return
  if(server==='test'&&!TEST_RELEASE){message.value='TEST 승인 버전이 아직 없습니다.';return}
  entering.value=true;message.value=''
+ entryServer.value=server;entryIndex.value=0;entryCompleted.value=0
+ entryFailed.value=false;entryVersion.value='—';entryRevision.value='';entrySaveNote.value=''
  try{
   entryStep.value='배포 버전 확인 중'
   const available=server==='dev'?await refreshReleases():releases
   const target=targetForServer(server,available)
   if(!target)throw Error('입장 가능한 승인 버전이 없습니다.')
+  entryVersion.value='v'+target.version
+  entryRevision.value=target.revision.slice(0,8)
+  await showVerifiedStep(0)
+  entryIndex.value=1
   entryStep.value='게임 파일 확인 중'
   const url=await verifyArchive({base:BASE,server,revision:target.revision})
+  await showVerifiedStep(1)
+  entryIndex.value=2
   entryStep.value='세이브 읽기 및 백업 검증 중'
   const save=await createEntryCheckpoint({server,revision:target.revision})
+  entrySaveNote.value=save.backup?
+   save.records+'건 · 백업본 재검증 완료':'새 서버 · 기존 저장 기록 없음'
   saveStatus.value=save.backup?
    serverTitle(server)+' 세이브 '+save.records+'건 백업·검증 완료':
    serverTitle(server)+' 새 저장소 · 초기 기록 없음'
+  await showVerifiedStep(2)
+  entryIndex.value=3
+  entryStep.value='검사 완료 · 서버 입장 준비 중'
   // Only after the exact immutable file and save round-trip both succeed.
   window.MYON_ROLLOUT_HOST_ACTIVE=true
   window.MYON_ACTIVE_GAME_VERSION='v'+target.version
   currentServer.value=server
+  await showVerifiedStep(3)
   entryStep.value=''
   frameUrl.value=url
   playing.value=true
@@ -54,7 +82,8 @@ async function enterServer(server){
  }catch(error){
   console.error('MYON server entry:',error)
   message.value=(error?.message||'입장 준비 실패')+' · 기존 세이브는 초기화하지 않았습니다.'
-  entryStep.value=''
+  entryFailed.value=true
+  entryStep.value='입장 전 검사에 실패했습니다.'
  }finally{entering.value=false}
 }
 function onGameLoad(){}
@@ -158,10 +187,29 @@ onMounted(async()=>{
      </div>
     </section>
    </div>
-   <div v-if="entryStep" class="notice" role="status">{{ entryStep }}</div>
-   <div v-if="message" class="notice" role="status">{{ message }}</div>
+   <div v-if="message&&!entryFailed" class="notice" role="status">{{ message }}</div>
    <div v-if="manualBackup" class="manual-area"><label for="manual-json">원본 JSON · 전체 선택 후 복사</label><textarea id="manual-json" :value="manualBackup" readonly rows="7"></textarea></div>
    <footer>MYON WORLD · 공통 입장 절차 · 자동 업데이트 및 강제 재접속 중지</footer>
+  </div>
+  <div v-if="entering||entryFailed" class="entry-overlay" role="dialog" aria-modal="true" aria-label="서버 입장 검사 진행 상황">
+   <section class="entry-panel" aria-live="polite">
+    <div class="entry-overline">MYON SECURE ENTRY</div>
+    <h2>{{ serverTitle(entryServer) }} 서버 입장 검사</h2>
+    <p class="entry-subtitle">완료된 항목만 확인 표시됩니다. 검사가 실패하면 게임을 실행하지 않습니다.</p>
+    <div class="entry-version-pair"><span>대상 버전 <strong>{{ entryVersion }}</strong></span><span v-if="entryRevision">커밋 <code>{{ entryRevision }}</code></span></div>
+    <div class="entry-progress-head"><strong>{{ entryFailed?'검사 중단':entryCompleted===ENTRY_CHECKS.length?'전체 검사 완료':entryStep }}</strong><strong>{{ Math.round(entryCompleted/ENTRY_CHECKS.length*100) }}%</strong></div>
+    <div class="entry-progress-track" role="progressbar" :aria-valuenow="Math.round(entryCompleted/ENTRY_CHECKS.length*100)" aria-valuemin="0" aria-valuemax="100"><div class="entry-progress-fill" :style="{width:(entryCompleted/ENTRY_CHECKS.length*100)+'%'}"></div></div>
+    <ol class="entry-checks">
+     <li v-for="(step,i) in ENTRY_CHECKS" :key="step.title" :class="{complete:i<entryCompleted,active:i===entryIndex&&!entryFailed&&i>=entryCompleted,failed:i===entryIndex&&entryFailed}">
+      <span class="entry-check-icon">{{ i<entryCompleted?'✓':i===entryIndex&&entryFailed?'!':i===entryIndex?'…':i+1 }}</span>
+      <span class="entry-check-copy"><strong>{{ step.title }}</strong><small>{{ step.note }}</small></span>
+      <span class="entry-check-state">{{ i<entryCompleted?'완료':i===entryIndex&&entryFailed?'실패':i===entryIndex?'확인 중':'대기' }}</span>
+     </li>
+    </ol>
+    <div v-if="entrySaveNote" class="entry-save-note">{{ entrySaveNote }}</div>
+    <p v-if="entryFailed" class="entry-error" role="alert">{{ message }}</p>
+    <button v-if="entryFailed" type="button" class="entry-dismiss" @click="closeEntryResult">시작화면으로 돌아가기</button>
+   </section>
   </div>
  </main>
  <section v-else class="live-session">
@@ -207,6 +255,30 @@ button.server-row:disabled{cursor:not-allowed;opacity:.65}
 .notice{margin-top:16px;padding:13px 15px;border-radius:10px;background:#263832;color:#d9f4e4;font-size:12px;line-height:1.5}
 .manual-area{margin-top:14px}.manual-area label{display:block;font-size:12px;margin-bottom:8px}.manual-area textarea{width:100%;resize:vertical;border:1px solid #4a6d5b;border-radius:10px;background:#111e1b;color:#e3f7e9;padding:12px}
 footer{margin-top:27px;color:#638278;font-size:11px;text-align:center}
+.entry-overlay{position:fixed;z-index:50;inset:0;display:grid;place-items:center;background:#08120feE;padding:15px;overflow:auto}
+.entry-panel{width:100%;max-width:500px;padding:25px 22px;border:1px solid #447a63;border-radius:19px;background:#172b25;box-shadow:0 20px 70px #000b}
+.entry-overline{font-size:10px;letter-spacing:.2em;font-weight:700;color:#89d6ad}
+.entry-panel h2{font-size:21px;margin:7px 0}.entry-subtitle{font-size:12px;line-height:1.6;color:#adc5ba;margin:0 0 18px}
+.entry-version-pair{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;color:#b9d4c4;padding:10px 12px;background:#213e32;border-radius:9px}
+.entry-version-pair strong,.entry-version-pair code{font-weight:700;color:#e3ffed}
+.entry-progress-head{display:flex;justify-content:space-between;gap:12px;font-size:12px;margin:20px 0 9px;color:#e5f8ea}
+.entry-progress-track{height:7px;border-radius:99px;overflow:hidden;background:#34463e}
+.entry-progress-fill{height:100%;border-radius:99px;background:#78d6ac;transition:width .45s ease}
+.entry-checks{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:8px}
+.entry-checks li{display:flex;align-items:center;gap:11px;padding:11px;border:1px solid #30473e;border-radius:11px;color:#8ca69a;background:#1a3028}
+.entry-checks li.complete{border-color:#396f55;color:#d9f4e4}
+.entry-checks li.active{border-color:#79b79b;background:#264336;color:#f0fff4}
+.entry-checks li.failed{border-color:#ac5858;color:#ffe1de}
+.entry-check-icon{width:30px;height:30px;display:grid;place-items:center;flex:none;border-radius:50%;background:#354a41;color:#aec5b5;font-size:13px;font-weight:800}
+.entry-checks .complete .entry-check-icon{background:#347450;color:#f3fff8}
+.entry-checks .active .entry-check-icon{background:#547966;color:#fff}
+.entry-check-copy{display:grid;gap:3px;min-width:0;flex:1}
+.entry-check-copy strong{font-size:13px}
+.entry-check-copy small{font-size:11px;color:#8fac9e;line-height:1.4}
+.entry-check-state{font-size:11px;white-space:nowrap}
+.entry-save-note{font-size:12px;color:#b9e7c9;margin-top:15px}
+.entry-error{color:#ffd8d3;font-size:12px;line-height:1.6}
+.entry-dismiss{margin-top:10px;border:1px solid #87c6a2;background:#2b5b44;color:#fff;padding:11px 15px;border-radius:9px;cursor:pointer}
 .live-session{position:relative;width:100%;height:100vh;height:100dvh;background:#0e171b}
 .game-frame{display:block;width:100%;height:100%;border:0;background:#0e171b}
 .game-controls{position:absolute;z-index:10;bottom:13px;left:12px;display:flex;gap:8px;align-items:center;max-width:calc(100% - 24px)}
