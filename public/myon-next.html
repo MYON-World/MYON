@@ -200,6 +200,61 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 @media(max-height:690px){.character{gap:5px;padding-top:7px;padding-bottom:7px}.ch-head h1{font-size:21px}.ch-head p{display:none}.ch-panel{padding:8px 10px;gap:6px}.ch-gender{min-height:85px;max-height:155px}.ch-label{font-size:11px}.ch-name{min-height:32px;padding-block:6px}.ch-notice{font-size:9px;padding:5px 8px}.path-card{padding:6px 9px}.ch-go{padding:7px 13px}.ch-step{font-size:10px}}
 @media(max-height:525px) and (min-width:741px){.ch-head p{display:none}.ch-panel{gap:5px;padding:7px 11px}.ch-gender{max-height:120px;min-height:70px}.ch-paths{gap:5px}.path-card{padding:5px 7px}.ch-notice{padding:5px 8px}.ch-go{padding:6px}.ch-name{padding-block:5px;min-height:29px}}
 @media(max-height:525px) and (max-width:740px){.ch-gender{min-height:68px;max-height:90px}.path-card small{display:none}.ch-head h1{font-size:18px}.ch-notice{display:none}.ch-footer small{display:none}.ch-panel{gap:4px}.path-card{padding:6px 9px}}
+
+/* Design iteration: show only the choices, not several paragraphs of explanation. */
+.character{width:min(1040px,100%);gap:clamp(8px,1.8vh,16px);padding:clamp(12px,2vh,20px) clamp(14px,3vw,26px) clamp(14px,2vh,22px)}
+.ch-head{align-items:center;min-height:48px}
+.ch-head h1{font-size:clamp(23px,2.8vw,30px);margin:3px 0 0}
+.ch-progress{font-size:12px;color:#95bed0;white-space:nowrap;letter-spacing:.02em}
+.ch-progress span{opacity:.83}
+.ch-layout{display:flex;flex:1;min-height:0}
+.ch-panel{width:100%;height:auto;align-self:center;flex:none;padding:clamp(12px,2vh,20px);gap:clamp(12px,1.8vh,17px);background:linear-gradient(130deg,#071a2cdc,#0a2336e4)}
+.ch-field{gap:8px}
+.ch-label{font-size:clamp(13px,1.4vw,16px);font-weight:760}
+.ch-name-wrap{position:relative}
+.ch-name{min-height:44px;font-size:14px;padding:10px 60px 10px 13px;background:#061829e8}
+.ch-count{position:absolute;right:13px;top:50%;transform:translateY(-50%);margin:0;font-size:11px}
+.ch-visual-field{flex:1;min-height:0}
+.ch-gender{flex:none;height:clamp(150px,22vh,195px);min-height:112px;max-height:195px;gap:12px}.ch-visual-field{flex:none!important}
+.gender-card{border-radius:12px;cursor:pointer}
+.gender-art{background-size:200% 100%}
+.gender-card .gender-caption{padding:20px 16px 12px;font-size:clamp(15px,1.6vw,19px)}
+.path-card{flex-direction:row;align-items:center;justify-content:center;text-align:center;padding:14px 6px;gap:9px;min-height:53px;cursor:pointer}
+.path-card strong{font-size:clamp(12px,1.2vw,14px);white-space:nowrap}
+.path-icon{font-size:19px}
+.ch-footer{padding-top:1px;gap:12px}
+.ch-footer-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
+.ch-brief{font-size:11px;color:#9bc8dc;line-height:1.35}
+.ch-error{min-height:0;font-size:11px}
+.ch-go{min-width:198px;padding:14px 20px;font-size:14px;cursor:pointer}
+.ch-go:focus-visible,.gender-card:focus-visible,.path-card:focus-visible{outline:2px solid #bcefff;outline-offset:3px}
+@media(max-width:740px){
+ .character{padding:9px 11px calc(9px + env(safe-area-inset-bottom));gap:9px}
+ .ch-head{min-height:42px}.ch-head h1{font-size:23px}
+ .ch-progress{font-size:11px}.ch-progress span{display:none}
+ .ch-panel{padding:11px;gap:clamp(8px,1.5vh,12px)}
+ .ch-name{min-height:42px;font-size:13px}
+ .ch-gender{gap:9px;height:clamp(130px,21vh,172px);min-height:110px;max-height:172px}
+ .gender-card .gender-caption{font-size:15px;padding:16px 11px 10px}
+ .ch-paths{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .path-card{min-height:50px;padding:10px 5px;gap:7px}
+ .path-card strong{font-size:12px}.path-icon{font-size:18px}
+ .ch-footer{align-items:stretch;flex-direction:column;gap:8px}
+ .ch-brief{font-size:10px}
+ .ch-go{width:100%;min-height:44px;padding:10px 13px;font-size:13px}
+}
+@media(max-height:670px){
+ .character{gap:5px;padding-top:7px;padding-bottom:6px}
+ .ch-head h1{font-size:21px}.ch-head{min-height:35px}
+ .ch-panel{gap:6px;padding:9px}
+ .ch-field{gap:4px}.ch-name{min-height:34px;padding-block:6px}
+ .ch-gender{height:clamp(80px,16vh,115px);min-height:76px}
+ .path-card{min-height:40px;padding:7px 5px}
+ .ch-go{min-height:34px;padding:7px 10px}
+ .ch-footer{gap:5px}
+}
+@media(max-height:530px){.ch-brief{display:none}.ch-gender{height:74px;min-height:65px}.path-card{min-height:35px}.ch-label{font-size:11px}}
+@media(max-width:740px) and (max-height:530px){.ch-head{min-height:28px}.ch-head h1{font-size:18px}.path-icon{font-size:14px}.gender-card .gender-caption{font-size:12px;padding:6px 8px}}
 </style></head>
 <body>
 <div class="shell">
@@ -211,17 +266,31 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
  </header>
 
  <main id="character" class="character" hidden aria-label="캐릭터 만들기">
-  <div class="ch-head"><div><span class="ch-mark">MYON WORLD / CHARACTER CREATION</span><h1>새로운 시민 만들기</h1><p>이름과 시작 방향을 선택하세요. 당신의 이야기는 이후의 선택으로 만들어집니다.</p></div><div class="ch-mark">FIRST CITIZEN</div></div>
-  <div class="ch-layout">
-   <aside class="ch-steps" aria-label="시작 단계"><div class="ch-step active"><b>01</b><span>시민 정보 설정</span></div><div class="ch-step"><b>02</b><span>첫 도시 선택</span></div><div class="ch-step"><b>03</b><span>MYON 세계 입성</span></div></aside>
-   <section class="ch-panel">
-    <div class="ch-field"><label class="ch-label" for="citizen-name"><b>01</b> 이름 설정</label><input class="ch-name" id="citizen-name" type="text" maxlength="12" autocomplete="off" placeholder="시민의 이름을 입력하세요 (2~12자)"><span class="ch-count" id="citizen-name-count">0 / 12</span></div>
-    <div class="ch-field" style="flex:1;min-height:0"><span class="ch-label"><b>02</b> 성별 선택</span><div class="ch-gender" role="group" aria-label="캐릭터 성별"><button type="button" class="gender-card" data-gender="male" aria-pressed="false"><span class="gender-art" role="img" aria-label="실사 스타일 남자 시민 초상"></span><span class="gender-caption">남자 <span class="gender-check">✓</span></span></button><button type="button" class="gender-card" data-gender="female" aria-pressed="false"><span class="gender-art" role="img" aria-label="실사 스타일 여자 시민 초상"></span><span class="gender-caption">여자 <span class="gender-check">✓</span></span></button></div></div>
-    <div class="ch-field"><span class="ch-label"><b>03</b> 플레이 성향 선택</span><div class="ch-paths" role="group" aria-label="초기 플레이 성향"><button type="button" class="path-card" data-path="free" aria-pressed="false"><span class="path-icon">◇</span><strong>자유로운 삶</strong><small>삶의 다양한 가능성</small></button><button type="button" class="path-card" data-path="people" aria-pressed="false"><span class="path-icon">♧</span><strong>사람과 이야기</strong><small>대화 · 관계 · 시민</small></button><button type="button" class="path-card" data-path="explore" aria-pressed="false"><span class="path-icon">⌖</span><strong>탐험과 발견</strong><small>장소 · 조사 · 발견</small></button><button type="button" class="path-card" data-path="economy" aria-pressed="false"><span class="path-icon">▥</span><strong>경제와 성장</strong><small>일 · 생산 · 거래</small></button></div></div>
-    <div class="ch-notice"><strong>선택한 성향</strong>에 따라 처음 받는 임무와 안내가 달라집니다. 다른 분야의 임무도 언제든 선택할 수 있으며, 직업과 성장 방향은 고정되지 않습니다.</div>
-    <div class="ch-footer"><div><small>캐릭터는 최초 1회 생성합니다. 생성 후 첫 도시를 선택합니다.</small><span class="ch-error" id="character-error" role="status" aria-live="polite"></span></div><button type="button" class="ch-go" id="create-citizen" disabled>도시 선택으로 이동 →</button></div>
-   </section>
+  <div class="ch-head">
+    <div><span class="ch-mark">MYON WORLD</span><h1>캐릭터 만들기</h1></div>
+    <div class="ch-progress">01 / 02 <span>· 다음은 도시 선택</span></div>
   </div>
+  <div class="ch-layout"><section class="ch-panel">
+    <div class="ch-field"><label class="ch-label" for="citizen-name">이름</label><div class="ch-name-wrap"><input class="ch-name" id="citizen-name" type="text" maxlength="12" autocomplete="off" placeholder="캐릭터 이름 (2~12자)"><span class="ch-count" id="citizen-name-count">0 / 12</span></div></div>
+    <div class="ch-field ch-visual-field"><span class="ch-label">성별</span>
+      <div class="ch-gender" role="group" aria-label="캐릭터 성별">
+        <button type="button" class="gender-card" data-gender="male" aria-pressed="false"><span class="gender-art" role="img" aria-label="실사 스타일 남자 시민 초상"></span><span class="gender-caption">남자 <span class="gender-check">✓</span></span></button>
+        <button type="button" class="gender-card" data-gender="female" aria-pressed="false"><span class="gender-art" role="img" aria-label="실사 스타일 여자 시민 초상"></span><span class="gender-caption">여자 <span class="gender-check">✓</span></span></button>
+      </div>
+    </div>
+    <div class="ch-field ch-path-field"><span class="ch-label">플레이 성향</span>
+      <div class="ch-paths" role="group" aria-label="초기 플레이 성향">
+        <button type="button" class="path-card" data-path="free" aria-pressed="false"><span class="path-icon" aria-hidden="true">◇</span><strong>자유로운 삶</strong></button>
+        <button type="button" class="path-card" data-path="people" aria-pressed="false"><span class="path-icon" aria-hidden="true">♧</span><strong>사람과 이야기</strong></button>
+        <button type="button" class="path-card" data-path="explore" aria-pressed="false"><span class="path-icon" aria-hidden="true">⌖</span><strong>탐험과 발견</strong></button>
+        <button type="button" class="path-card" data-path="economy" aria-pressed="false"><span class="path-icon" aria-hidden="true">▥</span><strong>경제와 성장</strong></button>
+      </div>
+    </div>
+    <div class="ch-footer">
+      <div class="ch-footer-copy"><span class="ch-brief">선택 성향의 임무부터 시작 · 다른 임무도 가능</span><span class="ch-error" id="character-error" role="status" aria-live="polite"></span></div>
+      <button type="button" class="ch-go" id="create-citizen" disabled>다음 · 도시 선택 <span aria-hidden="true">→</span></button>
+    </div>
+  </section></div>
  </main>
  <main class="main">
   <div class="intro"><div><div class="eyebrow">MYON WORLD / CHOOSE YOUR BEGINNING</div><h1>나의 첫 도시를 선택하세요</h1><p id="city-intro">도시는 각자의 분위기를 가지고 있습니다. 어떤 삶을 살아갈지는 당신이 정합니다.</p></div><div class="intro-right">STARTING CITIES <strong>03</strong></div></div>

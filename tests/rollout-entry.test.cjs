@@ -265,3 +265,26 @@ test('DEV one-time citizen save uses an isolated key and disallows city selectio
  assert.match(html,/if\(cityLocked\)\{showScreen\('arrival'\);return;\}/);
  assert.doesNotMatch(html,/indexedDB\.open\(|localStorage\.clear\(/);
 });
+
+
+test('DEV simplified character creation keeps usable choices and citizen storage',()=>{
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ assert.match(html,/<h1>캐릭터 만들기<\/h1>/);
+ assert.match(html,/class="ch-name-wrap"/);
+ assert.match(html,/class="ch-progress">01 \/ 02/);
+ assert.match(html,/id="citizen-name"[^>]*maxlength="12"/);
+ assert.match(html,/class="ch-visual-field"/);
+ for(const g of ['male','female'])assert.ok(html.includes('data-gender="'+g+'"'));
+ for(const p of ['free','people','explore','economy'])assert.ok(html.includes('data-path="'+p+'"'));
+ assert.ok(html.includes('선택 성향의 임무부터 시작 · 다른 임무도 가능'));
+ assert.ok(html.includes('다음 · 도시 선택'));
+ assert.doesNotMatch(html,/class="ch-steps"/);
+ assert.doesNotMatch(html,/class="ch-notice"/);
+ assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V1'"));
+ assert.ok(html.includes("function readCitizen(){for(const key of [CITIZEN_KEY,CITIZEN_KEY+'.backup'])"));
+ assert.ok(html.includes("localStorage.setItem(CITIZEN_KEY+'.backup',prior)"));
+ assert.ok(html.includes("localStorage.setItem(CITIZEN_KEY,JSON.stringify(v))"));
+ assert.ok(html.includes("if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')"));
+ assert.ok(html.includes("if(!cityNames[id]||(cityLocked&&selectedCity!==id))return"));
+ assert.doesNotMatch(html,/indexedDB\.open\(|localStorage\.clear\(/);
+});
