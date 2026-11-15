@@ -150,7 +150,7 @@ test('MYON portal uses the local text-free planet wallpaper without changing ent
  assert.ok(img.length>100000,'Planet wallpaper must contain real image data');
  assert.equal(img.toString('ascii',0,4),'RIFF');
  assert.equal(img.toString('ascii',8,12),'WEBP');
- assert.match(app,/BASE \+ 'myon-planet-wallpaper.webp'/);
+ assert.ok(app.includes("BASE + 'myon-planet-wallpaper.webp)'"));
  assert.match(app,/class="planet-backdrop"/);
  assert.match(app,/class="planet-shade"/);
  assert.match(app,/class="hero"/);
