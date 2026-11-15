@@ -194,7 +194,9 @@ test('DEV city selection remains isolated from pinned LIVE and stored progress',
  assert.ok(next.includes('html.myon-embedded .top .back{visibility:hidden;pointer-events:none}'));
  assert.ok(app.includes("'dev-controls':currentServer==='dev'"));
  assert.ok(app.includes('.game-controls.dev-controls{bottom:auto;top:8px;'));
- assert.doesNotMatch(next,/myon-v013\.js|indexedDB\.open\(/);\n assert.ok(next.includes("MYON_DEV_CITIZEN_V1"));\n assert.doesNotMatch(next,/localStorage\.clear\(|indexedDB\.deleteDatabase\(/);
+ assert.doesNotMatch(next,/myon-v013\.js|indexedDB\.open\(/); 
+ assert.ok(next.includes("MYON_DEV_CITIZEN_V1")); 
+ assert.doesNotMatch(next,/localStorage\.clear\(|indexedDB\.deleteDatabase\(/);
  for(const name of ['lien','haren','serin']){
   const city=fs.readFileSync(path.resolve(__dirname,'../public/myon-city-'+name+'.webp'));
   assert.equal(city.toString('ascii',0,4),'RIFF');
@@ -204,7 +206,11 @@ test('DEV city selection remains isolated from pinned LIVE and stored progress',
   assert.ok(next.includes('data-city="'+name+'"'));
   assert.ok(next.includes('data-city-button="'+name+'"'));
  }
- const sprite=/data:image\/webp;base64,([A-Za-z0-9+/=]+)/.exec(next);\n assert.ok(sprite,'Male/female portrait image should be embedded');\n const data=Buffer.from(sprite[1],'base64');\n assert.equal(data.toString('ascii',0,4),'RIFF');\n assert.equal(data.toString('ascii',8,12),'WEBP');\n assert.ok(data.length>6000);
+ const sprite=/data:image\/webp;base64,([A-Za-z0-9+/=]+)/.exec(next); 
+ assert.ok(sprite,'Male/female portrait image should be embedded');\n const data=Buffer.from(sprite[1],'base64'); 
+ assert.equal(data.toString('ascii',0,4),'RIFF'); 
+ assert.equal(data.toString('ascii',8,12),'WEBP'); 
+ assert.ok(data.length>6000);
 });
 
 test('DEV city selection offers interactive no-scroll arrival on mobile',()=>{
