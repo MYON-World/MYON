@@ -202,3 +202,23 @@ test('DEV opens the independent first citizen-world screen while LIVE remains pi
  assert.equal(city.toString('ascii',8,12),'WEBP');
  assert.ok(city.length>100000);
 });
+
+
+test('DEV citizen first screen uses viewport-sized tabs instead of scrolling',()=>{
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ assert.match(html,/body data-view="city"/);
+ assert.match(html,/\.layout\{height:100vh;height:100dvh;min-height:0;overflow:hidden\}/);
+ assert.match(html,/html,body\{width:100%;height:100%;overflow:hidden;overscroll-behavior:none\}/);
+ assert.match(html,/\.content\{[^}]*overflow:hidden/);
+ assert.doesNotMatch(html,/scrollIntoView|window\.scrollTo|overflow-y:auto/);
+ assert.match(html,/function setActiveView\(view\)/);
+ assert.match(html,/setActiveView\('explore'\)/);
+ assert.match(html,/setActiveView\('city'\)/);
+ for(const view of ['city','stories','explore','records'])
+  assert.ok(html.includes('body[data-view="'+view+'"]'),'Missing view '+view);
+ assert.ok(html.includes('data-phase="after"'));
+ assert.ok(html.includes('MYON_SAFE_UPDATE_CHECKPOINT=async function(){return true}'));
+ assert.ok(html.includes('setInterval(paintPreviewTime,1000)'));
+ assert.ok(html.includes('data-explore-story="neighbor"'));
+ assert.ok(html.includes('data-explore-story="signal"'));
+});

@@ -39,9 +39,132 @@ window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){return true};
 @media(max-width:840px){.topbar{padding:0 18px}.zone{display:none}.dashboard{grid-template-columns:1fr}.hero{height:355px}.hero:before{background:linear-gradient(90deg,#07111ef6,#0b1b2ec9 62%,#07111e68),linear-gradient(0deg,#05101ec9,transparent 70%)}.hero-corner{display:none}.world-panel{margin-top:5px}.footnote{margin-bottom:40px}}
 @media(max-width:650px){.rail{width:100%;height:65px;top:auto;right:0;bottom:0;flex-direction:row;justify-content:space-around;gap:0;padding:4px 10px calc(4px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid #2d526a;background:#071626f5}.rail .emblem,.rail-separator,.rail-spacer,.rail-footer{display:none}.rail-tab{min-height:52px;width:23%;font-size:10px;gap:3px;padding:6px 4px}.rail-tab.selected{box-shadow:inset 0 2px 0 #87e2ff}.rail-tab svg{width:20px;height:20px}.page{width:100%;margin:0}.topbar{height:61px;padding:0 15px}.wordmark strong{font-size:21px}.wordmark small{font-size:9px}.top-time{display:none}.topbar-right{gap:8px}.top-status{font-size:9px;padding:7px}.portrait{height:30px;width:30px}.content{padding:15px 13px 90px}.hero{height:344px;border-radius:12px;background-position:60% center}.hero:before{background:linear-gradient(90deg,#07121eeE 0%,#0b1d2be8 53%,#091a2e7c 100%),linear-gradient(0deg,#07111bdc,transparent 60%)}.hero-body{padding:25px 21px;justify-content:center}.hero h1{font-size:30px;margin:18px 0 10px}.hero-desc{font-size:12px;max-width:330px}.hero-corner{display:none}.hero-bottom{right:16px;bottom:13px;font-size:9px}.hero-actions{margin-top:20px}.primary,.secondary{font-size:11px;padding:10px 12px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:11px 0 24px}.stat{gap:9px;padding:13px 11px}.stat-icon{height:32px;width:32px}.stat-icon svg{height:17px;width:17px}.stat-value{font-size:17px}.stat-value small{font-size:9px;margin-left:2px}.stat-label,.stat-sub{font-size:9px}.headline h2{font-size:16px}.story-symbol{height:38px;width:38px;margin:13px 0 13px 13px}.story-symbol svg{width:19px;height:19px}.story-center{padding:12px 6px 12px 10px}.story-name{font-size:12px}.story-desc{font-size:10px}.story-open{padding:0 10px}.world-panel{padding:16px}.footnote{font-size:9px;line-height:1.6;flex-wrap:wrap}.toast{bottom:80px;width:calc(100% - 30px)}.drawer{padding:21px 18px}}
 @media(prefers-reduced-motion:reduce){.pulse{animation:none}.fill,.toast{transition:none}}
+
+/* v0.13.71: full viewport game panels without any page or nested scrolling */
+html,body{width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
+.layout{height:100vh;height:100dvh;min-height:0;overflow:hidden}
+.page{height:100vh;height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:clamp(49px,8dvh,67px);flex:none}
+.content{max-width:none;width:100%;min-height:0;flex:1;overflow:hidden;display:flex;flex-direction:column;padding:clamp(7px,1.4vh,14px) clamp(12px,2.7vw,40px) clamp(8px,1.3vh,13px)}
+.sectionline{flex:none;margin-bottom:clamp(6px,1vh,10px)}
+.content>.hero,.content>.stats,.content>.dashboard,.content>.city-brief,.content>.explore-view,.content>.records-view{display:none}
+body[data-view="city"] .content>.hero{display:block;flex:1;min-height:0}
+body[data-view="city"] .content>.stats{display:grid;flex:none}
+body[data-view="city"] .content>.city-brief{display:flex;flex:none}
+body[data-view="stories"] .content>.dashboard{display:grid;flex:1;min-height:0}
+body[data-view="explore"] .content>.explore-view{display:flex;flex:1;min-height:0}
+body[data-view="records"] .content>.records-view{display:flex;flex:1;min-height:0}
+.content>.hero{height:auto!important;margin:0 0 clamp(6px,1vh,10px);border-radius:13px}
+.content>.hero .hero-body{padding:clamp(12px,2.3vh,25px) clamp(16px,3vw,35px);justify-content:center}
+.content>.hero h1{font-size:clamp(24px,3.2vw,43px);margin:clamp(8px,1.5vh,17px) 0 6px}
+.content>.hero .hero-desc{font-size:clamp(10px,1.15vw,12px);line-height:1.5}
+.content>.hero .hero-actions{margin-top:clamp(8px,1.6vh,16px)}
+.content>.hero .primary,.content>.hero .secondary{padding:8px 12px}
+.content>.stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(6px,1vw,10px);margin:0 0 clamp(6px,1vh,10px)}
+.content>.stats .stat{min-height:70px;padding:clamp(7px,1.25vh,12px);gap:9px}
+.content>.stats .stat-icon{height:32px;width:32px}
+.content>.stats .stat-value{font-size:clamp(14px,1.6vw,19px)}
+.content>.stats .stat-sub{font-size:9px}
+.city-brief{min-height:40px;align-items:center;justify-content:space-between;gap:12px;padding:7px 12px;border-radius:9px;background:#11283b;border:1px solid #36596f}
+.city-brief>div{display:flex;align-items:center;gap:8px;min-width:0}
+.city-brief strong{font-size:11px;color:#dceffc}
+.city-brief small{font-size:10px;color:#91afc7}
+.city-brief-dot{width:7px;height:7px;border-radius:50%;background:#e0b27c;flex:none}
+.city-brief button{border:0;background:transparent;color:#a9e4fa;white-space:nowrap;font-size:11px;padding:6px}
+.content>.dashboard{height:auto;grid-template-columns:minmax(0,1.4fr) minmax(245px,.85fr);gap:clamp(9px,2vw,18px);align-items:stretch;overflow:hidden}
+.dashboard>div:first-child{display:flex;flex-direction:column;min-height:0}
+.dashboard .headline{flex:none;margin-bottom:clamp(5px,1.2vh,11px)}
+.dashboard .stories{flex:1;min-height:0;display:grid;grid-template-rows:repeat(3,minmax(0,1fr));gap:clamp(5px,1.2vh,9px)}
+.dashboard .story{min-height:0}
+.dashboard .story-symbol{height:clamp(30px,5vh,45px);width:clamp(30px,5vh,45px);margin:9px 0 9px 12px}
+.dashboard .story-center{padding:clamp(6px,1.1vh,12px) 7px clamp(6px,1.1vh,12px) 11px;display:flex;flex-direction:column;justify-content:center}
+.dashboard .story-top{margin-bottom:3px}
+.dashboard .story-name{margin-bottom:4px}
+.dashboard .story-desc{line-height:1.35}
+.dashboard .world-panel{height:100%;min-height:0;margin:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px;padding:clamp(9px,1.4vh,16px)}
+.dashboard .world-panel .ai-top{padding-bottom:7px}
+.dashboard .ai-message{margin:0;line-height:1.45;font-size:11px}
+.dashboard .ai-note{margin:0;padding-left:9px;line-height:1.4}
+.dashboard .condition{padding-top:7px}
+.dashboard .condition-foot{margin:5px 0 7px;line-height:1.35}
+.dashboard .phase-demo{padding:8px 10px}
+.dashboard .phase-options{margin-top:6px}
+.dashboard .phase-options button{padding:7px}
+.explore-view{flex-direction:column;align-items:flex-start;justify-content:center;position:relative;isolation:isolate;overflow:hidden;padding:clamp(20px,4vw,60px);border:1px solid #3b6684a3;border-radius:13px;background:#152d44 url('myon-city-hero.webp') 62% center/cover no-repeat}
+.explore-view:before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#07111ef5,#092038e0 48%,#08192836 100%)}
+.explore-view h2{font-size:clamp(24px,4vw,44px);margin:12px 0}
+.explore-view p{font-size:clamp(11px,1.3vw,14px);line-height:1.6;color:#c1d8e8}
+.explore-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:clamp(5px,2vh,18px)}
+.explore-note{font-size:10px!important;color:#91aec4!important}
+.records-view{flex-direction:column}
+.records-heading{flex:none}
+.records-heading h2{font-size:clamp(22px,3vw,31px);margin:10px 0 5px}
+.records-heading p{font-size:12px;color:#abc4d8;line-height:1.5;margin:0 0 clamp(11px,2vh,19px)}
+.records-grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:clamp(7px,1.5vh,14px)}
+.record-card{min-height:0;display:flex;flex-direction:column;justify-content:center;gap:clamp(4px,1.2vh,11px);padding:clamp(10px,2vh,23px);border:1px solid #2f536c;background:linear-gradient(155deg,#152f48,#091b2c);border-radius:11px}
+.record-card span{font-size:11px;color:#92b5cb}
+.record-card strong{font-size:clamp(20px,3vw,34px)}
+.record-card small{font-size:10px;color:#87a5bc}
+.records-note{flex:none;display:grid;gap:4px;margin-top:clamp(6px,1.5vh,13px);padding:10px 13px;background:#112d3d;border:1px solid #3f6c82;border-radius:10px;font-size:11px}
+.records-note span{font-size:10px;color:#9dbdd0;line-height:1.5}
+.footnote{display:none}
+.drawer-back{overflow:hidden}
+.drawer{display:flex;flex-direction:column;max-height:calc(100dvh - 28px);overflow:hidden}
+.drawer h3{font-size:clamp(18px,3vh,23px);margin:8px 0}
+.drawer p{font-size:clamp(11px,1.7vh,13px);line-height:1.5;margin:4px 0}
+.drawer-box{padding:clamp(8px,1.5vh,14px);line-height:1.5;margin-top:10px}
+.drawer-bottom{margin-top:10px}
+@media(max-width:1020px){.content>.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.content>.stats .stat{min-height:55px}.content>.stats .stat-sub{display:none}.content>.dashboard{grid-template-columns:minmax(0,1fr) minmax(220px,.85fr)}}
+@media(max-width:840px){.content>.dashboard{grid-template-columns:1fr}.dashboard .world-panel{display:none}.city-brief small{display:none}}
+@media(max-width:650px){
+ .rail{height:calc(60px + env(safe-area-inset-bottom))}
+ .page{height:100vh;height:100dvh}
+ .content{padding:clamp(6px,1.5vh,11px) 10px calc(67px + env(safe-area-inset-bottom))}
+ .topbar{height:49px;padding:0 12px}
+ .sectionline{margin-bottom:6px}
+ .sectionline .smallnote{font-size:9px;white-space:nowrap}
+ .content>.hero{border-radius:10px;background-position:57% center}
+ .content>.hero .hero-body{padding:9px 14px}
+ .content>.hero h1{font-size:clamp(22px,6.6vw,29px);margin:8px 0 5px}
+ .content>.hero .hero-desc{font-size:10px;line-height:1.4}
+ .content>.hero .hero-corner,.content>.hero .hero-bottom{display:none}
+ .content>.hero .hero-actions{margin-top:9px;gap:6px}
+ .content>.hero .primary,.content>.hero .secondary{font-size:10px;padding:7px 8px}
+ .content>.stats{gap:6px}
+ .content>.stats .stat{min-height:49px;padding:6px 8px}
+ .content>.stats .stat-icon{width:25px;height:25px}
+ .content>.stats .stat-icon svg{width:14px;height:14px}
+ .content>.stats .stat-info{gap:2px}
+ .content>.stats .stat-value{font-size:14px}
+ .content>.stats .stat-label{font-size:9px}
+ .content>.stats .stat-value small{font-size:8px}
+ .city-brief{min-height:33px;padding:5px 9px}
+ .city-brief strong,.city-brief button{font-size:10px}
+ .dashboard .headline{margin-bottom:6px}
+ .dashboard .story-symbol{width:33px;height:33px;margin:8px 0 8px 9px}
+ .dashboard .story-center{padding:6px}
+ .dashboard .story-name{font-size:12px;margin-bottom:3px}
+ .dashboard .story-desc{font-size:10px;line-height:1.3}
+ .dashboard .story-open{padding:0 8px}
+ .explore-view{padding:20px}
+ .explore-view:before{background:linear-gradient(90deg,#07111ef5,#0b223be0 72%,#07111f64)}
+ .explore-view h2{font-size:25px}
+ .explore-view p{font-size:11px}
+ .explore-actions{flex-direction:column;align-items:stretch}
+ .explore-actions button{justify-content:center}
+ .records-heading p{font-size:11px}
+ .record-card{padding:11px}
+ .record-card strong{font-size:22px}
+ .drawer{padding:clamp(12px,3vh,21px) 14px}
+ .drawer-box{font-size:11px}
+ .drawer-bottom button{padding:8px 10px}
+}
+@media(max-height:650px){.content>.hero h1{font-size:clamp(20px,3.3vw,29px)}.content>.stats .stat{min-height:42px}.content>.stats .stat-icon{width:24px;height:24px}.city-brief{min-height:31px}.sectionline .smallnote{display:none}.dashboard .story-desc{font-size:9px}}
+@media(max-height:510px){.content>.hero .hero-desc{display:none}.content>.stats .stat{min-height:35px}.content>.stats .stat-icon{display:none}.dashboard .story-desc{display:none}.dashboard .story-symbol{display:none}.records-note span{display:none}}
+
 </style>
 </head>
-<body>
+<body data-view="city">
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
  <symbol id="i-city" viewBox="0 0 24 24"><rect x="3" y="8" width="7" height="13" rx="1"/><rect x="12" y="3" width="9" height="18" rx="1"/><path d="M1 21h22M6 11v2M6 16v2M15 7v2M18 7v2M15 12v2M18 12v2M15 17v2"/></symbol>
  <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7c-4-3-8-3-10-2v14c4-1 8-1 10 2m0-14c4-3 8-3 10-2v14c-4-1-8-1-10 2m0-14v14"/></symbol>
@@ -107,6 +230,24 @@ window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){return true};
      <div class="phase-demo"><div class="phase-head"><b>도시 변화 미리보기</b><span>디자인 비교용</span></div><div class="phase-options"><button type="button" class="active" data-phase="before">복구 이전</button><button type="button" data-phase="after">복구 이후</button></div></div>
     </aside>
    </section>
+   <section class="city-brief"><div><span class="city-brief-dot"></span><strong>리엔의 통신은 불안정합니다.</strong><small>이야기를 발견하며 도시의 변화를 확인하세요.</small></div><button type="button" id="city-ai-guide">AI 안내 보기 ›</button></section>
+   <section class="explore-view" aria-label="도시 탐색">
+    <div class="overline">LIEN · LOCAL DISCOVERY</div>
+    <h2>도시를 둘러보세요.</h2>
+    <p>조용한 광장과 멈춰버린 안내단말기.<br>어떤 이야기를 먼저 경험할지는 시민의 선택입니다.</p>
+    <div class="explore-actions"><button type="button" class="primary" data-explore-story="neighbor">광장에 있는 시민 만나기 →</button><button type="button" class="secondary" data-explore-story="signal">중앙 안내단말기 살펴보기 →</button></div>
+    <p class="explore-note">DEV 화면 시안 · 이동과 실제 사건 진행은 추후 연결됩니다.</p>
+   </section>
+   <section class="records-view" aria-label="시민 기록">
+    <div class="records-heading"><div class="overline">CITIZEN PROFILE / FIRST ERA</div><h2>나의 시민 기록</h2><p>정해진 직업 없이, 경험과 선택으로 성장하는 MYON의 시민입니다.</p></div>
+    <div class="records-grid">
+     <div class="record-card"><span>시민 등급</span><strong>LV. 01</strong><small>이야기를 경험하며 성장</small></div>
+     <div class="record-card"><span>시작 지역</span><strong>리엔시</strong><small>마이온 행성 · 첫 번째 도시</small></div>
+     <div class="record-card"><span>발견한 이야기</span><strong>02</strong><small>현재 시안에 표시된 이야기</small></div>
+     <div class="record-card"><span>연결된 도시</span><strong>00</strong><small>아직 연결된 도시 없음</small></div>
+    </div>
+    <div class="records-note"><strong>새 MYON 세이브는 설계 중입니다.</strong><span>이곳의 이름·레벨·기록은 미리보기 값이며 기존 운송 게임 데이터와 연결되지 않습니다.</span></div>
+   </section>
    <footer class="footnote"><span>MYON WORLD · 시민의 첫 번째 시대 / DEV 001</span><strong>첫 화면 설계 중 · 게임 데이터 미연결</strong></footer>
   </main>
  </div>
@@ -125,11 +266,27 @@ function closeStory(){$('drawer-back').classList.remove('visible')}
 function showToast(message){const x=$('toast');x.textContent=message;x.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>x.classList.remove('visible'),2700)}
 document.querySelectorAll('[data-story]').forEach(b=>b.addEventListener('click',()=>openStory(b.dataset.story)));
 $('open-guide').addEventListener('click',()=>openStory('guide'));
-$('city-explore').addEventListener('click',()=>document.querySelector('.dashboard').scrollIntoView({behavior:'smooth',block:'start'}));
+$('city-explore').addEventListener('click',()=>setActiveView('explore'));
+$('city-ai-guide').addEventListener('click',()=>openStory('guide'));
+document.querySelectorAll('[data-explore-story]').forEach(b=>b.addEventListener('click',()=>openStory(b.dataset.exploreStory)));
 $('all-stories').addEventListener('click',()=>showToast('DEV 첫 화면 시안: 이야기 목록은 다음 단계에서 연결합니다.'));
 $('drawer-close').addEventListener('click',closeStory);$('drawer-cancel').addEventListener('click',closeStory);$('drawer-accept').addEventListener('click',()=>{closeStory();showToast('화면 구성 시안입니다. 실제 임무 저장과 진행은 다음 단계에서 연결합니다.')});
 $('drawer-back').addEventListener('click',e=>{if(e.target===$('drawer-back'))closeStory()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeStory()});
-document.querySelectorAll('.rail-tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.rail-tab').forEach(i=>i.classList.toggle('selected',i===b));if(b.dataset.tab==='도시')window.scrollTo({top:0,behavior:'smooth'});else if(b.dataset.tab==='이야기')document.querySelector('.dashboard').scrollIntoView({behavior:'smooth'});else showToast(b.dataset.tab+' 화면은 추후 콘텐츠 설계에서 채워질 예정입니다.')}));
+const viewNames={'도시':'city','이야기':'stories','탐색':'explore','내 기록':'records'};
+const viewHeadings={city:'THE FIRST ERA / CITY 001',stories:'LIEN / CITY STORIES',explore:'LIEN / DISCOVERY',records:'CITIZEN / RECORDS'};
+function setActiveView(view){
+ if(!Object.values(viewNames).includes(view))return;
+ document.body.dataset.view=view;
+ document.querySelectorAll('.rail-tab').forEach(b=>{
+  const active=viewNames[b.dataset.tab]===view;
+  b.classList.toggle('selected',active);
+  b.setAttribute('aria-current',active?'page':'false');
+ });
+ const label=document.querySelector('.sectionline .overline');
+ if(label)label.textContent=viewHeadings[view];
+}
+document.querySelectorAll('.rail-tab').forEach(b=>b.addEventListener('click',()=>setActiveView(viewNames[b.dataset.tab])));
+setActiveView('city');
 document.querySelectorAll('[data-phase]').forEach(b=>b.addEventListener('click',()=>{
  const after=b.dataset.phase==='after';document.querySelectorAll('[data-phase]').forEach(i=>i.classList.toggle('active',i===b));
  $('phase-chip').textContent=after?'네트워크 부분 복구':'연결 불안정';$('hero-title').innerHTML=after?'조금씩 되살아나는<br>우리의 도시.':'도시는 아직<br>깨어나지 않았다.';
