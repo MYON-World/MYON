@@ -245,7 +245,8 @@ onMounted(async()=>{
 </template>
 
 <style scoped>
-.portal{height:100vh;height:100dvh;overflow-y:auto;background:radial-gradient(ellipse at 80% -12%,#244f49 0%,transparent 48%),#0e171b;color:#eff8f3}
+.portal{height:100vh;height:100dvh;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;background:radial-gradient(ellipse at 80% -12%,#244f49 0%,transparent 48%),#0e171b;color:#eff8f3}
+.portal::-webkit-scrollbar{display:none;width:0;height:0}
 .wrap{max-width:920px;margin:0 auto;padding:32px 19px 64px}
 .heading{display:flex;align-items:center;gap:16px;margin-bottom:38px}
 .brand-mark{width:54px;height:54px;flex:none;display:grid;place-items:center;border-radius:16px;background:linear-gradient(145deg,#79e4bb,#276e63);color:#09251f;font-size:33px;font-weight:900}

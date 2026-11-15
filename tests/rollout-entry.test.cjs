@@ -136,3 +136,10 @@ test('build publishes per-commit descriptions while portal places history below 
  assert.match(app,/v-for="server in change.servers"/);
  assert.ok(notes['0.13.66'].entries.length>=2);
 });
+
+test('unified launcher hides scrollbars but keeps portal scrolling enabled',()=>{
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ assert.match(app,/\.portal\{[^}]*overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;/);
+ assert.match(app,/\.portal::-webkit-scrollbar\{display:none;width:0;height:0\}/);
+ assert.doesNotMatch(app,/\.portal\{[^}]*overflow-y:hidden/);
+});
