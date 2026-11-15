@@ -398,7 +398,7 @@ test('DEV notebook uses button-based navigation through actual structured world 
  assert.match(html,/dnGroup\('전체 산업 분야',data\.domains\.map/);
  assert.match(html,/dnGroup\('도시별 현황',data\.cities\.map/);
  assert.match(html,/dnLeaf\('현재 운영 현황',c\.current/);
- assert.match(html,/devNotebookGo\(\[\.\.\.dnTrail,i\]\)/);
+ assert.match(html,/devNotebookGo\(\[\.\.\.dnTrail,start\+index\]\)/);
  assert.match(html,/devNotebookBack\(\)/);
  assert.match(html,/devNotebookGo\(\[\]\)/);
  assert.ok(html.includes('id="dn-start-test"'));
