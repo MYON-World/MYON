@@ -160,3 +160,23 @@ test('MYON portal uses the local text-free planet wallpaper without changing ent
  assert.match(app,/@click="copySave"/);
  assert.match(app,/v-if="entering\|\|entryFailed"/);
 });
+
+
+test('world access ring advances smoothly only after verified entry steps',()=>{
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ const notes=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-version-notes.json'),'utf8'));
+ assert.match(app,/const ENTRY_RING_CIRCUMFERENCE=2\*Math\.PI\*67/);
+ assert.match(app,/const entryVisualPercent=ref\(0\)/);
+ assert.match(app,/function animateEntryProgress\(target\)/);
+ assert.match(app,/requestAnimationFrame\(frame\)/);
+ assert.match(app,/prefers-reduced-motion: reduce/);
+ assert.match(app,/entryCompleted\.value=index\+1[\s\S]*?animateEntryProgress\(Math\.round/);
+ assert.match(app,/:stroke-dasharray="ENTRY_RING_CIRCUMFERENCE"/);
+ assert.match(app,/strokeDashoffset:ENTRY_RING_CIRCUMFERENCE\*\(1-entryCompleted\/ENTRY_CHECKS\.length\)/);
+ assert.match(app,/stroke-dashoffset 620ms/);
+ assert.match(app,/role="progressbar"/);
+ assert.match(app,/role="alert"/);
+ assert.ok(app.indexOf('await createEntryCheckpoint')<app.indexOf('await showVerifiedStep(2)'));
+ assert.ok(app.indexOf('await showVerifiedStep(3)')<app.indexOf('playing.value=true'));
+ assert.ok(notes['0.13.69'].entries.length>=2);
+});

@@ -17,9 +17,29 @@ const ENTRY_CHECKS=[
  {title:'세이브 안전 검증',note:'기존 세이브를 읽고 백업본을 다시 확인합니다.'},
  {title:'입장 준비 완료',note:'검사가 끝난 버전으로 게임에 접속합니다.'}
 ]
-// Display completed checks long enough to read; never mark a check done before it resolves.
+// Completed checks alone advance the ring; never animate progress before verification.
+const ENTRY_RING_CIRCUMFERENCE=2*Math.PI*67
+const entryVisualPercent=ref(0)
+let entryProgressFrame=0
+function animateEntryProgress(target){
+ if(entryProgressFrame)cancelAnimationFrame(entryProgressFrame)
+ const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+ if(reduced){entryVisualPercent.value=target;entryProgressFrame=0;return}
+ const from=entryVisualPercent.value
+ const start=performance.now()
+ const duration=620
+ function frame(now){
+  const t=Math.min(1,(now-start)/duration)
+  const eased=1-Math.pow(1-t,3)
+  entryVisualPercent.value=Math.round(from+(target-from)*eased)
+  if(t<1)entryProgressFrame=requestAnimationFrame(frame)
+  else entryProgressFrame=0
+ }
+ entryProgressFrame=requestAnimationFrame(frame)
+}
 async function showVerifiedStep(index){
  entryCompleted.value=index+1
+ animateEntryProgress(Math.round(entryCompleted.value/ENTRY_CHECKS.length*100))
  await new Promise(resolve=>setTimeout(resolve,700))
 }
 function closeEntryResult(){if(!entering.value)entryFailed.value=false}
@@ -49,6 +69,8 @@ async function enterServer(server){
  if(server==='test'&&!TEST_RELEASE){message.value='TEST 승인 버전이 아직 없습니다.';return}
  entering.value=true;message.value=''
  entryServer.value=server;entryIndex.value=0;entryCompleted.value=0
+ if(entryProgressFrame)cancelAnimationFrame(entryProgressFrame)
+ entryProgressFrame=0;entryVisualPercent.value=0
  entryFailed.value=false;entryVersion.value='—';entryRevision.value='';entrySaveNote.value=''
  try{
   entryStep.value='배포 버전 확인 중'
@@ -231,22 +253,46 @@ onMounted(async()=>{
    </section>
    <div class="planet-marker" aria-hidden="true"><span class="marker-line"></span><div><strong>PLANET MYON</strong><small>하나의 행성, 수많은 이야기</small></div></div>
   </div>
-  <div v-if="entering||entryFailed" class="entry-overlay" role="dialog" aria-modal="true" aria-label="서버 입장 검사 진행 상황">
-   <section class="entry-panel" aria-live="polite">
-    <div class="entry-overline">MYON SECURE ENTRY</div>
-    <h2>{{ serverTitle(entryServer) }} 서버 입장 검사</h2>
-    <p class="entry-subtitle">완료된 항목만 확인 표시됩니다. 검사가 실패하면 게임을 실행하지 않습니다.</p>
-    <div class="entry-version-pair"><span>대상 버전 <strong>{{ entryVersion }}</strong></span><span v-if="entryRevision">커밋 <code>{{ entryRevision }}</code></span></div>
-    <div class="entry-progress-head"><strong>{{ entryFailed?'검사 중단':entryCompleted===ENTRY_CHECKS.length?'전체 검사 완료':entryStep }}</strong><strong>{{ Math.round(entryCompleted/ENTRY_CHECKS.length*100) }}%</strong></div>
-    <div class="entry-progress-track" role="progressbar" :aria-valuenow="Math.round(entryCompleted/ENTRY_CHECKS.length*100)" aria-valuemin="0" aria-valuemax="100"><div class="entry-progress-fill" :style="{width:(entryCompleted/ENTRY_CHECKS.length*100)+'%'}"></div></div>
-    <ol class="entry-checks">
-     <li v-for="(step,i) in ENTRY_CHECKS" :key="step.title" :class="{complete:i<entryCompleted,active:i===entryIndex&&!entryFailed&&i>=entryCompleted,failed:i===entryIndex&&entryFailed}">
-      <span class="entry-check-icon">{{ i<entryCompleted?'✓':i===entryIndex&&entryFailed?'!':i===entryIndex?'…':i+1 }}</span>
-      <span class="entry-check-copy"><strong>{{ step.title }}</strong><small>{{ step.note }}</small></span>
-      <span class="entry-check-state">{{ i<entryCompleted?'완료':i===entryIndex&&entryFailed?'실패':i===entryIndex?'확인 중':'대기' }}</span>
-     </li>
-    </ol>
+  <div v-if="entering||entryFailed" class="entry-overlay" role="dialog" aria-modal="true" aria-labelledby="world-entry-title">
+   <section class="entry-panel">
+    <div class="entry-topline">
+     <div class="entry-sign"><span class="entry-emblem">M</span><span class="entry-brand"><strong>MYON WORLD</strong><small>WORLD ACCESS PROTOCOL</small></span></div>
+     <span class="entry-server-token" :class="'entry-server-'+entryServer"><i class="entry-signal"></i>{{ serverTitle(entryServer) }}</span>
+    </div>
+    <div class="entry-intro">
+     <div class="entry-overline">SECURE CONNECTION / 001</div>
+     <h2 id="world-entry-title">{{ entryFailed?'입장 검사가 중단되었습니다':'마이온에 연결하는 중' }}</h2>
+     <p class="entry-subtitle">플레이어의 기록을 보호하고 안전하게 세계를 준비하고 있습니다.</p>
+    </div>
+    <div class="entry-version-pair">
+     <span>접속 대상 <strong>{{ serverTitle(entryServer) }} · {{ entryServer==='live'?'정식 세계':'개발 세계' }}</strong></span>
+     <span>월드 버전 <strong>{{ entryVersion }}</strong></span>
+     <span v-if="entryRevision">커밋 <code>{{ entryRevision }}</code></span>
+    </div>
+    <div class="entry-progress-layout">
+     <div class="entry-orbit">
+      <div class="entry-progress-circle" role="progressbar" :aria-valuenow="Math.round(entryCompleted/ENTRY_CHECKS.length*100)" aria-valuemin="0" aria-valuemax="100" :aria-label="'입장 검사 '+entryCompleted+' / '+ENTRY_CHECKS.length+'단계 완료'">
+       <svg class="entry-ring-svg" viewBox="0 0 160 160" aria-hidden="true">
+        <circle class="entry-ring-back" cx="80" cy="80" r="67"></circle>
+        <circle class="entry-ring-fill" :class="{error:entryFailed}" cx="80" cy="80" r="67" :stroke-dasharray="ENTRY_RING_CIRCUMFERENCE" :style="{strokeDashoffset:ENTRY_RING_CIRCUMFERENCE*(1-entryCompleted/ENTRY_CHECKS.length)}"></circle>
+       </svg>
+       <div class="entry-ring-center">
+        <strong>{{ entryVisualPercent }}<small>%</small></strong>
+        <span>{{ entryFailed?'검사 중단':entryCompleted===ENTRY_CHECKS.length?'검사 완료':'확인 완료' }}</span>
+       </div>
+      </div>
+      <p class="entry-current" aria-live="polite"><i class="entry-current-dot"></i>{{ entryFailed?'검사 중단':entryCompleted===ENTRY_CHECKS.length?'전체 검사 완료':entryStep }}</p>
+     </div>
+     <ol class="entry-checks">
+      <li v-for="(step,i) in ENTRY_CHECKS" :key="step.title" :class="{complete:i<entryCompleted,active:i===entryIndex&&!entryFailed&&i>=entryCompleted,failed:i===entryIndex&&entryFailed}">
+       <span class="entry-check-icon">{{ i<entryCompleted?'✓':i===entryIndex&&entryFailed?'!':i===entryIndex?'…':String(i+1).padStart(2,'0') }}</span>
+       <span class="entry-check-copy"><strong>{{ step.title }}</strong><small>{{ step.note }}</small></span>
+       <span class="entry-check-state">{{ i<entryCompleted?'완료':i===entryIndex&&entryFailed?'실패':i===entryIndex?'확인 중':'대기' }}</span>
+      </li>
+     </ol>
+    </div>
     <div v-if="entrySaveNote" class="entry-save-note">{{ entrySaveNote }}</div>
+    <div class="entry-footnote"><span class="entry-shield" aria-hidden="true">◇</span><span>기존 세이브는 초기화하지 않습니다.<small>검증이 완료된 후에만 게임을 실행합니다.</small></span></div>
     <p v-if="entryFailed" class="entry-error" role="alert">{{ message }}</p>
     <button v-if="entryFailed" type="button" class="entry-dismiss" @click="closeEntryResult">시작화면으로 돌아가기</button>
    </section>
@@ -374,30 +420,85 @@ footer{margin-top:20px;display:flex;justify-content:space-between;gap:12px;font-
 @media(max-width:385px){.hero h1{font-size:66px}.hero{padding-top:56px}.hero-subtitle{font-size:18px}.server-icon{width:35px;height:35px}.server-ver{font-size:9px}}
 @media(prefers-reduced-motion:reduce){button.server-row{transition:none}.version-history-expand span{transition:none}}
 
-.entry-overlay{position:fixed;z-index:50;inset:0;display:grid;place-items:center;background:#08120feE;padding:15px;overflow:auto}
-.entry-panel{width:100%;max-width:500px;padding:25px 22px;border:1px solid #447a63;border-radius:19px;background:#172b25;box-shadow:0 20px 70px #000b}
-.entry-overline{font-size:10px;letter-spacing:.2em;font-weight:700;color:#89d6ad}
-.entry-panel h2{font-size:21px;margin:7px 0}.entry-subtitle{font-size:12px;line-height:1.6;color:#adc5ba;margin:0 0 18px}
-.entry-version-pair{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;color:#b9d4c4;padding:10px 12px;background:#213e32;border-radius:9px}
-.entry-version-pair strong,.entry-version-pair code{font-weight:700;color:#e3ffed}
-.entry-progress-head{display:flex;justify-content:space-between;gap:12px;font-size:12px;margin:20px 0 9px;color:#e5f8ea}
-.entry-progress-track{height:7px;border-radius:99px;overflow:hidden;background:#34463e}
-.entry-progress-fill{height:100%;border-radius:99px;background:#78d6ac;transition:width .45s ease}
-.entry-checks{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:8px}
-.entry-checks li{display:flex;align-items:center;gap:11px;padding:11px;border:1px solid #30473e;border-radius:11px;color:#8ca69a;background:#1a3028}
-.entry-checks li.complete{border-color:#396f55;color:#d9f4e4}
-.entry-checks li.active{border-color:#79b79b;background:#264336;color:#f0fff4}
-.entry-checks li.failed{border-color:#ac5858;color:#ffe1de}
-.entry-check-icon{width:30px;height:30px;display:grid;place-items:center;flex:none;border-radius:50%;background:#354a41;color:#aec5b5;font-size:13px;font-weight:800}
-.entry-checks .complete .entry-check-icon{background:#347450;color:#f3fff8}
-.entry-checks .active .entry-check-icon{background:#547966;color:#fff}
-.entry-check-copy{display:grid;gap:3px;min-width:0;flex:1}
-.entry-check-copy strong{font-size:13px}
-.entry-check-copy small{font-size:11px;color:#8fac9e;line-height:1.4}
-.entry-check-state{font-size:11px;white-space:nowrap}
-.entry-save-note{font-size:12px;color:#b9e7c9;margin-top:15px}
-.entry-error{color:#ffd8d3;font-size:12px;line-height:1.6}
-.entry-dismiss{margin-top:10px;border:1px solid #87c6a2;background:#2b5b44;color:#fff;padding:11px 15px;border-radius:9px;cursor:pointer}
+
+.entry-overlay{position:fixed;z-index:50;inset:0;display:grid;place-items:center;padding:18px 12px;overflow-y:auto;background:rgba(1,6,17,.76);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:#e9f6ff}
+.entry-panel{width:100%;max-width:690px;box-sizing:border-box;position:relative;border:1px solid rgba(137,195,229,.36);border-radius:18px;padding:26px 28px 22px;background:linear-gradient(137deg,rgba(12,33,56,.97),rgba(5,15,31,.98));box-shadow:0 28px 85px rgba(0,0,0,.6),inset 0 1px rgba(255,255,255,.07);overflow:hidden}
+.entry-panel:before{content:'';position:absolute;top:0;left:28px;right:28px;height:1px;background:linear-gradient(90deg,transparent,rgba(158,231,255,.7),transparent)}
+.entry-topline{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-bottom:18px;border-bottom:1px solid rgba(159,199,224,.17)}
+.entry-sign{display:flex;align-items:center;gap:12px}
+.entry-emblem{width:34px;height:34px;border:1px solid rgba(174,222,251,.6);border-radius:50%;display:grid;place-items:center;flex:none;color:#d4f2ff;font:19px Georgia,serif}
+.entry-brand{display:grid;gap:4px}
+.entry-brand strong{font-size:12px;letter-spacing:.19em}
+.entry-brand small{font-size:9px;letter-spacing:.13em;color:#88a9c2}
+.entry-server-token{display:flex;align-items:center;gap:6px;border-radius:6px;border:1px solid #558d9f;padding:6px 10px;font-size:10px;letter-spacing:.1em;font-weight:800;background:#173b4b;color:#ade3f3}
+.entry-server-live{border-color:#458f88;background:#123e41;color:#a7e8da}
+.entry-server-dev{border-color:#4b7eae;background:#16334d;color:#bddaff}
+.entry-signal{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 9px currentColor}
+.entry-intro{text-align:center;padding:23px 8px 19px}
+.entry-overline{color:#83c4e3;font-size:10px;letter-spacing:.2em;font-weight:750}
+.entry-panel h2{margin:10px 0 8px;font-size:25px;font-weight:670;letter-spacing:-.04em;line-height:1.3}
+.entry-subtitle{font-size:12px;line-height:1.6;color:#abc0d1;margin:0}
+.entry-version-pair{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:9px 12px;padding:12px 14px;background:rgba(7,23,43,.77);border:1px solid rgba(140,190,229,.2);border-radius:8px;font-size:11px;color:#8eaac3}
+.entry-version-pair strong,.entry-version-pair code{margin-left:5px;color:#e1f3ff;font-size:11px;font-weight:700}
+.entry-progress-layout{display:grid;grid-template-columns:minmax(0,205px) minmax(0,1fr);align-items:center;gap:17px;padding:23px 0 18px}
+.entry-orbit{display:grid;justify-items:center;align-items:center;gap:12px;min-width:0}
+.entry-progress-circle{position:relative;width:182px;height:182px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(92,160,199,.2);background:radial-gradient(circle,rgba(39,99,140,.22),rgba(6,22,41,.07) 68%);box-shadow:0 0 40px rgba(26,146,215,.1)}
+.entry-progress-circle:before{content:'';position:absolute;inset:9px;border:1px dashed rgba(101,164,205,.26);border-radius:50%}
+.entry-ring-svg{width:172px;height:172px;transform:rotate(-90deg);overflow:visible}
+.entry-ring-back,.entry-ring-fill{fill:none;stroke-width:4;stroke-linecap:round}
+.entry-ring-back{stroke:rgba(149,198,234,.14)}
+.entry-ring-fill{stroke:#79dafa;transition:stroke-dashoffset 620ms cubic-bezier(.16,1,.3,1),stroke .25s;filter:drop-shadow(0 0 5px rgba(99,210,255,.48))}
+.entry-ring-fill.error{stroke:#ff9e9a;filter:drop-shadow(0 0 5px rgba(255,130,120,.35))}
+.entry-ring-center{position:absolute;display:grid;justify-items:center;gap:3px}
+.entry-ring-center strong{font-weight:350;letter-spacing:-.045em;font-size:43px;font-variant-numeric:tabular-nums;line-height:1}
+.entry-ring-center strong small{font-size:17px;color:#83bbd6;margin-left:2px}
+.entry-ring-center>span{font-size:10px;color:#83a9c1;letter-spacing:.08em}
+.entry-current{display:flex;align-items:center;justify-content:center;gap:7px;margin:0;color:#aed9eb;font-size:11px;text-align:center;line-height:1.45}
+.entry-current-dot{width:6px;height:6px;border-radius:50%;background:#68d1f1;box-shadow:0 0 8px rgba(106,210,241,.6);flex:none;animation:entryPulse 1.8s ease-in-out infinite}
+@keyframes entryPulse{50%{opacity:.34}}
+.entry-checks{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+.entry-checks li{display:flex;align-items:center;gap:11px;min-width:0;padding:11px 10px;border-radius:9px;border:1px solid transparent;color:#839cad}
+.entry-checks li.complete{color:#d6edfa}
+.entry-checks li.active{background:rgba(41,88,123,.36);border-color:rgba(90,157,197,.54);color:#effaff}
+.entry-checks li.failed{background:rgba(94,33,46,.31);border-color:rgba(218,112,118,.53);color:#ffe6e1}
+.entry-check-icon{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;border:1px solid #536e83;color:#9fb8cc;font-size:10px}
+.entry-checks li.complete .entry-check-icon{background:#16526a;border-color:#2d8492;color:#baf8fa;font-size:15px}
+.entry-checks li.active .entry-check-icon{background:#235778;border-color:#6dbce5;color:#def8ff}
+.entry-checks li.failed .entry-check-icon{background:#713741;border-color:#cc7777;color:#ffe1da}
+.entry-check-copy{min-width:0;flex:1;display:grid;gap:4px}
+.entry-check-copy strong{font-size:12px;font-weight:700}
+.entry-check-copy small{font-size:10px;color:#8ba4b6;line-height:1.4}
+.entry-checks li.active .entry-check-copy small{color:#b5cadd}
+.entry-check-state{font-size:10px;white-space:nowrap;color:#87a0b6}
+.entry-checks li.complete .entry-check-state{color:#74d0cc}
+.entry-checks li.active .entry-check-state{color:#9bd9ff}
+.entry-checks li.failed .entry-check-state{color:#ffc2b9}
+.entry-save-note{font-size:11px;color:#a9e6dc;margin:0 0 11px;text-align:center}
+.entry-footnote{display:flex;align-items:center;gap:12px;background:rgba(16,58,77,.57);border:1px solid rgba(74,144,163,.35);padding:12px 15px;border-radius:8px;color:#c9e9f3;font-size:11px;line-height:1.5}
+.entry-shield{color:#88dfeb;font-size:25px}
+.entry-footnote span:last-child{display:grid;gap:2px}
+.entry-footnote small{display:block;color:#8cb0c1;font-size:10px}
+.entry-error{font-size:12px;line-height:1.6;color:#ffd9d3;padding:10px 12px;background:rgba(96,35,43,.35);border:1px solid rgba(215,101,109,.44);border-radius:8px;margin:13px 0 0}
+.entry-dismiss{border:1px solid #7bbbe0;background:#1a5270;color:#fff;border-radius:9px;padding:11px 15px;margin-top:12px;font:inherit;font-size:12px;cursor:pointer}
+.entry-dismiss:focus-visible{outline:2px solid #b3e6ff;outline-offset:3px}
+@media(max-width:580px){
+ .entry-overlay{padding:12px 8px;align-items:safe center}
+ .entry-panel{padding:18px 14px 15px;border-radius:15px}
+ .entry-topline{padding-bottom:13px}
+ .entry-intro{padding:18px 2px 13px}
+ .entry-panel h2{font-size:20px}
+ .entry-subtitle{font-size:11px}
+ .entry-version-pair{padding:10px;font-size:10px}
+ .entry-progress-layout{grid-template-columns:1fr;gap:13px;padding:15px 0}
+ .entry-progress-circle{width:138px;height:138px}
+ .entry-ring-svg{width:132px;height:132px}
+ .entry-ring-center strong{font-size:34px}
+ .entry-ring-center strong small{font-size:14px}
+ .entry-orbit{gap:8px}
+ .entry-checks li{padding:8px 9px}
+ .entry-check-copy small{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){.entry-ring-fill{transition:none}.entry-current-dot{animation:none}}
 .live-session{position:relative;width:100%;height:100vh;height:100dvh;background:#0e171b}
 .game-frame{display:block;width:100%;height:100%;border:0;background:#0e171b}
 .game-controls{position:absolute;z-index:10;bottom:13px;left:12px;display:flex;gap:8px;align-items:center;max-width:calc(100% - 24px)}
