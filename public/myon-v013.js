@@ -2,7 +2,12 @@
 // Supply attempts every clock hour after any pre-existing countdown; missions retain normal completion.
 (function () {
 'use strict';
-const DB='myon-v00804-progress',STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
+// The launcher chooses a server; DEV/TEST must never touch LIVE browser saves.
+const SERVER_MATCH=/(?:^|[?&])server=([^&]*)/.exec(location.search||'');
+const SERVER=SERVER_MATCH?SERVER_MATCH[1]:'live';
+if(!['live','test','dev'].includes(SERVER))throw Error('Unknown MYON server; refuse save access');
+const DB=SERVER==='live'?'myon-v00804-progress':'myon-v00804-progress-'+SERVER;
+const STORE='game',KEY='v01302-world',OLD_VEHICLES='v01204-world',OLD_CONSTRUCTION='v01300-construction';
 const ASSISTANT_KEY='v01313-assistant',PROGRESSION_KEY='v01315-progression',MENU_KEY='v01317-bottom-nav'; // Original saves unchanged.
 const COMPENSATION_KEY='v01348-emergency-compensation',BUS_KEY='v01352-bus-world';
 const busEngine=window.MYON_BUS_ENGINE,busUi=window.MYON_BUS_UI;
@@ -1410,7 +1415,8 @@ function updateSettings(now){
  ui.gear.setAttribute('aria-label',unlocked?'설정 열기':'설정 시스템 연구 후 해금');
  if(!unlocked){ui.settings.hidden=true;ui.gear.setAttribute('aria-expanded','false');}
  ui.version.hidden=false;
- ui.version.textContent='v0.13.58'; // Code version frozen in this immutable release; host pin remains authoritative.
+ ui.version.textContent=typeof window.parent?.MYON_ACTIVE_GAME_VERSION==='string'?
+  window.parent.MYON_ACTIVE_GAME_VERSION:'v0.13.58';
  ui.notify.textContent=progression.notifyEnabled?'켜짐':'꺼짐';
  ui.notify.setAttribute('aria-pressed',String(progression.notifyEnabled));
 }

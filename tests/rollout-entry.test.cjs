@@ -62,18 +62,43 @@ test('production builder redirects direct root and archived top-level visits to 
  assert.match(src,/new URL\("\.\.\/\.\.\/",location\.href\)/);
  assert.match(src,/window\.self===window\.top/);
 });
-test('official launcher shows server selection before game, preserving the installed pin',()=>{
+test('new portal opens DEV at the latest checked SHA and freezes LIVE approval',async()=>{
+ const {targetForServer,dbForServer,archiveUrl,LIVE_RELEASE}=await import('../src/core/myon-server-entry.mjs');
+ assert.equal(targetForServer('live',releases).revision,LIVE_RELEASE.revision);
+ assert.equal(targetForServer('dev',releases).revision,D);
+ assert.equal(targetForServer('test',releases),null);
+ assert.notEqual(dbForServer('dev'),dbForServer('live'));
+ assert.notEqual(dbForServer('test'),dbForServer('live'));
+ assert.notEqual(dbForServer('test'),dbForServer('dev'));
+ assert.match(archiveUrl('/MYON/','dev',D),new RegExp('/releases/'+D+'/myon.html'));
+ assert.match(archiveUrl('/MYON/','dev',D),/server=dev/);
+});
+test('save checkpoint must write and verify before allowing entry',async()=>{
+ const {createEntryCheckpoint}=await import('../src/core/myon-server-entry.mjs');
+ const revision='a'.repeat(40);
+ let steps=[];
+ const options={server:'dev',revision,idb:{},
+  read:async()=>{steps.push('read');return [{key:'a',value:{funds:500}}]},
+  write:async(idb,payload)=>{steps.push('backup');assert.equal(payload.server,'dev');assert.equal(payload.count,1);return 'key'},
+  verify:async()=>{steps.push('verify');return true}
+ };
+ const result=await createEntryCheckpoint(options);
+ assert.equal(result.backup,true);
+ assert.deepEqual(steps,['read','backup','verify']);
+ await assert.rejects(createEntryCheckpoint({...options,verify:async()=>false}),/백업 검증/);
+ const none=await createEntryCheckpoint({...options,read:async()=>[],write:()=>{throw Error('unexpected')}});
+ assert.equal(none.backup,false);
+});
+test('game engine isolates DEV/TEST progress databases and leaves LIVE name unchanged',()=>{
+ const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-v013.js'),'utf8');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
- assert.match(app,/reconcileState\(saved,releases,now\)/);
+ assert.match(game,/SERVER_MATCH=/);
+ assert.match(game,/myon-v00804-progress/);
+ assert.match(game,/SERVER==='live'/);
+ assert.match(app,/entryStep.value='세이브 읽기 및 백업 검증 중'/);
  assert.match(app,/v-if="!playing"/);
  assert.match(app,/LIVE/);
  assert.match(app,/TEST/);
  assert.match(app,/DEV/);
- assert.match(app,/activeRevision.value=pinned.revision/);
- assert.match(app,/function openPinned\(sha,version\)/);
- assert.match(app,/readonly/);
- assert.match(app,/const canEnter=ref\(true\)/);
- assert.match(app,/openPinned\(latestRevision.value/);
- assert.match(app,/latestRevision.value=releases\[releases.length-1\].revision/);
- assert.doesNotMatch(app,/if\(!canEnter.value\|\|entering.value\)return/);
+ assert.doesNotMatch(app,/createRolloutHost\(/);
 });

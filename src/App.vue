@@ -1,107 +1,83 @@
 <script setup>
 import {onMounted,ref} from 'vue'
-import {ROLLOUT_KEY,LEGACY_ROLLOUT_KEY,validRevision,validReleases,
-  validStoredState,reconcileState,migrateLegacy,initialState} from './core/myon-release-state.mjs'
+import {validReleases} from './core/myon-release-state.mjs'
+import {LIVE_RELEASE,TEST_RELEASE,dbForServer,targetForServer,
+ archiveUrl,verifyArchive,createEntryCheckpoint,readGameRecords} from './core/myon-server-entry.mjs'
 
 const BASE=String(import.meta.env.BASE_URL)
-const DB='myon-v00804-progress',STORE='game'
-const frameUrl=ref(''),gameFrame=ref(null),playing=ref(false)
-const working=ref(true),entering=ref(false),leaving=ref(false),backupBusy=ref(false)
-// Emergency direct entry: independent of browser rollout records and manifest requests.
-const FALLBACK_GAME='819714e6a633c1af012f7e4d2d56ec3f78581acc'
-const latestRevision=ref(FALLBACK_GAME)
-const activeRevision=ref(''),activeVersion=ref('—'),latestVersion=ref('v0.13.61')
-const saveStatus=ref('저장자료 확인 중'),message=ref(''),manualBackup=ref('')
-const canEnter=ref(true)
+const frameUrl=ref(''),gameFrame=ref(null),playing=ref(false),currentServer=ref('')
+const entering=ref(false),leaving=ref(false),backupBusy=ref(false)
+const entryStep=ref(''),message=ref(''),manualBackup=ref('')
+const latestRevision=ref(''),latestVersion=ref('—'),liveVersion=ref('v'+LIVE_RELEASE.version)
+const testVersion=ref(TEST_RELEASE?'v'+TEST_RELEASE.version:'미승인')
+const activeVersion=ref('—'),saveStatus=ref('기존 기록 확인은 입장 시 진행합니다.')
+let releases=null
 
-function fromStorage(key){
- try{return JSON.parse(localStorage.getItem(key)||'null')}
- catch(error){console.warn('MYON version record:',error);return null}
+const SERVER_LABELS={live:'LIVE',test:'TEST',dev:'DEV'}
+function serverTitle(server){return SERVER_LABELS[server]||server}
+async function refreshReleases(){
+ const response=await fetch(BASE+'myon-rollouts.json?at='+Date.now(),{cache:'no-store'})
+ if(!response.ok)throw Error('최신 버전 목록을 받을 수 없습니다.')
+ const manifest=await response.json()
+ if(manifest?.schema!==1||!validReleases(manifest.releases))
+  throw Error('배포 버전 목록을 검증하지 못했습니다.')
+ releases=manifest.releases
+ const current=targetForServer('dev',releases)
+ latestRevision.value=current.revision
+ latestVersion.value='v'+current.version
+ return releases
 }
-function existingGameMarkers(){
- const unknown={existing:true,bus:false,passes:false}
- if(!window.indexedDB||typeof indexedDB.databases!=='function')return Promise.resolve(unknown)
- return indexedDB.databases().then(list=>{
-  if(!Array.isArray(list))return unknown
-  if(!list.some(x=>x.name===DB))return {existing:false,bus:false,passes:false}
-  return new Promise(resolve=>{
-   const req=indexedDB.open(DB)
-   req.onupgradeneeded=()=>req.transaction.abort()
-   req.onerror=()=>resolve(unknown)
-   req.onsuccess=()=>{
-    const db=req.result
-    if(!db.objectStoreNames.contains(STORE)){db.close();resolve(unknown);return}
-    try{
-     const tx=db.transaction(STORE,'readonly'),store=tx.objectStore(STORE)
-     const bus=store.get('v01352-bus-world'),passes=store.get('v01354-special-passes')
-     tx.oncomplete=()=>{db.close();resolve({existing:true,bus:!!bus.result,passes:!!passes.result})}
-     tx.onerror=()=>{db.close();resolve(unknown)}
-     tx.onabort=()=>{db.close();resolve(unknown)}
-    }catch(error){db.close();resolve(unknown)}
-   }
-  })
- }).catch(()=>unknown)
+async function enterServer(server){
+ if(entering.value||playing.value)return
+ if(server==='test'&&!TEST_RELEASE){message.value='TEST 승인 버전이 아직 없습니다.';return}
+ entering.value=true;message.value=''
+ try{
+  entryStep.value='배포 버전 확인 중'
+  const available=server==='dev'?await refreshReleases():releases
+  const target=targetForServer(server,available)
+  if(!target)throw Error('입장 가능한 승인 버전이 없습니다.')
+  entryStep.value='게임 파일 확인 중'
+  const url=await verifyArchive({base:BASE,server,revision:target.revision})
+  entryStep.value='세이브 읽기 및 백업 검증 중'
+  const save=await createEntryCheckpoint({server,revision:target.revision})
+  saveStatus.value=save.backup?
+   serverTitle(server)+' 세이브 '+save.records+'건 백업·검증 완료':
+   serverTitle(server)+' 새 저장소 · 초기 기록 없음'
+  // Only after the exact immutable file and save round-trip both succeed.
+  window.MYON_ROLLOUT_HOST_ACTIVE=true
+  window.MYON_ACTIVE_GAME_VERSION='v'+target.version
+  currentServer.value=server
+  entryStep.value=''
+  frameUrl.value=url
+  playing.value=true
+  document.title='MYON '+serverTitle(server)+' v'+target.version
+ }catch(error){
+  console.error('MYON server entry:',error)
+  message.value=(error?.message||'입장 준비 실패')+' · 기존 세이브는 초기화하지 않았습니다.'
+  entryStep.value=''
+ }finally{entering.value=false}
 }
-function openPinned(sha,version){
- frameUrl.value=BASE+'releases/'+sha+'/myon.html?build='+encodeURIComponent(sha)
- document.title=version?'MYON v'+version:'MYON WORLD'
-}
-function enterLive(){
- if(entering.value)return
- // Do not consult the installed pin. Bypass the broken updater for every player.
- // Archived game scripts defer to this parent, so no FIFO timer starts.
- window.MYON_ROLLOUT_HOST_ACTIVE=true
- message.value=''
- entering.value=true
- openPinned(latestRevision.value,latestVersion.value.replace(/^v/,''))
- playing.value=true
-}
-function onGameLoad(){entering.value=false}
-async function leaveLive(){
+function onGameLoad(){}
+async function leaveServer(){
  if(leaving.value)return
  leaving.value=true;message.value=''
  try{
-  // A failing checkpoint must never trap a player inside the game.
-  // The game pagehide handler will attempt its normal save when we unmount it.
-  const verify=gameFrame.value?.contentWindow?.MYON_SAFE_UPDATE_CHECKPOINT
-  if(typeof verify==='function'&&!await verify())
-   console.warn('MYON: save checkpoint unavailable; returning to launcher without resetting game records')
- }catch(error){console.warn('MYON exit checkpoint:',error)}
- playing.value=false
- frameUrl.value=''
- document.title='MYON WORLD · 서버 선택'
- leaving.value=false
+  const checkpoint=gameFrame.value?.contentWindow?.MYON_SAFE_UPDATE_CHECKPOINT
+  if(typeof checkpoint==='function'&&!await checkpoint())
+   throw Error('세이브 저장 확인 실패. 게임을 유지합니다.')
+  if(typeof checkpoint!=='function')
+   throw Error('저장 확인 함수가 아직 준비되지 않았습니다.')
+  frameUrl.value='';playing.value=false;currentServer.value=''
+  document.title='MYON WORLD · 서버 선택'
+ }catch(error){message.value=error?.message||'종료 전 저장 확인 실패'}
+ finally{leaving.value=false}
 }
-// This launcher NEVER writes the legacy game database. Backup reads use readonly only.
-function readOriginalSave(){
- return new Promise((resolve,reject)=>{
-  if(!window.indexedDB){reject(Error('이 브라우저는 저장자료를 읽을 수 없습니다.'));return}
-  let req
-  try{req=indexedDB.open(DB)}catch(error){reject(error);return}
-  req.onupgradeneeded=()=>req.transaction.abort()
-  req.onerror=()=>reject(Error('기존 게임 저장소가 없거나 열 수 없습니다.'))
-  req.onsuccess=()=>{
-   const db=req.result
-   if(!db.objectStoreNames.contains(STORE)){db.close();reject(Error('게임 저장자료가 없습니다.'));return}
-   try{
-    const tx=db.transaction(STORE,'readonly'),store=tx.objectStore(STORE)
-    const keys=store.getAllKeys(),values=store.getAll()
-    tx.oncomplete=()=>{
-     db.close()
-     const records={}
-     keys.result.forEach((key,i)=>{records[String(key)]=values.result[i]})
-     resolve({exportedAt:new Date().toISOString(),database:DB,store:STORE,records})
-    }
-    tx.onabort=()=>{db.close();reject(Error('저장자료 읽기가 중단되었습니다.'))}
-    tx.onerror=()=>{db.close();reject(Error('저장자료 읽기에 실패했습니다.'))}
-   }catch(error){db.close();reject(error)}
-  }
- })
-}
+function backupServerName(){return playing.value?currentServer.value:'live'}
 async function buildBackup(){
- const data=await readOriginalSave()
- if(!Object.keys(data.records).length)throw Error('보관할 게임 기록이 없습니다.')
- return JSON.stringify(data,null,2)
+ const server=backupServerName()
+ const records=await readGameRecords(globalThis.indexedDB,server)
+ if(!records.length)throw Error('보관할 '+serverTitle(server)+' 기록이 없습니다.')
+ return JSON.stringify({schema:1,server,database:dbForServer(server),exportedAt:new Date().toISOString(),records},null,2)
 }
 async function downloadSave(){
  if(backupBusy.value)return
@@ -110,7 +86,7 @@ async function downloadSave(){
   const json=await buildBackup()
   const url=URL.createObjectURL(new Blob([json],{type:'application/json;charset=utf-8'}))
   const a=document.createElement('a')
-  a.href=url;a.download='MYON-original-save-'+new Date().toISOString().slice(0,10)+'.json'
+  a.href=url;a.download='MYON-'+backupServerName()+'-save-'+new Date().toISOString().slice(0,10)+'.json'
   document.body.appendChild(a);a.click();a.remove()
   setTimeout(()=>URL.revokeObjectURL(url),30000)
   message.value='원본 JSON 다운로드를 요청했습니다. 파일이 없다면 JSON 복사를 사용하세요.'
@@ -124,44 +100,20 @@ async function copySave(){
   const json=await buildBackup()
   manualBackup.value=''
   if(navigator.clipboard?.writeText){
-   try{await navigator.clipboard.writeText(json);message.value='원본 JSON을 복사했습니다. 안전한 곳에 보관하세요.';return}
+   try{await navigator.clipboard.writeText(json);message.value='원본 JSON을 복사했습니다.';return}
    catch(error){console.warn('MYON clipboard:',error)}
   }
   manualBackup.value=json
-  message.value='자동 복사가 지원되지 않아 아래에 JSON을 표시했습니다. 전체 선택하여 복사하세요.'
- }catch(error){message.value=error?.message||'백업을 읽을 수 없습니다.'}
+  message.value='아래 JSON을 전체 선택하여 복사하세요.'
+ }catch(error){message.value=error?.message||'원본 JSON을 읽을 수 없습니다.'}
  finally{backupBusy.value=false}
 }
 onMounted(async()=>{
- // Set BEFORE creating the game iframe, and never initialize the old rollout host.
+ // Every visit always returns to the stable portal. Never start the old auto updater.
  window.MYON_ROLLOUT_HOST_ACTIVE=true
  document.title='MYON WORLD · 서버 선택'
- const saved=fromStorage(ROLLOUT_KEY),legacy=fromStorage(LEGACY_ROLLOUT_KEY)
- try{
-  const markers=await existingGameMarkers()
-  saveStatus.value=markers.existing?'기존 저장자료 감지 또는 확인 필요':'현재 브라우저에 기존 세이브 없음'
-  const response=await fetch(BASE+'myon-rollouts.json?portal='+Date.now(),{cache:'no-store'})
-  if(!response.ok)throw Error('배포된 버전 목록을 받을 수 없습니다.')
-  const manifest=await response.json(),releases=manifest?.releases
-  if(manifest?.schema!==1||!validReleases(releases))throw Error('배포 버전 목록이 올바르지 않습니다.')
-  latestRevision.value=releases[releases.length-1].revision
-  latestVersion.value='v'+releases[releases.length-1].version
-  const now=Date.now()
-  // Invalid or absent per-user rollout state never prevents launching the latest game.
-  const state=reconcileState(saved,releases,now)||migrateLegacy(legacy,releases,now)||
-   initialState(releases,markers)
-  const pinned=releases.find(v=>v.revision===state.installed)
-  if(!pinned)throw Error('접속 가능한 게임 버전을 찾지 못했습니다.')
-  activeRevision.value=pinned.revision
-  activeVersion.value=pinned.version
-  // Do not advance the saved version or touch its previous countdown.
- }catch(error){
-  console.warn('MYON portal metadata unavailable; LIVE direct entry remains enabled:',error)
-  message.value='버전 기록 확인에 실패했지만 LIVE 바로 입장은 가능합니다.'
-  if(validStoredState(saved)&&validRevision(saved.installed)){
-   activeRevision.value=saved.installed;activeVersion.value='마지막 저장 기록'
-  }
- }finally{working.value=false}
+ try{await refreshReleases()}
+ catch(error){message.value='DEV 최신 목록 확인 실패: DEV 입장에서 재시도할 수 있습니다.';console.warn(error)}
 })
 </script>
 
@@ -170,50 +122,51 @@ onMounted(async()=>{
   <div class="wrap">
    <header class="heading">
     <div class="brand-mark">M</div>
-    <div class="brand-copy"><div class="eyebrow">TRANSPORT SIMULATION</div><h1>MYON WORLD</h1><p>접속할 월드를 선택하세요.</p></div>
+    <div class="brand-copy"><div class="eyebrow">TRANSPORT SIMULATION</div><h1>MYON WORLD</h1><p>접속할 서버를 선택하세요.</p></div>
     <div class="status-pill"><span class="dot"></span> 통합 시작화면</div>
    </header>
-   <div class="section-head"><span>SERVER SELECT</span><span>서버별 독립 운영 준비</span></div>
+   <div class="section-head"><span>SERVER SELECT</span><span>입장할 때 업데이트 · 플레이 중 버전 고정</span></div>
    <div class="servers">
-    <button type="button" class="server-row live" :disabled="entering" @click="enterLive">
-     <div class="server-main"><div class="server-icon">L</div><div class="server-copy"><strong>LIVE <small>정식 서비스</small></strong><span>최신 게임 바로 실행 · 기존 버전 대기열 우회</span></div></div>
-     <div class="server-side"><span class="server-ver">{{ latestVersion }}</span><span class="entry-text">게임 바로 입장 ›</span></div>
+    <button type="button" class="server-row live" :disabled="entering" @click="enterServer('live')">
+     <div class="server-main"><div class="server-icon">L</div><div class="server-copy"><strong>LIVE <small>정식 서비스</small></strong><span>승인된 버전 고정 · 기존 유저 기록 유지</span></div></div>
+     <div class="server-side"><span class="server-ver">{{ liveVersion }}</span><span class="entry-text">정식 서버 입장 ›</span></div>
     </button>
     <div class="server-row unavailable" aria-disabled="true">
-     <div class="server-main"><div class="server-icon">T</div><div class="server-copy"><strong>TEST <small>테스트 서버</small></strong><span>독립 저장소 구성 후 개방</span></div></div>
-     <div class="server-side"><span class="server-ver">미배포</span><span class="locked">준비 중</span></div>
+     <div class="server-main"><div class="server-icon">T</div><div class="server-copy"><strong>TEST <small>테스트 서버</small></strong><span>검증 완료 버전 지정 후 개방 · 저장소 분리됨</span></div></div>
+     <div class="server-side"><span class="server-ver">{{ testVersion }}</span><span class="locked">승인 대기</span></div>
     </div>
-    <div class="server-row unavailable" aria-disabled="true">
-     <div class="server-main"><div class="server-icon">D</div><div class="server-copy"><strong>DEV <small>개발 서버</small></strong><span>기존 유저 데이터를 보호하기 위해 접속 잠금</span></div></div>
-     <div class="server-side"><span class="server-ver">미배포</span><span class="locked">준비 중</span></div>
-    </div>
+    <button type="button" class="server-row dev" :disabled="entering" @click="enterServer('dev')">
+     <div class="server-main"><div class="server-icon">D</div><div class="server-copy"><strong>DEV <small>개발 서버</small></strong><span>main의 최신 배포본 · DEV 전용 저장소</span></div></div>
+     <div class="server-side"><span class="server-ver">{{ latestVersion }}</span><span class="entry-text">개발 서버 입장 ›</span></div>
+    </button>
    </div>
    <div class="details">
     <section class="panel">
-     <div class="panel-head"><h2>내 접속 기록</h2><span class="tag">기존 세이브 유지</span></div>
-     <div class="kv"><span>마지막 플레이 버전</span><strong>{{ activeVersion==='—'?'확인 중':'v'+activeVersion }}</strong></div>
-     <div class="kv"><span>LIVE 배포 최신 버전</span><strong>{{ latestVersion }}</strong></div>
+     <div class="panel-head"><h2>입장 안정화</h2><span class="tag">공통 규칙</span></div>
+     <div class="kv"><span>LIVE 승인 버전</span><strong>{{ liveVersion }}</strong></div>
+     <div class="kv"><span>DEV 최신 배포 버전</span><strong>{{ latestVersion }}</strong></div>
      <p class="hint">{{ saveStatus }}</p>
-     <p class="hint">LIVE 입장은 마지막 버전 대기열을 통과하지 않고 최신 게임을 즉시 실행합니다. 기존 저장 기록은 초기화하지 않습니다.</p>
+     <p class="hint">입장을 누르면 버전 파일 확인 → 세이브 읽기 → 별도 백업 및 재검증 → 게임 실행. 진행 중 새 커밋이 올라와도 강제 전환하지 않습니다.</p>
     </section>
     <section class="panel">
-     <div class="panel-head"><h2>세이브 자료 보관</h2><span class="tag">읽기 전용</span></div>
-     <p class="hint">기존 브라우저의 원본 IndexedDB를 읽어 보관합니다. 저장 데이터를 삭제하거나 덮어쓰지 않습니다.</p>
+     <div class="panel-head"><h2>세이브 자료 보관</h2><span class="tag">원본 읽기 전용</span></div>
+     <p class="hint">LIVE · TEST · DEV의 게임 저장소는 독립적입니다. 입장 전 백업은 이 브라우저의 별도 백업 저장소에 기록합니다. 다른 기기로 옮길 때는 JSON 다운로드가 필요합니다.</p>
      <div class="backup-actions">
-      <button type="button" :disabled="backupBusy" @click="downloadSave">원본 JSON 다운로드</button>
-      <button type="button" :disabled="backupBusy" @click="copySave">원본 JSON 복사</button>
-      <a :href="BASE+'myon-recovery.html'" target="_blank" rel="noopener">상세 진단 보기</a>
+      <button type="button" :disabled="backupBusy||entering" @click="downloadSave">LIVE 원본 JSON 다운로드</button>
+      <button type="button" :disabled="backupBusy||entering" @click="copySave">LIVE 원본 JSON 복사</button>
+      <a :href="BASE+'myon-recovery.html'" target="_blank" rel="noopener">LIVE 상세 진단</a>
      </div>
     </section>
    </div>
+   <div v-if="entryStep" class="notice" role="status">{{ entryStep }}</div>
    <div v-if="message" class="notice" role="status">{{ message }}</div>
    <div v-if="manualBackup" class="manual-area"><label for="manual-json">원본 JSON · 전체 선택 후 복사</label><textarea id="manual-json" :value="manualBackup" readonly rows="7"></textarea></div>
-   <footer>MYON WORLD · 게임 바로 입장 · 자동 업데이트 일시 중단</footer>
+   <footer>MYON WORLD · 공통 입장 절차 · 자동 업데이트 및 강제 재접속 중지</footer>
   </div>
  </main>
  <section v-else class="live-session">
-  <iframe v-if="frameUrl" ref="gameFrame" class="game-frame" :src="frameUrl" title="MYON LIVE 게임" @load="onGameLoad"></iframe>
-  <div class="game-controls"><button type="button" :disabled="leaving" @click="leaveLive">{{ leaving?'저장 확인 중':'← 시작화면' }}</button><span v-if="message" class="game-message" role="status">{{ message }}</span></div>
+  <iframe v-if="frameUrl" ref="gameFrame" class="game-frame" :src="frameUrl" :title="'MYON '+serverTitle(currentServer)+' 게임'" @load="onGameLoad"></iframe>
+  <div class="game-controls"><button type="button" :disabled="leaving" @click="leaveServer">{{ leaving?'저장 확인 중':'← 시작화면' }}</button><span v-if="message" class="game-message" role="status">{{ message }}</span></div>
  </section>
 </template>
 
@@ -230,6 +183,8 @@ onMounted(async()=>{
 .servers{display:grid;gap:10px}
 .server-row{width:100%;min-height:104px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border-radius:16px;border:1px solid #345149;background:#182b29;color:#f1faf6;text-align:left;font:inherit}
 button.server-row{cursor:pointer}
+button.server-row.dev{border-color:#6080a0;background:linear-gradient(100deg,#243748,#1b2a38)}
+button.server-row.dev:hover:not(:disabled){border-color:#8cbbdb;filter:brightness(1.1)}
 button.server-row.live{border-color:#4b9b7d;background:linear-gradient(100deg,#20453a,#1a3733);box-shadow:0 6px 28px #0002}
 button.server-row.live:hover:not(:disabled){border-color:#91e2bb;filter:brightness(1.1)}
 button.server-row:disabled{cursor:not-allowed;opacity:.65}

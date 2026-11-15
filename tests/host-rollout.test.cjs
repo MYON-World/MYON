@@ -137,26 +137,18 @@ test('archived iframe updater delegates and cannot start its own timer',()=>{
   console:{warn(){}},setInterval:(fn,t)=>intervals.push(t)}, {timeout:2000});
  assert.equal(intervals.length,0,'Iframe updater must never compete with parent host');
 });
-test('new portal suppresses archived FIFO updater and enters LIVE only by choice',()=>{
+test('portal never starts FIFO coordinator, and uses entry-time checkpoint before iframe',()=>{
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
- const main=fs.readFileSync(path.resolve(__dirname,'../src/main.js'),'utf8');
+ const helper=fs.readFileSync(path.resolve(__dirname,'../src/core/myon-server-entry.mjs'),'utf8');
  assert.match(app,/MYON_ROLLOUT_HOST_ACTIVE=true/);
  assert.match(app,/@load="onGameLoad"/);
- assert.match(app,/function enterLive\(\)/);
- assert.match(app,/function leaveLive\(\)/);
- assert.doesNotMatch(app,/coordinator\.start\(\)/);
+ assert.match(app,/function enterServer\(server\)/);
+ assert.match(app,/function leaveServer\(\)/);
+ assert.match(app,/await verifyArchive/);
+ assert.match(app,/await createEntryCheckpoint/);
+ assert.ok(app.indexOf('await createEntryCheckpoint')<app.indexOf('playing.value=true'));
  assert.doesNotMatch(app,/createRolloutHost\(/);
- assert.doesNotMatch(main,/initializeMyonIndex\(/);
- assert.match(app,/transaction\(STORE,'readonly'\)/);
+ assert.doesNotMatch(app,/setInterval\(/);
+ assert.match(helper,/const tx=db.transaction\(STORE,'readonly'\)/);
  assert.doesNotMatch(app,/localStorage\.setItem\(ROLLOUT_KEY/);
-});
-
-test('emergency launcher opens latest game irrespective of pinned rollout or missing metadata',()=>{
- const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
- assert.match(app,/const FALLBACK_GAME='[a-f0-9]{40}'/);
- assert.match(app,/openPinned\(latestRevision.value/);
- assert.match(app,/:disabled="entering"/);
- assert.doesNotMatch(app,/localStorage\.setItem\(ROLLOUT_KEY/);
- assert.doesNotMatch(app,/createRolloutHost\(/);
- assert.match(app,/window.MYON_ROLLOUT_HOST_ACTIVE=true/);
 });
