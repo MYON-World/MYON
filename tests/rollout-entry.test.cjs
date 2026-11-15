@@ -217,7 +217,9 @@ test('DEV city selection offers interactive no-scroll arrival on mobile',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  assert.ok(html.includes('overflow:hidden;overscroll-behavior:none'));
  assert.ok(html.includes('height:100dvh'));
- assert.doesNotMatch(html,/scrollIntoView|window\.scrollTo|overflow-y:auto/);
+ assert.doesNotMatch(html,/scrollIntoView|window\.scrollTo/);
+ // The DEV reference desk scrolls its own content while gameplay stays fixed.
+ assert.match(html,/\.dnb-scroll\{flex:1;min-height:0;overflow-y:auto/);
  assert.ok(html.includes("function selectCity(id)"));
  assert.ok(html.includes("function openModal()"));
  assert.ok(html.includes("function enterCity()"));
