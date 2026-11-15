@@ -180,3 +180,25 @@ test('world access ring advances smoothly only after verified entry steps',()=>{
  assert.ok(app.indexOf('await showVerifiedStep(3)')<app.indexOf('playing.value=true'));
  assert.ok(notes['0.13.69'].entries.length>=2);
 });
+
+
+test('DEV opens the independent first citizen-world screen while LIVE remains pinned to legacy archive',()=>{
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ const next=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ const city=fs.readFileSync(path.resolve(__dirname,'../public/myon-city-hero.webp'));
+ assert.ok(app.includes("const gameUrl=server==='dev'?url.replace('/myon.html?','/myon-next.html?'):url"));
+ assert.ok(app.includes("await fetch(gameUrl,{method:'HEAD',cache:'no-store'})"));
+ assert.ok(app.includes('frameUrl.value=gameUrl'));
+ assert.ok(app.indexOf('await createEntryCheckpoint')<app.indexOf('frameUrl.value=gameUrl'));
+ assert.ok(next.includes('myon-city-hero.webp'));
+ assert.ok(next.includes('MYON_SAFE_UPDATE_CHECKPOINT=async function(){return true}'));
+ assert.ok(next.includes('setInterval(paintPreviewTime,1000)'));
+ assert.ok(next.includes('data-story="neighbor"')&&next.includes('data-story="signal"'));
+ assert.ok(next.includes('data-phase="before"')&&next.includes('data-phase="after"'));
+ assert.ok(!next.includes('myon-v013.js'));
+ assert.ok(!next.includes('indexedDB.open(')&&!next.includes('localStorage.setItem('));
+ assert.ok(next.includes('window.self===window.top'));
+ assert.equal(city.toString('ascii',0,4),'RIFF');
+ assert.equal(city.toString('ascii',8,12),'WEBP');
+ assert.ok(city.length>100000);
+});

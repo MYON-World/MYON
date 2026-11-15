@@ -83,6 +83,12 @@ async function enterServer(server){
   entryIndex.value=1
   entryStep.value='게임 파일 확인 중'
   const url=await verifyArchive({base:BASE,server,revision:target.revision})
+  // The rebuilt MYON citizen world opens only on DEV; pinned LIVE still uses its original archive.
+  const gameUrl=server==='dev'?url.replace('/myon.html?','/myon-next.html?'):url
+  if(server==='dev'){
+   const nextFile=await fetch(gameUrl,{method:'HEAD',cache:'no-store'})
+   if(!nextFile.ok)throw Error('신규 MYON 게임 화면을 확인할 수 없습니다. 기존 세이브는 유지됩니다.')
+  }
   await showVerifiedStep(1)
   entryIndex.value=2
   entryStep.value='세이브 읽기 및 백업 검증 중'
@@ -101,7 +107,7 @@ async function enterServer(server){
   currentServer.value=server
   await showVerifiedStep(3)
   entryStep.value=''
-  frameUrl.value=url
+  frameUrl.value=gameUrl
   playing.value=true
   document.title='MYON '+serverTitle(server)+' v'+target.version
  }catch(error){
