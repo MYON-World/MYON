@@ -182,43 +182,46 @@ test('world access ring advances smoothly only after verified entry steps',()=>{
 });
 
 
-test('DEV opens the independent first citizen-world screen while LIVE remains pinned to legacy archive',()=>{
+test('DEV city selection remains isolated from pinned LIVE and stored progress',()=>{
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
  const next=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- const city=fs.readFileSync(path.resolve(__dirname,'../public/myon-city-hero.webp'));
  assert.ok(app.includes("const gameUrl=server==='dev'?url.replace('/myon.html?','/myon-next.html?'):url"));
  assert.ok(app.includes("await fetch(gameUrl,{method:'HEAD',cache:'no-store'})"));
  assert.ok(app.includes('frameUrl.value=gameUrl'));
  assert.ok(app.indexOf('await createEntryCheckpoint')<app.indexOf('frameUrl.value=gameUrl'));
- assert.ok(next.includes('myon-city-hero.webp'));
  assert.ok(next.includes('MYON_SAFE_UPDATE_CHECKPOINT=async function(){return true}'));
- assert.ok(next.includes('setInterval(paintPreviewTime,1000)'));
- assert.ok(next.includes('data-story="neighbor"')&&next.includes('data-story="signal"'));
- assert.ok(next.includes('data-phase="before"')&&next.includes('data-phase="after"'));
- assert.ok(!next.includes('myon-v013.js'));
- assert.ok(!next.includes('indexedDB.open(')&&!next.includes('localStorage.setItem('));
  assert.ok(next.includes('window.self===window.top'));
- assert.equal(city.toString('ascii',0,4),'RIFF');
- assert.equal(city.toString('ascii',8,12),'WEBP');
- assert.ok(city.length>100000);
+ assert.ok(next.includes('html.myon-embedded .top .back{visibility:hidden;pointer-events:none}'));
+ assert.ok(app.includes("'dev-controls':currentServer==='dev'"));
+ assert.ok(app.includes('.game-controls.dev-controls{bottom:auto;top:8px;'));
+ assert.doesNotMatch(next,/myon-v013\.js|indexedDB\.open\(|localStorage\.setItem\(/);
+ for(const name of ['lien','haren','serin']){
+  const city=fs.readFileSync(path.resolve(__dirname,'../public/myon-city-'+name+'.webp'));
+  assert.equal(city.toString('ascii',0,4),'RIFF');
+  assert.equal(city.toString('ascii',8,12),'WEBP');
+  assert.ok(city.length>40000,'City backdrop too small '+name);
+  assert.ok(next.includes('myon-city-'+name+'.webp'));
+  assert.ok(next.includes('data-city="'+name+'"'));
+  assert.ok(next.includes('data-city-button="'+name+'"'));
+ }
+ assert.doesNotMatch(next,/data:image\/webp;base64,/);
 });
 
-
-test('DEV citizen first screen uses viewport-sized tabs instead of scrolling',()=>{
+test('DEV city selection offers interactive no-scroll arrival on mobile',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- assert.match(html,/body data-view="city"/);
- assert.match(html,/\.layout\{height:100vh;height:100dvh;min-height:0;overflow:hidden\}/);
- assert.match(html,/html,body\{width:100%;height:100%;overflow:hidden;overscroll-behavior:none\}/);
- assert.match(html,/\.content\{[^}]*overflow:hidden/);
+ assert.ok(html.includes('overflow:hidden;overscroll-behavior:none'));
+ assert.ok(html.includes('height:100dvh'));
  assert.doesNotMatch(html,/scrollIntoView|window\.scrollTo|overflow-y:auto/);
- assert.match(html,/function setActiveView\(view\)/);
- assert.match(html,/setActiveView\('explore'\)/);
- assert.match(html,/setActiveView\('city'\)/);
- for(const view of ['city','stories','explore','records'])
-  assert.ok(html.includes('body[data-view="'+view+'"]'),'Missing view '+view);
- assert.ok(html.includes('data-phase="after"'));
- assert.ok(html.includes('MYON_SAFE_UPDATE_CHECKPOINT=async function(){return true}'));
- assert.ok(html.includes('setInterval(paintPreviewTime,1000)'));
- assert.ok(html.includes('data-explore-story="neighbor"'));
- assert.ok(html.includes('data-explore-story="signal"'));
+ assert.ok(html.includes("function selectCity(id)"));
+ assert.ok(html.includes("function openModal()"));
+ assert.ok(html.includes("function enterCity()"));
+ assert.ok(html.includes("function act(action,button)"));
+ assert.ok(html.includes("document.querySelectorAll('[data-city-button]')"));
+ for(const action of ['people','look','facility','rest'])
+  assert.ok(html.includes('data-action="'+action+'"'));
+ assert.ok(html.includes('id="modal-confirm"'));
+ assert.ok(html.includes('id="switch-city"'));
+ assert.ok(html.includes('id="arrival-landscape"'));
+ assert.ok(html.includes('id="city-ambient"'));
+ assert.ok(html.includes('showScreen(' + "'picker'" + ')'));
 });
