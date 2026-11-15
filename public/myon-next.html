@@ -1,17 +1,17 @@
 <!doctype html>
 <html lang="ko"><head>
 <script>
-// Immutable DEV archive is embedded by the portal, never opened as a standalone release.
+// Only portal-embedded DEV may display an immutable archived game page.
 if(window.self===window.top){
  const archived=/\/releases\/[a-f0-9]{40}\/myon-next\.html$/.test(location.pathname);
  if(archived){const portal=new URL('../../',location.href);portal.search=location.search;portal.hash=location.hash;location.replace(portal.href)}
 }else document.documentElement.classList.add('myon-embedded');
-// Read-only citizen world preview; no progress records are written.
+// DEV-only citizen profile fields are saved locally; the legacy LIVE game database is never modified.
 window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){return true};
 </script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="theme-color" content="#06101d"/>
-<title>MYON WORLD · 첫 도시 선택 · DEV 미리보기</title>
+<title>MYON WORLD · 시민 생성과 첫 도시 선택</title>
 <style>
 :root{color-scheme:dark;--ink:#eff8ff;--soft:#a7bed2;--faint:#6788a2;--line:#335571;--blue:#9cdef8;font-family:Inter,"Pretendard Variable","Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;overscroll-behavior:none}body{background:radial-gradient(ellipse at 55% 15%,#153450 0%,#08192a 38%,#050d18 100%);color:var(--ink);-webkit-font-smoothing:antialiased}button{font:inherit;cursor:pointer}button:focus-visible{outline:2px solid #beeaff;outline-offset:2px}button:disabled{cursor:default;opacity:.6}
@@ -179,8 +179,27 @@ window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){return true};
  .city-body{gap:5px;padding:8px 13px}
 }
 @media(max-height:520px){.city-pic{flex-basis:47%;max-height:210px}}
-/* The portal supplies the saved-and-verified exit control when DEV is embedded. */
+/* Only one usable start-screen control in an embedded DEV session: the portal hosts the verified exit button. */
 html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
+
+/* v0.13.73 citizen creation, before any first-city selection. */
+[hidden]{display:none!important}
+.character{width:min(1210px,100%);margin:0 auto;flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:clamp(10px,2vh,20px) clamp(13px,3.6vw,38px) clamp(9px,1.5vh,16px);gap:clamp(8px,1.3vh,13px);position:relative;z-index:1}
+.character:before{content:'';position:fixed;z-index:-1;inset:60px 0 0;background:linear-gradient(90deg,#071522f5 0%,#0a2132e3 64%,#09203582 100%),url('myon-city-lien.webp') center 40%/cover no-repeat;opacity:.9;pointer-events:none}
+.ch-head{flex:none;display:flex;justify-content:space-between;align-items:end;gap:10px}.ch-head h1{font-size:clamp(22px,3vw,34px);letter-spacing:-.05em;margin:3px 0}.ch-head p{font-size:11px;color:#b1d2e5;margin:0}.ch-mark{color:#79c5e6;font-size:10px;letter-spacing:.2em;font-weight:700}
+.ch-layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px;min-height:0;flex:1}
+.ch-steps{align-self:start;padding:15px 12px;border:1px solid #315a74a0;background:#08192cbd;border-radius:12px;display:flex;flex-direction:column;gap:14px}
+.ch-step{display:flex;gap:10px;color:#7592a8;font-size:12px;align-items:center}.ch-step b{border:1px solid #46667d;flex:none;width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-size:11px;font-weight:600}.ch-step.active{color:#dcf8ff;font-weight:750}.ch-step.active b{background:#9de9ff;color:#062235;border-color:#baf3ff}
+.ch-panel{display:flex;flex-direction:column;min-height:0;gap:clamp(8px,1.25vh,12px);padding:clamp(12px,1.8vh,19px);border:1px solid #396a83a8;border-radius:13px;background:linear-gradient(135deg,#091b2de6,#092033df);box-shadow:0 10px 45px #0006;overflow:hidden}
+.ch-field{display:flex;flex-direction:column;gap:5px;flex:none}.ch-label{display:flex;align-items:center;gap:8px;font-size:clamp(12px,1.3vw,15px);font-weight:780;color:#e9f8ff}.ch-label b{font-size:10px;font-weight:700;border:1px solid #6294aa;border-radius:5px;padding:3px 5px;color:#a6dffa}.ch-name{width:100%;min-height:38px;padding:9px 12px;border:1px solid #47748c;border-radius:8px;background:#061a2fd9;color:white;font:inherit;font-size:12px;outline:none}.ch-name:focus{border-color:#a9e8ff;box-shadow:0 0 0 2px #8adcff36}.ch-name::placeholder{color:#769cb5}.ch-count{align-self:end;color:#89b2c6;font-size:9px;margin-top:-23px;margin-right:12px;pointer-events:none}.ch-name{padding-right:55px}
+.ch-gender{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;flex:1;min-height:100px;max-height:230px}.gender-card{display:flex;flex-direction:column;min-height:0;overflow:hidden;border:1px solid #3b6980;border-radius:11px;background:#102a3a;color:#e9f8ff;position:relative;padding:0}.gender-card[aria-pressed=true]{border:2px solid #77e5ff;box-shadow:0 0 0 1px #8be5ff44,0 0 24px #1fb5ff38}.gender-art{flex:1;min-height:0;background-image:url('data:image/webp;base64,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');background-repeat:no-repeat;background-size:200% 100%;background-position:0 center;background-color:#18354b}.gender-card[data-gender=female] .gender-art{background-position:100% center}.gender-card .gender-caption{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:18px 13px 9px;background:linear-gradient(0deg,#06182df0,transparent);font-size:clamp(12px,1.5vw,17px);font-weight:750}.gender-card .gender-check{height:20px;width:20px;border-radius:50%;background:#7ee5ff;color:#062439;display:none;place-items:center;font-size:12px}.gender-card[aria-pressed=true] .gender-check{display:grid}
+.ch-paths{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:none}.path-card{text-align:left;display:flex;flex-direction:column;gap:5px;border:1px solid #45697f;border-radius:9px;background:#0c2435d9;color:#e8f7ff;padding:clamp(9px,1.2vh,12px);min-width:0}.path-card[aria-pressed=true]{border-color:#89e5ff;box-shadow:inset 0 0 0 1px #4dcfff6b;background:#12354c}.path-card strong{font-size:12px}.path-card small{font-size:10px;color:#9fbdcc;line-height:1.45}.path-icon{color:#83c8e4;font-size:19px;line-height:1}.path-card[aria-pressed=true] .path-icon{color:#b4f3ff}
+.ch-notice{flex:none;font-size:11px;line-height:1.55;color:#b1d6e8;padding:9px 12px;border:1px solid #385b72;background:#071c2ccd;border-radius:8px}.ch-notice strong{color:#d9f5ff}
+.ch-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;flex:none}.ch-footer small{font-size:10px;color:#87acbe}.ch-go{background:linear-gradient(#b3efff,#77d8f8);color:#072236;border:1px solid #c5f8ff;border-radius:8px;font-size:12px;font-weight:800;padding:11px 21px;min-width:180px;box-shadow:0 0 20px #4ec6ff36}.ch-go:disabled{opacity:.48;box-shadow:none}.ch-error{display:block;min-height:14px;color:#ffcfbc;font-size:10px}
+@media(max-width:740px){.character:before{inset:51px 0 0}.character{padding:10px 12px calc(9px + env(safe-area-inset-bottom))}.ch-steps{display:none}.ch-layout{display:flex;flex:1}.ch-panel{flex:1;padding:11px;gap:9px}.ch-head h1{font-size:23px}.ch-head p{font-size:10px}.ch-gender{min-height:120px;max-height:215px}.ch-paths{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.path-card{padding:8px 10px;gap:4px}.path-card strong{font-size:11px}.path-card small{font-size:9px}.path-icon{font-size:14px}.ch-notice{font-size:10px;padding:8px 9px}.ch-footer small{font-size:9px}.ch-go{min-width:140px;padding:10px 13px}}
+@media(max-height:690px){.character{gap:5px;padding-top:7px;padding-bottom:7px}.ch-head h1{font-size:21px}.ch-head p{display:none}.ch-panel{padding:8px 10px;gap:6px}.ch-gender{min-height:85px;max-height:155px}.ch-label{font-size:11px}.ch-name{min-height:32px;padding-block:6px}.ch-notice{font-size:9px;padding:5px 8px}.path-card{padding:6px 9px}.ch-go{padding:7px 13px}.ch-step{font-size:10px}}
+@media(max-height:525px) and (min-width:741px){.ch-head p{display:none}.ch-panel{gap:5px;padding:7px 11px}.ch-gender{max-height:120px;min-height:70px}.ch-paths{gap:5px}.path-card{padding:5px 7px}.ch-notice{padding:5px 8px}.ch-go{padding:6px}.ch-name{padding-block:5px;min-height:29px}}
+@media(max-height:525px) and (max-width:740px){.ch-gender{min-height:68px;max-height:90px}.path-card small{display:none}.ch-head h1{font-size:18px}.ch-notice{display:none}.ch-footer small{display:none}.ch-panel{gap:4px}.path-card{padding:6px 9px}}
 </style></head>
 <body>
 <div class="shell">
@@ -190,8 +209,22 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
   <div class="brand"><b>MYON</b><em>WORLD</em></div>
   <div class="env"><span class="env-dot"></span><span>시민 월드</span><strong>DEV</strong></div>
  </header>
+
+ <main id="character" class="character" hidden aria-label="캐릭터 만들기">
+  <div class="ch-head"><div><span class="ch-mark">MYON WORLD / CHARACTER CREATION</span><h1>새로운 시민 만들기</h1><p>이름과 시작 방향을 선택하세요. 당신의 이야기는 이후의 선택으로 만들어집니다.</p></div><div class="ch-mark">FIRST CITIZEN</div></div>
+  <div class="ch-layout">
+   <aside class="ch-steps" aria-label="시작 단계"><div class="ch-step active"><b>01</b><span>시민 정보 설정</span></div><div class="ch-step"><b>02</b><span>첫 도시 선택</span></div><div class="ch-step"><b>03</b><span>MYON 세계 입성</span></div></aside>
+   <section class="ch-panel">
+    <div class="ch-field"><label class="ch-label" for="citizen-name"><b>01</b> 이름 설정</label><input class="ch-name" id="citizen-name" type="text" maxlength="12" autocomplete="off" placeholder="시민의 이름을 입력하세요 (2~12자)"><span class="ch-count" id="citizen-name-count">0 / 12</span></div>
+    <div class="ch-field" style="flex:1;min-height:0"><span class="ch-label"><b>02</b> 성별 선택</span><div class="ch-gender" role="group" aria-label="캐릭터 성별"><button type="button" class="gender-card" data-gender="male" aria-pressed="false"><span class="gender-art" role="img" aria-label="실사 스타일 남자 시민 초상"></span><span class="gender-caption">남자 <span class="gender-check">✓</span></span></button><button type="button" class="gender-card" data-gender="female" aria-pressed="false"><span class="gender-art" role="img" aria-label="실사 스타일 여자 시민 초상"></span><span class="gender-caption">여자 <span class="gender-check">✓</span></span></button></div></div>
+    <div class="ch-field"><span class="ch-label"><b>03</b> 플레이 성향 선택</span><div class="ch-paths" role="group" aria-label="초기 플레이 성향"><button type="button" class="path-card" data-path="free" aria-pressed="false"><span class="path-icon">◇</span><strong>자유로운 삶</strong><small>삶의 다양한 가능성</small></button><button type="button" class="path-card" data-path="people" aria-pressed="false"><span class="path-icon">♧</span><strong>사람과 이야기</strong><small>대화 · 관계 · 시민</small></button><button type="button" class="path-card" data-path="explore" aria-pressed="false"><span class="path-icon">⌖</span><strong>탐험과 발견</strong><small>장소 · 조사 · 발견</small></button><button type="button" class="path-card" data-path="economy" aria-pressed="false"><span class="path-icon">▥</span><strong>경제와 성장</strong><small>일 · 생산 · 거래</small></button></div></div>
+    <div class="ch-notice"><strong>선택한 성향</strong>에 따라 처음 받는 임무와 안내가 달라집니다. 다른 분야의 임무도 언제든 선택할 수 있으며, 직업과 성장 방향은 고정되지 않습니다.</div>
+    <div class="ch-footer"><div><small>캐릭터는 최초 1회 생성합니다. 생성 후 첫 도시를 선택합니다.</small><span class="ch-error" id="character-error" role="status" aria-live="polite"></span></div><button type="button" class="ch-go" id="create-citizen" disabled>도시 선택으로 이동 →</button></div>
+   </section>
+  </div>
+ </main>
  <main class="main">
-  <div class="intro"><div><div class="eyebrow">MYON WORLD / CHOOSE YOUR BEGINNING</div><h1>나의 첫 도시를 선택하세요</h1><p>도시는 각자의 분위기를 가지고 있습니다. 어떤 삶을 살아갈지는 당신이 정합니다.</p></div><div class="intro-right">STARTING CITIES <strong>03</strong></div></div>
+  <div class="intro"><div><div class="eyebrow">MYON WORLD / CHOOSE YOUR BEGINNING</div><h1>나의 첫 도시를 선택하세요</h1><p id="city-intro">도시는 각자의 분위기를 가지고 있습니다. 어떤 삶을 살아갈지는 당신이 정합니다.</p></div><div class="intro-right">STARTING CITIES <strong>03</strong></div></div>
   <div class="city-tabs" role="tablist" aria-label="시작 도시 선택">
    <button type="button" class="city-tab active" data-city-button="lien" role="tab" aria-selected="true"><span class="bullet"></span>리엔시</button>
    <button type="button" class="city-tab" data-city-button="haren" role="tab" aria-selected="false"><span class="bullet"></span>하렌시</button>
@@ -215,23 +248,42 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
  </main>
 
  <main class="arrival" id="arrival" hidden aria-label="도시 첫 입성 미리보기">
-  <div class="arrival-heading"><div><span class="eyebrow">YOUR FIRST DAY / ARRIVAL</span><h1 id="arrival-heading">리엔시에 도착했습니다</h1><p id="arrival-subtitle">도시는 이미 저마다의 하루를 살아가고 있습니다.</p></div><button type="button" class="switch-city" id="switch-city">다른 도시 선택</button></div>
+  <div class="arrival-heading"><div><span class="eyebrow">YOUR FIRST DAY / ARRIVAL</span><h1 id="arrival-heading">리엔시에 도착했습니다</h1><p id="arrival-subtitle">도시는 이미 저마다의 하루를 살아가고 있습니다.</p></div><button type="button" class="switch-city" id="switch-city" hidden disabled>다른 도시 선택</button></div>
   <section class="arrival-landscape" id="arrival-landscape" aria-label="선택한 도시 풍경"><div class="arrival-landscape-shade"><div class="eyebrow" id="arrival-zone">ARDEN CONTINENT</div><h2 id="arrival-landscape-title">리엔시</h2><p id="arrival-theme">수많은 시민의 이야기가 시작되는 곳</p></div><span class="world-clock">MYON WORLD · FIRST ARRIVAL</span></section>
   <div class="arrival-board">
    <section class="arrival-situation" aria-label="현재 상황"><div class="eyebrow">CURRENT LOCATION / 첫 도착지</div><h2 id="arrival-location">리엔시 · 도심 광장</h2><p id="arrival-scene">거리에는 낯선 시민들이 오갑니다. 특별한 목표는 정해져 있지 않습니다.</p><div class="arrival-event" id="arrival-event" role="status" aria-live="polite"><span class="event-label">지금은 당신의 선택을 기다립니다.</span><p id="event-copy">주변 사람을 만나거나 다른 곳을 살펴보세요. 무슨 일이 생길지는 직접 알아가게 됩니다.</p></div></section>
    <section class="arrival-activities" aria-label="가능한 첫 행동"><div class="eyebrow">FIRST ACTION / 첫 행동</div><h2>무엇부터 할까요?</h2><div class="activity-grid"><button type="button" class="activity" data-action="people"><span class="activity-icon">♧</span>근처 사람 만나기<small>대화 · 관계</small></button><button type="button" class="activity" data-action="look"><span class="activity-icon">◈</span>주변 둘러보기<small>발견 · 관찰</small></button><button type="button" class="activity" data-action="facility"><span class="activity-icon">⌁</span>시설 살펴보기<small>조사 · 상황</small></button><button type="button" class="activity" data-action="rest"><span class="activity-icon">⌂</span>머물 곳 찾기<small>생활 · 휴식</small></button></div><p class="arrival-note">※ 이 시안의 사건은 미리보기용 예시입니다. 정식 게임은 고정 스토리가 아닌 변수·상황 기반으로 진행됩니다.</p></section>
   </div>
  </main>
- <main class="welcome" id="welcome" hidden aria-label="시작화면 미리보기"><div class="welcome-panel"><div class="eyebrow">MYON WORLD · DEV PREVIEW</div><h1>하나의 세계, 수많은 삶</h1><p>누군가가 만들어 둔 길을 따라가지 않습니다. 당신이 선택한 도시에서 첫 번째 하루가 시작됩니다.</p><button type="button" class="submit" id="go-city">첫 도시 선택하기 <span>→</span></button><small>DEV 화면 시안입니다. 실제 플레이어 세이브와 아직 연결되지 않았습니다.</small></div></main>
+ <main class="welcome" id="welcome" hidden aria-label="시작화면 미리보기"><div class="welcome-panel"><div class="eyebrow">MYON WORLD · DEV PREVIEW</div><h1>하나의 세계, 수많은 삶</h1><p>누군가가 만들어 둔 길을 따라가지 않습니다. 당신이 선택한 도시에서 첫 번째 하루가 시작됩니다.</p><button type="button" class="submit" id="go-city">첫 도시 선택하기 <span>→</span></button><small>캐릭터 정보와 시작 도시만 이 기기에 저장됩니다. 다른 게임 진행 정보는 아직 연결되지 않았습니다.</small></div></main>
 </div>
 <div class="modal-back" id="modal" role="presentation"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
  <div class="eyebrow">FIRST ARRIVAL / DESIGN PREVIEW</div><h2 id="modal-title">리엔시로 입성</h2>
  <p id="modal-text">선택한 도시에서 주변을 살펴보며 스스로 첫 행동을 정하게 됩니다.</p>
- <small>현재는 디자인 미리보기입니다. MYON의 저장 데이터는 변경하지 않습니다.</small>
+ <small id="modal-warning">도시 입성은 첫 거주 도시 확정입니다. 이후 도시 간 이동에는 교통시설과 이동 시간이 필요합니다.</small>
  <div class="modal-actions"><button class="btn-muted" id="modal-close" type="button">도시 다시 선택</button><button class="btn-primary" id="modal-confirm" type="button">선택한 도시로 입성</button></div>
 </div></div>
 <script>
-// Self-contained design preview. No network requests, storage, or production game data.
+
+// New citizen record is DEV-only, separate from the legacy game database.
+const CITIZEN_KEY='MYON_DEV_CITIZEN_V1';
+const validGender=['male','female'];
+const validPaths=['free','people','explore','economy'];
+const startingQuest={
+ free:{title:'첫걸음 · 도시의 하루 살펴보기',detail:'가까운 거리와 사람들을 살펴보세요. 어느 활동부터 시작해도 괜찮습니다.'},
+ people:{title:'첫 만남 · 가까운 시민에게 인사하기',detail:'낯선 시민과 대화를 나누며 도시의 이야기를 들어보세요.'},
+ explore:{title:'첫 발견 · 주변의 작은 단서 찾기',detail:'도시에서 눈에 띄는 장소를 찾아보고 주변 환경을 조사해보세요.'},
+ economy:{title:'첫 일거리 · 도시의 일터 살펴보기',detail:'주변의 가게나 작업시설을 살펴보고 필요한 일거리를 찾아보세요.'}
+};
+function citizenValid(v){return v&&v.schema===1&&typeof v.id==='string'&&v.id.length>3&&typeof v.name==='string'&&v.name.trim().length>=2&&v.name.trim().length<=12&&validGender.includes(v.gender)&&validPaths.includes(v.path)&&(!v.city||['lien','haren','serin'].includes(v.city));}
+function readCitizen(){for(const key of [CITIZEN_KEY,CITIZEN_KEY+'.backup']){try{const s=localStorage.getItem(key);if(!s)continue;const p=JSON.parse(s);if(citizenValid(p))return p;}catch(e){console.warn('Citizen read warning',e)}}return null;}
+function storeCitizen(v){try{if(!citizenValid(v))throw Error('시민 정보가 올바르지 않습니다.');const prior=localStorage.getItem(CITIZEN_KEY);if(prior)localStorage.setItem(CITIZEN_KEY+'.backup',prior);localStorage.setItem(CITIZEN_KEY,JSON.stringify(v));return true;}catch(e){console.warn('Citizen storage unavailable',e);return false;}}
+function createId(){return (globalThis.crypto&&typeof crypto.randomUUID==='function')?crypto.randomUUID():'citizen-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}
+let citizen=null,cityLocked=false,genderChoice='',pathChoice='';
+function validateCitizenForm(){const n=$('citizen-name').value.trim();$('citizen-name-count').textContent=$('citizen-name').value.length+' / 12';$('create-citizen').disabled=!(n.length>=2&&n.length<=12&&genderChoice&&pathChoice);}
+function chooseCharacter(kind,value){if(kind==='gender'){if(!validGender.includes(value))return;genderChoice=value;document.querySelectorAll('[data-gender]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.gender===value)));}else{if(!validPaths.includes(value))return;pathChoice=value;document.querySelectorAll('[data-path]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.path===value)));}validateCitizenForm();}
+function confirmCitizen(){if(citizen)return;const name=$('citizen-name').value.trim();if(name.length<2||name.length>12||!validGender.includes(genderChoice)||!validPaths.includes(pathChoice))return;const v={schema:1,id:createId(),name,gender:genderChoice,path:pathChoice,city:null,createdAt:new Date().toISOString()};if(!storeCitizen(v)){$('character-error').textContent='정보를 저장할 수 없습니다. 브라우저 저장 설정을 확인해주세요.';return;}citizen=v;$('city-intro').textContent=name+' 님, 첫 도시를 골라주세요. 도시에 입성한 후에는 교통편을 통해 이동해야 합니다.';showScreen('picker');}
+
 const $=id=>document.getElementById(id);
 const cityNames={lien:'리엔시',haren:'하렌',serin:'세린시'};
 const cityInfo={
@@ -253,10 +305,10 @@ const cityInfo={
   facility:[['유휴 하역 장치','부두 한쪽에서 멈춰 있는 하역 장치를 발견합니다. 정비사가 부품을 점검하고 있습니다.'],['배전 관리실','항만 주변 시설에 전력을 공급하는 관리실입니다. 담당자를 만나면 상황을 들을 수 있습니다.']],
   rest:[['작업자 식당','교대 시간에 맞춰 식당이 붐빕니다. 다양한 직업의 사람들이 식사를 하고 있습니다.'],['항만 숙소','여행자와 작업자를 위한 작은 숙소가 있습니다. 머무르며 이곳의 생활을 알아갈 수 있습니다.']]}
  }};
-let selectedCity='lien',currentScreen='picker',actionCounts={};
+let selectedCity='lien',currentScreen='character',actionCounts={};
 const modal=$('modal');
 function selectCity(id){
- if(!cityNames[id])return;
+ if(!cityNames[id]||(cityLocked&&selectedCity!==id))return;
  selectedCity=id;
  document.querySelectorAll('[data-city]').forEach(card=>{const yes=card.dataset.city===id;card.classList.toggle('selected',yes);card.setAttribute('aria-pressed',String(yes))});
  document.querySelectorAll('[data-city-button]').forEach(tab=>{const yes=tab.dataset.cityButton===id;tab.classList.toggle('active',yes);tab.setAttribute('aria-selected',String(yes))});
@@ -265,11 +317,14 @@ function selectCity(id){
  if(cityArt)$('city-ambient').style.backgroundImage=cityArt.style.backgroundImage;
 }
 function showScreen(screen){
+ if(screen==='character'&&citizen)screen=cityLocked?'arrival':'picker';
+ if(screen==='picker'&&cityLocked)screen='arrival';
  currentScreen=screen;
+ $('character').hidden=screen!=='character';
  document.querySelector('.main').hidden=screen!=='picker';
  $('arrival').hidden=screen!=='arrival';
  $('welcome').hidden=screen!=='welcome';
- $('back').querySelector('span').textContent=screen==='arrival'?'도시 선택':'시작화면';
+ $('back').querySelector('span').textContent=screen==='character'?'시작화면':screen==='arrival'?'현재 도시':'시작화면';
 }
 function openModal(){
  $('modal-title').textContent=cityNames[selectedCity]+'에서 시작할까요?';
@@ -279,6 +334,8 @@ function openModal(){
 }
 function closeModal(){modal.classList.remove('open')}
 function enterCity(){
+ if(!citizen){closeModal();showScreen('character');return;}
+ if(!cityLocked){const v={...citizen,city:selectedCity};if(!storeCitizen(v)){$('modal-warning').textContent='도시 위치를 저장할 수 없습니다. 저장 설정을 확인해주세요.';return;}citizen=v;cityLocked=true;}
  closeModal(); const city=cityInfo[selectedCity], name=cityNames[selectedCity];
  $('arrival-heading').textContent=name+'에 도착했습니다';
  $('arrival-subtitle').textContent='지금부터 이 도시에서의 하루를 시작합니다.';
@@ -291,7 +348,12 @@ function enterCity(){
  $('arrival-event').querySelector('.event-label').textContent='첫 도착 · 아직 어떤 행동도 하지 않았습니다.';
  $('event-copy').textContent='지금 눈앞에 보이는 것부터 살펴보세요. 행동을 선택하면 이곳에서 마주친 상황이 나타납니다.';
  document.querySelectorAll('.activity').forEach(b=>b.classList.remove('active'));
- actionCounts={}; showScreen('arrival');
+ actionCounts={};
+ const quest=startingQuest[citizen.path]||startingQuest.free;
+ $('arrival-event').querySelector('.event-label').textContent=quest.title;
+ $('event-copy').textContent=quest.detail+' 다른 종류의 임무도 자유롭게 진행할 수 있습니다.';
+ $('arrival-scene').textContent=citizen.name+' 님, '+city.scene;
+ showScreen('arrival');
 }
 function act(action,button){
  const city=cityInfo[selectedCity];if(!city||!city.events[action])return;
@@ -303,12 +365,15 @@ function act(action,button){
  document.querySelectorAll('.activity').forEach(b=>b.classList.toggle('active',b===button));
 }
 function back(){
- if(!modal.classList.contains('open')){
-  if(currentScreen==='arrival')showScreen('picker');
-  else if(currentScreen==='picker')showScreen('welcome');
-  else showScreen('picker');
- }else closeModal();
+ if(modal.classList.contains('open')){closeModal();return;}
+ if(currentScreen==='character')return;
+ if(cityLocked){showScreen('arrival');return;}
+ if(currentScreen==='picker')showScreen('welcome');else showScreen('picker');
 }
+document.querySelectorAll('[data-gender]').forEach(b=>b.addEventListener('click',()=>chooseCharacter('gender',b.dataset.gender)));
+document.querySelectorAll('[data-path]').forEach(b=>b.addEventListener('click',()=>chooseCharacter('path',b.dataset.path)));
+$('citizen-name').addEventListener('input',()=>{$('character-error').textContent='';validateCitizenForm()});
+$('create-citizen').addEventListener('click',confirmCitizen);
 document.querySelectorAll('[data-city]').forEach(card=>card.addEventListener('click',()=>selectCity(card.dataset.city)));
 document.querySelectorAll('[data-city-button]').forEach(tab=>tab.addEventListener('click',()=>selectCity(tab.dataset.cityButton)));
 document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>act(b.dataset.action,b)));
@@ -321,15 +386,19 @@ $('back').addEventListener('click',back);
 modal.addEventListener('click',event=>{if(event.target===modal)closeModal()});
 document.addEventListener('keydown',event=>{
  if(event.key==='Escape'){
-  if(modal.classList.contains('open'))closeModal();else if(currentScreen==='arrival')showScreen('picker');
+  if(modal.classList.contains('open'))closeModal();else back();
  }
  if(currentScreen==='picker'&&window.innerWidth<=740&&(event.key==='ArrowRight'||event.key==='ArrowLeft')){
   const ids=Object.keys(cityNames),at=ids.indexOf(selectedCity),step=event.key==='ArrowRight'?1:-1;
   selectCity(ids[(at+step+ids.length)%ids.length]);
  }
 });
-selectCity('lien');showScreen('picker');
+citizen=readCitizen();cityLocked=Boolean(citizen&&citizen.city);
+if(cityLocked)selectedCity=citizen.city;
+if(citizen)$('city-intro').textContent=citizen.name+' 님, 첫 도시를 골라주세요. 입성 후에는 교통편을 통해 이동해야 합니다.';
+selectCity(selectedCity);
+if(cityLocked)enterCity();else showScreen(citizen?'picker':'character');
 
 // Initial ambient city background matches the default highlighted selection.
-selectCity(selectedCity);
+if(!cityLocked)selectCity(selectedCity);
 </script></body></html>
