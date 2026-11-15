@@ -150,72 +150,86 @@ onMounted(async()=>{
 </script>
 
 <template>
+
  <main v-if="!playing" class="portal">
+  <div class="planet-backdrop" aria-hidden="true" :style="{backgroundImage:'url(' + BASE + 'myon-planet-wallpaper.webp)'}"></div>
+  <div class="planet-shade" aria-hidden="true"></div>
   <div class="wrap">
    <header class="heading">
-    <div class="brand-mark">M</div>
-    <div class="brand-copy"><div class="eyebrow">TRANSPORT SIMULATION</div><h1>MYON WORLD</h1><p>접속할 서버를 선택하세요.</p></div>
-    <div class="status-pill"><span class="dot"></span> 통합 시작화면</div>
+    <div class="micro-brand">
+     <span class="brand-mark">M</span>
+     <div class="brand-name"><strong>MYON</strong><small>WORLD · FIRST ERA</small></div>
+    </div>
+    <div class="top-side"><span>THE PLANET MYON</span><span class="sep"></span><span><i class="dot"></i>월드 게이트</span></div>
    </header>
-   <div class="section-head"><span>SERVER SELECT</span><span>입장할 때 업데이트 · 플레이 중 버전 고정</span></div>
-   <div class="servers">
-    <button type="button" class="server-row live" :disabled="entering" @click="enterServer('live')">
-     <div class="server-main"><div class="server-icon">L</div><div class="server-copy"><strong>LIVE <small>정식 서비스</small></strong><span>승인된 버전 고정 · 기존 유저 기록 유지</span></div></div>
-     <div class="server-side"><span class="server-ver">{{ liveVersion }}</span><span class="entry-text">정식 서버 입장 ›</span></div>
-    </button>
-    <div class="server-row unavailable" aria-disabled="true">
-     <div class="server-main"><div class="server-icon">T</div><div class="server-copy"><strong>TEST <small>테스트 서버</small></strong><span>검증 완료 버전 지정 후 개방 · 저장소 분리됨</span></div></div>
-     <div class="server-side"><span class="server-ver">{{ testVersion }}</span><span class="locked">승인 대기</span></div>
+   <section class="hero" aria-label="마이온 세계 소개">
+    <div class="hero-kicker">A WORLD WAITING TO BE RESTORED</div>
+    <h1>MYON</h1><div class="hero-word">WORLD</div>
+    <h2 class="hero-subtitle">무너진 문명 위에서,<br>당신의 이야기가 시작된다.</h2>
+    <p class="hero-desc">인공지능과 함께 번영했던 행성 마이온.<br>수많은 도시가 각자의 시간을 살아가는 지금,<br>당신은 한 명의 시민으로 새로운 여정을 시작합니다.</p>
+   </section>
+   <section class="gateway" aria-label="서버 선택">
+    <div class="section-head">
+     <div><span class="section-overline">WORLD ACCESS</span><h2>시작할 세계를 선택하세요</h2></div>
+     <span class="section-note">입장 시 버전 확인 · 세이브 보호</span>
     </div>
-    <button type="button" class="server-row dev" :disabled="entering" @click="enterServer('dev')">
-     <div class="server-main"><div class="server-icon">D</div><div class="server-copy"><strong>DEV <small>개발 서버</small></strong><span>main의 최신 배포본 · DEV 전용 저장소</span></div></div>
-     <div class="server-side"><span class="server-ver">{{ latestVersion }}</span><span class="entry-text">개발 서버 입장 ›</span></div>
-    </button>
-   </div>
-   <details class="version-history">
-    <summary class="version-history-summary">
-     <span class="version-history-heading"><strong>버전 변경사항</strong>
-      <small>최신 개발 버전부터 LIVE까지 · 서버 적용 현황</small></span>
-     <span class="version-history-expand">변경내역 보기 <span aria-hidden="true">⌄</span></span>
-    </summary>
-    <div class="version-history-body">
-     <p v-if="!changes.length" class="version-history-empty">버전 변경기록을 확인할 수 없습니다. 잠시 후 새로고침해 주세요.</p>
-     <div v-for="(change,i) in changes" :key="change.version" class="version-history-item">
-      <div class="version-history-line">
-       <strong>v{{ change.version }}</strong>
-       <span v-for="server in change.servers" :key="server" class="version-history-badge" :class="'tag-'+server.toLowerCase()">{{ server }} 적용 중</span>
-       <span v-if="i===changes.length-1" class="version-history-boundary">기록 종료 · LIVE 기준</span>
+    <div class="servers">
+     <button type="button" class="server-row live" :disabled="entering" @click="enterServer('live')">
+      <span class="server-main"><span class="server-icon">L</span><span class="server-copy"><strong>LIVE <small>정식 세계</small></strong><span>안정된 세계에서 이어가는 나의 이야기</span></span></span>
+      <span class="server-side"><span class="server-ver">{{ liveVersion }}</span><span class="entry-text" aria-hidden="true">↗</span></span>
+     </button>
+     <div class="server-row unavailable" aria-disabled="true">
+      <span class="server-main"><span class="server-icon">T</span><span class="server-copy"><strong>TEST <small>시험 세계</small></strong><span>승인된 버전이 준비되면 개방됩니다</span></span></span>
+      <span class="server-side"><span class="server-ver">{{ testVersion }}</span><span class="locked">잠김</span></span>
+     </div>
+     <button type="button" class="server-row dev" :disabled="entering" @click="enterServer('dev')">
+      <span class="server-main"><span class="server-icon">D</span><span class="server-copy"><strong>DEV <small>개발 세계</small></strong><span>새로운 이야기와 기능을 먼저 만나는 곳</span></span></span>
+      <span class="server-side"><span class="server-ver">{{ latestVersion }}</span><span class="entry-text" aria-hidden="true">↗</span></span>
+     </button>
+    </div>
+    <details class="version-history">
+     <summary class="version-history-summary">
+      <span class="version-history-heading"><strong>버전 변경사항</strong><small>개발 버전부터 LIVE까지 · 서버 적용 현황</small></span>
+      <span class="version-history-expand">전체 기록 보기 <span aria-hidden="true">⌄</span></span>
+     </summary>
+     <div class="version-history-body">
+      <p v-if="!changes.length" class="version-history-empty">버전 변경기록을 확인할 수 없습니다. 잠시 후 새로고침해 주세요.</p>
+      <div v-for="(change,i) in changes" :key="change.version" class="version-history-item">
+       <div class="version-history-line">
+        <strong>v{{ change.version }}</strong>
+        <span v-for="server in change.servers" :key="server" class="version-history-badge" :class="'tag-'+server.toLowerCase()">{{ server }} 적용 중</span>
+        <span v-if="i===changes.length-1" class="version-history-boundary">기록 종료 · LIVE 기준</span>
+       </div>
+       <div class="version-history-title">{{ change.title }}</div>
+       <ul v-if="change.entries.length" class="version-history-notes"><li v-for="(entry,j) in change.entries" :key="j">{{ entry }}</li></ul>
+       <p v-else class="version-history-empty">변경 상세: {{ change.commits.join(' · ')||'커밋 기록 참조' }}</p>
       </div>
-      <div class="version-history-title">{{ change.title }}</div>
-      <ul v-if="change.entries.length" class="version-history-notes">
-       <li v-for="(entry,j) in change.entries" :key="j">{{ entry }}</li>
-      </ul>
-      <p v-else class="version-history-empty">변경 상세: {{ change.commits.join(' · ')||'커밋 기록 참조' }}</p>
+      <p class="version-history-footnote">LIVE보다 이전 기록은 보관되지만 시작화면에는 표시하지 않습니다.</p>
      </div>
-     <p class="version-history-footnote">LIVE보다 이전 기록은 보관되지만 시작화면에는 표시하지 않습니다.</p>
+    </details>
+    <div class="details">
+     <section class="panel">
+      <div class="panel-head"><h2>안전한 월드 입장</h2><span class="tag">공통 규칙</span></div>
+      <div class="kv"><span>LIVE 승인 버전</span><strong>{{ liveVersion }}</strong></div>
+      <div class="kv"><span>DEV 최신 배포 버전</span><strong>{{ latestVersion }}</strong></div>
+      <p class="hint">{{ saveStatus }}</p>
+      <p class="hint">입장 시 버전·게임 파일·세이브를 확인하고 별도 백업본까지 재검증합니다. 플레이 중에는 버전이 바뀌지 않습니다.</p>
+     </section>
+     <section class="panel">
+      <div class="panel-head"><h2>세이브 자료 보관</h2><span class="tag">원본 읽기 전용</span></div>
+      <p class="hint">LIVE · TEST · DEV 저장소는 독립적입니다. 입장 전 백업은 브라우저의 별도 저장소에 보관되며, 기기 이동에는 JSON 다운로드가 필요합니다.</p>
+      <div class="backup-actions">
+       <button type="button" :disabled="backupBusy||entering" @click="downloadSave">LIVE 원본 JSON 다운로드</button>
+       <button type="button" :disabled="backupBusy||entering" @click="copySave">LIVE 원본 JSON 복사</button>
+       <a :href="BASE+'myon-recovery.html'" target="_blank" rel="noopener">LIVE 상세 진단</a>
+      </div>
+     </section>
     </div>
-   </details>
-   <div class="details">
-    <section class="panel">
-     <div class="panel-head"><h2>입장 안정화</h2><span class="tag">공통 규칙</span></div>
-     <div class="kv"><span>LIVE 승인 버전</span><strong>{{ liveVersion }}</strong></div>
-     <div class="kv"><span>DEV 최신 배포 버전</span><strong>{{ latestVersion }}</strong></div>
-     <p class="hint">{{ saveStatus }}</p>
-     <p class="hint">입장을 누르면 버전 파일 확인 → 세이브 읽기 → 별도 백업 및 재검증 → 게임 실행. 진행 중 새 커밋이 올라와도 강제 전환하지 않습니다.</p>
-    </section>
-    <section class="panel">
-     <div class="panel-head"><h2>세이브 자료 보관</h2><span class="tag">원본 읽기 전용</span></div>
-     <p class="hint">LIVE · TEST · DEV의 게임 저장소는 독립적입니다. 입장 전 백업은 이 브라우저의 별도 백업 저장소에 기록합니다. 다른 기기로 옮길 때는 JSON 다운로드가 필요합니다.</p>
-     <div class="backup-actions">
-      <button type="button" :disabled="backupBusy||entering" @click="downloadSave">LIVE 원본 JSON 다운로드</button>
-      <button type="button" :disabled="backupBusy||entering" @click="copySave">LIVE 원본 JSON 복사</button>
-      <a :href="BASE+'myon-recovery.html'" target="_blank" rel="noopener">LIVE 상세 진단</a>
-     </div>
-    </section>
-   </div>
-   <div v-if="message&&!entryFailed" class="notice" role="status">{{ message }}</div>
-   <div v-if="manualBackup" class="manual-area"><label for="manual-json">원본 JSON · 전체 선택 후 복사</label><textarea id="manual-json" :value="manualBackup" readonly rows="7"></textarea></div>
-   <footer>MYON WORLD · 공통 입장 절차 · 자동 업데이트 및 강제 재접속 중지</footer>
+    <div v-if="message&&!entryFailed" class="notice" role="status">{{ message }}</div>
+    <div v-if="manualBackup" class="manual-area"><label for="manual-json">원본 JSON · 전체 선택 후 복사</label><textarea id="manual-json" :value="manualBackup" readonly rows="7"></textarea></div>
+    <footer>© MYON WORLD · THE FIRST ERA <span>공통 입장 절차 · 세이브 보호</span></footer>
+   </section>
+   <div class="planet-marker" aria-hidden="true"><span class="marker-line"></span><div><strong>PLANET MYON</strong><small>하나의 행성, 수많은 이야기</small></div></div>
   </div>
   <div v-if="entering||entryFailed" class="entry-overlay" role="dialog" aria-modal="true" aria-label="서버 입장 검사 진행 상황">
    <section class="entry-panel" aria-live="polite">
@@ -245,67 +259,121 @@ onMounted(async()=>{
 </template>
 
 <style scoped>
-.portal{height:100vh;height:100dvh;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;background:radial-gradient(ellipse at 80% -12%,#244f49 0%,transparent 48%),#0e171b;color:#eff8f3}
+
+.portal{height:100vh;height:100dvh;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;background:#020a15;color:#e8f5ff;position:relative;isolation:isolate}
 .portal::-webkit-scrollbar{display:none;width:0;height:0}
-.wrap{max-width:920px;margin:0 auto;padding:32px 19px 64px}
-.heading{display:flex;align-items:center;gap:16px;margin-bottom:38px}
-.brand-mark{width:54px;height:54px;flex:none;display:grid;place-items:center;border-radius:16px;background:linear-gradient(145deg,#79e4bb,#276e63);color:#09251f;font-size:33px;font-weight:900}
-.brand-copy{flex:1;min-width:0}.brand-copy h1{margin:2px 0 3px;letter-spacing:.06em;font-size:26px;line-height:1.12}.brand-copy p{color:#9eb6af;font-size:12px;margin:0}
-.eyebrow,.section-head{color:#80bda7;font-weight:700;letter-spacing:.16em;font-size:10px}
-.status-pill{font-size:11px;color:#b3dacb;background:#213c37;padding:10px 12px;border-radius:999px;white-space:nowrap}
-.dot{display:inline-block;width:7px;height:7px;background:#7ce1a9;border-radius:100%;margin-right:4px}
-.section-head{display:flex;justify-content:space-between;margin-bottom:12px}.section-head span:last-child{letter-spacing:0;color:#78998e;font-weight:400}
-.servers{display:grid;gap:10px}
-.server-row{width:100%;min-height:104px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border-radius:16px;border:1px solid #345149;background:#182b29;color:#f1faf6;text-align:left;font:inherit}
-button.server-row{cursor:pointer}
-button.server-row.dev{border-color:#6080a0;background:linear-gradient(100deg,#243748,#1b2a38)}
-button.server-row.dev:hover:not(:disabled){border-color:#8cbbdb;filter:brightness(1.1)}
-button.server-row.live{border-color:#4b9b7d;background:linear-gradient(100deg,#20453a,#1a3733);box-shadow:0 6px 28px #0002}
-button.server-row.live:hover:not(:disabled){border-color:#91e2bb;filter:brightness(1.1)}
-button.server-row:disabled{cursor:not-allowed;opacity:.65}
-.server-row.unavailable{opacity:.75}
-.server-main{display:flex;align-items:center;gap:14px;min-width:0}
-.server-icon{width:50px;height:50px;display:grid;place-items:center;flex:none;background:#2c4a42;color:#98dfbe;font-size:22px;font-weight:800;border-radius:13px}
-.server-copy{min-width:0;display:grid;gap:7px}
-.server-copy strong{font-size:19px;letter-spacing:.03em}.server-copy small{font-size:12px;margin-left:7px;font-weight:500;color:#aac9bf;letter-spacing:0}
-.server-copy span{color:#91afa5;font-size:12px;line-height:1.45}
-.server-side{display:grid;gap:8px;text-align:right;flex:none}
-.server-ver{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
-.entry-text{font-size:12px;color:#9eebc7;font-weight:700}.locked{font-size:11px;color:#829d94}
-.version-history{margin-top:16px;background:#172722;border:1px solid #3d6153;border-radius:15px;overflow:hidden}
-.version-history-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:17px 18px;cursor:pointer;list-style:none}
+.planet-backdrop{position:fixed;inset:0;z-index:0;pointer-events:none;background-size:cover;background-position:center center;background-repeat:no-repeat}
+.planet-shade{position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(90deg,rgba(2,9,23,.98) 0%,rgba(3,13,29,.94) 22%,rgba(4,14,32,.73) 36%,rgba(2,11,27,.31) 61%,rgba(3,10,20,.12) 100%),linear-gradient(0deg,rgba(2,7,15,.68) 0%,transparent 30%,rgba(1,5,17,.27) 100%)}
+.wrap{position:relative;z-index:1;max-width:1560px;margin:0 auto;padding:31px clamp(22px,4.4vw,74px) 40px;min-height:100%}
+.heading{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:40px}
+.micro-brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:31px;height:31px;border:1px solid rgba(176,225,255,.67);border-radius:50%;display:grid;place-items:center;position:relative;box-shadow:0 0 24px rgba(62,176,255,.13);font:700 17px Georgia,serif;color:#d4f6ff}
+.brand-mark:before{content:'';position:absolute;inset:10px -6px;border-top:1px solid rgba(117,218,255,.8);transform:rotate(-29deg)}
+.brand-name strong{font-size:13px;letter-spacing:.27em;font-weight:750}
+.brand-name small{display:block;font-size:8px;color:#8db8d1;letter-spacing:.33em;margin-top:3px}
+.top-side{display:flex;align-items:center;gap:17px;font-size:10px;letter-spacing:.14em;color:#c4dcf3}
+.top-side .sep{width:1px;height:16px;background:#7294ad60}
+.dot{display:inline-block;width:6px;height:6px;margin-right:8px;border-radius:50%;background:#74dacc;box-shadow:0 0 10px #6adfd1}
+.hero{width:min(100%,550px);padding-top:clamp(56px,8.6vh,100px)}
+.hero-kicker{font-size:11px;font-weight:650;letter-spacing:.31em;color:#a6d5ee;display:flex;align-items:center;gap:10px}
+.hero-kicker:before{content:'';width:26px;height:1px;background:#a4ddff}
+.hero h1{margin:12px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:clamp(78px,9.2vw,137px);font-weight:400;line-height:.96;letter-spacing:.055em;background:linear-gradient(115deg,#fff 14%,#bddffa 56%,#81b7e8 95%);background-clip:text;-webkit-background-clip:text;color:transparent;text-shadow:0 5px 35px rgba(105,177,233,.12)}
+.hero-word{margin-left:7px;font-size:12px;color:#bed5e7;letter-spacing:.72em;margin-top:15px;font-weight:650}
+.hero-subtitle{font-size:clamp(19px,2.4vw,26px);font-weight:650;line-height:1.53;letter-spacing:-.035em;margin:29px 0 10px;text-shadow:0 2px 18px #010915}
+.hero-desc{font-size:13px;line-height:1.8;color:#b1c6d6;margin:0;max-width:440px;text-shadow:0 2px 10px #030c19}
+.gateway{max-width:550px;margin-top:34px}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:13px}
+.section-overline{font-size:9px;font-weight:800;letter-spacing:.25em;color:#82cbea}
+.section-head h2{margin:5px 0 0;font-size:16px;font-weight:650;letter-spacing:-.02em}
+.section-note{font-size:10px;color:#88a3ba;text-align:right}
+.servers{display:grid;gap:9px}
+.server-row{width:100%;min-height:75px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:11px;border:1px solid rgba(186,215,255,.19);background:rgba(7,21,38,.61);box-shadow:0 6px 28px rgba(0,0,0,.16);backdrop-filter:blur(13px);-webkit-backdrop-filter:blur(13px);color:#eff8ff;text-align:left;padding:11px 15px;font:inherit}
+button.server-row{cursor:pointer;transition:background .18s,border-color .18s,transform .18s}
+button.server-row:hover:not(:disabled){border-color:#bbdeffb0;background:rgba(26,57,88,.77);transform:translateX(3px)}
+button.server-row:focus-visible,.backup-actions button:focus-visible,.backup-actions a:focus-visible{outline:2px solid #a4ddff;outline-offset:3px}
+button.server-row:disabled{cursor:not-allowed;opacity:.7}
+.server-row.live{border-color:rgba(104,220,199,.6);background:linear-gradient(90deg,rgba(12,67,67,.68),rgba(11,33,51,.67))}
+.server-row.dev{border-color:rgba(107,159,232,.48);background:linear-gradient(90deg,rgba(22,43,75,.74),rgba(10,26,45,.65))}
+.server-row.unavailable{opacity:.68}
+.server-main{display:flex;align-items:center;min-width:0;gap:13px}
+.server-icon{width:39px;height:39px;border-radius:9px;border:1px solid rgba(146,209,238,.28);display:grid;place-items:center;flex:none;background:rgba(80,132,169,.13);color:#c6e6f9;font-size:19px;font-weight:700;font-family:Georgia,serif}
+.server-row.live .server-icon{color:#aaf2de;border-color:#74d1b670;background:#0b55516b}
+.server-copy{display:flex;flex-direction:column;min-width:0;gap:3px}
+.server-copy strong{font-weight:700;letter-spacing:.05em;font-size:15px}
+.server-copy small{font-size:10px;letter-spacing:0;font-weight:450;color:#b8ccdc;margin-left:7px}
+.server-copy>span{font-size:10px;color:#a4b6c6;line-height:1.4}
+.server-side{display:flex;align-items:center;gap:13px;white-space:nowrap;flex:none}
+.server-ver{font-size:11px;color:#a9bdce;letter-spacing:.02em;font-weight:600;font-variant-numeric:tabular-nums}
+.entry-text{font-size:20px;color:#9bdeea;line-height:1}
+.locked{font-size:11px;color:#c3cbd3}
+.version-history{margin-top:10px;background:rgba(5,15,28,.42);border:1px solid rgba(146,205,241,.18);border-radius:11px;backdrop-filter:blur(10px);overflow:hidden}
+.version-history-summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;gap:12px}
 .version-history-summary::-webkit-details-marker{display:none}
-.version-history-summary:focus-visible{outline:2px solid #8ee4b7;outline-offset:-3px}
-.version-history-heading{display:grid;gap:5px}
-.version-history-heading strong{font-size:14px}
-.version-history-heading small{font-size:11px;color:#9db8aa}
-.version-history-expand{display:flex;align-items:center;gap:7px;font-size:11px;color:#91dcb6;white-space:nowrap}
-.version-history-expand span{font-size:16px;transition:transform .2s}
+.version-history-summary:focus-visible{outline:2px solid #8cccee;outline-offset:-3px}
+.version-history-heading{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.version-history-heading strong{font-size:12px;font-weight:700}
+.version-history-heading small{font-size:10px;color:#a3b6c5}
+.version-history-expand{color:#9bc9e6;font-size:11px;white-space:nowrap}
+.version-history-expand span{display:inline-block;transition:transform .2s}
 .version-history[open] .version-history-expand span{transform:rotate(180deg)}
-.version-history-body{border-top:1px solid #324b40;padding:0 17px 14px}
-.version-history-item{padding:14px 1px 13px}
-.version-history-item+.version-history-item{border-top:1px solid #2d443a}
+.version-history-body{border-top:1px solid #b3d8ed2b;padding:2px 16px 14px}
+.version-history-item{padding:13px 1px}
+.version-history-item+.version-history-item{border-top:1px solid #b3d8ed1c}
 .version-history-line{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
-.version-history-line>strong{font-size:14px}
-.version-history-badge{border:1px solid #496955;background:#294638;color:#b9ebcc;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700}
-.version-history-badge.tag-live{border-color:#57a480;color:#b8f1d1}
+.version-history-line>strong{font-size:13px;color:#d8f3ff}
+.version-history-badge{border:1px solid #6489a5;background:#1b3a4c;color:#c4e2f7;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700}
+.version-history-badge.tag-live{border-color:#55b4a6;color:#b8f1e6}
 .version-history-badge.tag-dev{border-color:#618eb6;color:#c0dcf5;background:#283e50}
 .version-history-badge.tag-test{border-color:#b89862;color:#f7deab;background:#51432c}
-.version-history-boundary{font-size:10px;color:#9caea3}
-.version-history-title{font-size:12px;color:#e0f0e6;margin-top:8px}
-.version-history-notes{padding-left:18px;margin:7px 0 0;color:#9ab3a4;font-size:11px;line-height:1.7}
-.version-history-empty,.version-history-footnote{font-size:11px;color:#97afa0;line-height:1.65}
-.version-history-footnote{border-top:1px solid #2d443a;margin:0;padding-top:13px}
-.details{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
-.panel{background:#172622;border:1px solid #30473f;padding:19px;border-radius:16px;min-width:0}
-.panel-head{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:15px}
-.panel-head h2{font-size:15px;margin:0}.tag{font-size:10px;color:#9cdbbe;border:1px solid #4b755f;padding:5px 8px;border-radius:20px;white-space:nowrap}
-.kv{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0;font-size:12px;color:#a5b9b1}.kv strong{color:#e6fff2;font-size:14px}
-.hint{color:#a3b8af;font-size:12px;line-height:1.65;margin:10px 0 0}
-.backup-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:17px}.backup-actions button,.backup-actions a{background:#29473c;color:#e5fff1;border:1px solid #4c8067;padding:10px 12px;border-radius:9px;font-size:11px;text-decoration:none;cursor:pointer}.backup-actions button:disabled{opacity:.5;cursor:not-allowed}
-.notice{margin-top:16px;padding:13px 15px;border-radius:10px;background:#263832;color:#d9f4e4;font-size:12px;line-height:1.5}
-.manual-area{margin-top:14px}.manual-area label{display:block;font-size:12px;margin-bottom:8px}.manual-area textarea{width:100%;resize:vertical;border:1px solid #4a6d5b;border-radius:10px;background:#111e1b;color:#e3f7e9;padding:12px}
-footer{margin-top:27px;color:#638278;font-size:11px;text-align:center}
+.version-history-boundary{font-size:10px;color:#9caeba}
+.version-history-title{font-size:12px;color:#deeff9;margin-top:8px}
+.version-history-notes{padding-left:18px;margin:7px 0 0;color:#9fb9c9;font-size:11px;line-height:1.7}
+.version-history-empty,.version-history-footnote{font-size:11px;color:#9eb7c8;line-height:1.65}
+.version-history-footnote{border-top:1px solid #b3d8ed1c;margin:0;padding-top:13px}
+.details{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.panel{min-width:0;border:1px solid rgba(183,219,238,.18);border-radius:10px;padding:15px;background:rgba(4,15,28,.58);backdrop-filter:blur(10px)}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.panel-head h2{font-size:12px;margin:0}
+.tag{font-size:10px;color:#9dcfe8;border:1px solid #6b94a77d;padding:4px 7px;border-radius:20px;white-space:nowrap}
+.kv{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:11px;color:#adc1ce}
+.kv strong{color:#e2f5ff;font-size:12px}
+.hint{font-size:10px;line-height:1.65;color:#adc1ce;margin:9px 0 0}
+.backup-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.backup-actions button,.backup-actions a{color:#cdeafa;background:#183e56b7;border:1px solid #6b94a77d;font:inherit;font-size:10px;padding:8px;border-radius:6px;cursor:pointer;text-decoration:none}
+.backup-actions button:disabled{opacity:.55;cursor:not-allowed}
+.notice{margin-top:14px;padding:13px 15px;border-radius:10px;border:1px solid #729cb37a;background:#142b3df0;color:#d9f0ff;font-size:12px;line-height:1.5}
+.manual-area{margin-top:14px}.manual-area label{display:block;font-size:12px;margin-bottom:8px}
+.manual-area textarea{width:100%;resize:vertical;border:1px solid #4d7b99;border-radius:10px;background:#071727;color:#e3f5ff;padding:12px}
+footer{margin-top:20px;display:flex;justify-content:space-between;gap:12px;font-size:10px;color:#90adbd;letter-spacing:.04em}
+.planet-marker{position:fixed;right:clamp(24px,4.5vw,70px);bottom:48px;display:flex;align-items:center;gap:11px;color:rgba(236,246,255,.85);text-shadow:0 2px 15px #000;pointer-events:none}
+.marker-line{width:44px;height:1px;background:#ffffff75}
+.planet-marker strong{display:block;font-size:11px;letter-spacing:.26em}
+.planet-marker small{display:block;color:#c5d6e2;font-size:10px;letter-spacing:.08em;margin-top:5px}
+@media(max-width:700px){
+ .planet-backdrop{background-position:61% top;background-size:auto 100vh;background-size:auto 100dvh}
+ .planet-shade{background:linear-gradient(180deg,rgba(2,10,25,.78) 0%,rgba(3,11,24,.60) 17%,rgba(2,11,24,.83) 37%,rgba(2,10,22,.98) 68%,rgba(2,9,20,.99) 100%),linear-gradient(90deg,rgba(2,10,24,.47),transparent 95%)}
+ .wrap{padding:21px 17px 32px;min-height:100%}
+ .top-side{font-size:9px}.top-side .sep,.top-side>span:first-child{display:none}
+ .hero{padding-top:71px}
+ .hero h1{font-size:74px;letter-spacing:.045em}
+ .hero-word{font-size:10px;letter-spacing:.66em;margin-top:10px}
+ .hero-subtitle{font-size:19px;margin:22px 0 8px;line-height:1.5}
+ .hero-desc{font-size:12px;line-height:1.65}
+ .gateway{margin-top:29px}
+ .section-note{font-size:9px;max-width:120px}
+ .server-row{min-height:74px;padding:11px 12px}
+ .server-main{gap:10px}
+ .server-copy strong{font-size:14px}.server-copy small{font-size:9px;margin-left:5px}
+ .server-copy>span{font-size:9px}
+ .server-side{gap:9px}.server-ver{font-size:10px}.entry-text{font-size:17px}
+ .version-history-heading small{display:none}
+ .details{grid-template-columns:1fr}
+ footer{font-size:9px;line-height:1.6}
+ .planet-marker{position:relative;right:auto;bottom:auto;margin:25px 0 0;opacity:.7}
+}
+@media(max-width:385px){.hero h1{font-size:66px}.hero{padding-top:56px}.hero-subtitle{font-size:18px}.server-icon{width:35px;height:35px}.server-ver{font-size:9px}}
+@media(prefers-reduced-motion:reduce){button.server-row{transition:none}.version-history-expand span{transition:none}}
+
 .entry-overlay{position:fixed;z-index:50;inset:0;display:grid;place-items:center;background:#08120feE;padding:15px;overflow:auto}
 .entry-panel{width:100%;max-width:500px;padding:25px 22px;border:1px solid #447a63;border-radius:19px;background:#172b25;box-shadow:0 20px 70px #000b}
 .entry-overline{font-size:10px;letter-spacing:.2em;font-weight:700;color:#89d6ad}

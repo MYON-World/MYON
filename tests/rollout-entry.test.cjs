@@ -143,3 +143,20 @@ test('unified launcher hides scrollbars but keeps portal scrolling enabled',()=>
  assert.match(app,/\.portal::-webkit-scrollbar\{display:none;width:0;height:0\}/);
  assert.doesNotMatch(app,/\.portal\{[^}]*overflow-y:hidden/);
 });
+
+test('MYON portal uses the local text-free planet wallpaper without changing entry and save controls',()=>{
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ const img=fs.readFileSync(path.resolve(__dirname,'../public/myon-planet-wallpaper.webp'));
+ assert.ok(img.length>100000,'Planet wallpaper must contain real image data');
+ assert.equal(img.toString('ascii',0,4),'RIFF');
+ assert.equal(img.toString('ascii',8,12),'WEBP');
+ assert.match(app,/BASE \+ 'myon-planet-wallpaper.webp'/);
+ assert.match(app,/class="planet-backdrop"/);
+ assert.match(app,/class="planet-shade"/);
+ assert.match(app,/class="hero"/);
+ assert.match(app,/@click="enterServer\('live'\)"/);
+ assert.match(app,/@click="enterServer\('dev'\)"/);
+ assert.match(app,/@click="downloadSave"/);
+ assert.match(app,/@click="copySave"/);
+ assert.match(app,/v-if="entering\|\|entryFailed"/);
+});
