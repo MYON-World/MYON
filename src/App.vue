@@ -1,6 +1,7 @@
 <script setup>
 import {onMounted,ref} from 'vue'
 import {validReleases} from './core/myon-release-state.mjs'
+import {prepareDevVersion} from './core/myon-dev-version.mjs'
 import {visibleVersionHistory} from './core/myon-version-history.mjs'
 import {LIVE_RELEASE,TEST_RELEASE,dbForServer,targetForServer,
  archiveUrl,verifyArchive,createEntryCheckpoint,readGameRecords} from './core/myon-server-entry.mjs'
@@ -92,8 +93,14 @@ async function enterServer(server){
   await showVerifiedStep(1)
   entryIndex.value=2
   entryStep.value='세이브 읽기 및 백업 검증 중'
+  // Only DEV resets on a new version; never reset LIVE's original saves.
+  let newDevVersion=false
+  if(server==='dev'){
+   entryStep.value='개발 버전별 저장 확인 중'
+   newDevVersion=(await prepareDevVersion({version:target.version})).reset
+  }
   const save=await createEntryCheckpoint({server,revision:target.revision})
-  entrySaveNote.value=save.backup?
+  entrySaveNote.value=newDevVersion?'새 버전 · DEV 진행 기록 초기화 완료':save.backup?
    save.records+'건 · 백업본 재검증 완료':'새 서버 · 기존 저장 기록 없음'
   saveStatus.value=save.backup?
    serverTitle(server)+' 세이브 '+save.records+'건 백업·검증 완료':
@@ -107,7 +114,7 @@ async function enterServer(server){
   currentServer.value=server
   await showVerifiedStep(3)
   entryStep.value=''
-  frameUrl.value=gameUrl
+  frameUrl.value=gameUrl+(server==='dev'?'&dev_version='+encodeURIComponent(target.version):'')
   playing.value=true
   document.title='MYON '+serverTitle(server)+' v'+target.version
  }catch(error){

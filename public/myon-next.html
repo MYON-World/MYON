@@ -335,7 +335,30 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 <script>
 
 // New citizen record is DEV-only, separate from the legacy game database.
-const CITIZEN_KEY='MYON_DEV_CITIZEN_V1';
+const devSaveParams=new URLSearchParams(location.search)
+const requestedDevVersion=devSaveParams.get('dev_version')
+const isVersionedDevSave=devSaveParams.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(devSaveParams.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'')
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.75'
+const DEV_VERSION_MARKER='MYON_DEV_ACTIVE_VERSION_V1'
+const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION
+let devSaveReady=false
+function prepareCitizenVersion(){
+ if(!isVersionedDevSave)return true // Preview has its own isolated, non-versioned save key.
+ try{
+  if(localStorage.getItem(DEV_VERSION_MARKER)===DEV_SAVE_VERSION)return true
+  // Fallback if an archived DEV page was opened without its portal entry check.
+  // Only DEV-owned keys can be removed; LIVE/TEST data is never touched.
+  const oldKeys=[]
+  for(let i=0;i<localStorage.length;i++){
+   const key=localStorage.key(i)
+   if(key&&key.startsWith('MYON_DEV_')&&key!==DEV_VERSION_MARKER)oldKeys.push(key)
+  }
+  for(const key of oldKeys)localStorage.removeItem(key)
+  localStorage.setItem(DEV_VERSION_MARKER,DEV_SAVE_VERSION)
+  return true
+ }catch(error){console.warn('DEV version reset failed',error);return false}
+}
+
 const validGender=['male','female'];
 const validPaths=['free','people','explore','economy'];
 const startingQuest={
@@ -346,7 +369,7 @@ const startingQuest={
 };
 function citizenValid(v){return v&&v.schema===1&&typeof v.id==='string'&&v.id.length>3&&typeof v.name==='string'&&v.name.trim().length>=2&&v.name.trim().length<=12&&validGender.includes(v.gender)&&validPaths.includes(v.path)&&(!v.city||['lien','haren','serin'].includes(v.city));}
 function readCitizen(){for(const key of [CITIZEN_KEY,CITIZEN_KEY+'.backup']){try{const s=localStorage.getItem(key);if(!s)continue;const p=JSON.parse(s);if(citizenValid(p))return p;}catch(e){console.warn('Citizen read warning',e)}}return null;}
-function storeCitizen(v){try{if(!citizenValid(v))throw Error('시민 정보가 올바르지 않습니다.');const prior=localStorage.getItem(CITIZEN_KEY);if(prior)localStorage.setItem(CITIZEN_KEY+'.backup',prior);localStorage.setItem(CITIZEN_KEY,JSON.stringify(v));return true;}catch(e){console.warn('Citizen storage unavailable',e);return false;}}
+function storeCitizen(v){if(!devSaveReady)return false;try{if(!citizenValid(v))throw Error('시민 정보가 올바르지 않습니다.');const prior=localStorage.getItem(CITIZEN_KEY);if(prior)localStorage.setItem(CITIZEN_KEY+'.backup',prior);localStorage.setItem(CITIZEN_KEY,JSON.stringify(v));return true;}catch(e){console.warn('Citizen storage unavailable',e);return false;}}
 function createId(){return (globalThis.crypto&&typeof crypto.randomUUID==='function')?crypto.randomUUID():'citizen-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}
 let citizen=null,cityLocked=false,genderChoice='',pathChoice='';
 function validateCitizenForm(){const n=$('citizen-name').value.trim();$('citizen-name-count').textContent=$('citizen-name').value.length+' / 12';$('create-citizen').disabled=!(n.length>=2&&n.length<=12&&genderChoice&&pathChoice);}
@@ -462,7 +485,8 @@ document.addEventListener('keydown',event=>{
   selectCity(ids[(at+step+ids.length)%ids.length]);
  }
 });
-citizen=readCitizen();cityLocked=Boolean(citizen&&citizen.city);
+devSaveReady=prepareCitizenVersion();
+citizen=devSaveReady?readCitizen():null;cityLocked=Boolean(citizen&&citizen.city);
 if(cityLocked)selectedCity=citizen.city;
 if(citizen)$('city-intro').textContent=citizen.name+' 님, 첫 도시를 골라주세요. 입성 후에는 교통편을 통해 이동해야 합니다.';
 selectCity(selectedCity);

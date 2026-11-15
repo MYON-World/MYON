@@ -195,7 +195,7 @@ test('DEV city selection remains isolated from pinned LIVE and stored progress',
  assert.ok(app.includes("'dev-controls':currentServer==='dev'"));
  assert.ok(app.includes('.game-controls.dev-controls{bottom:auto;top:8px;'));
  assert.doesNotMatch(next,/myon-v013\.js|indexedDB\.open\(/); 
- assert.ok(next.includes("MYON_DEV_CITIZEN_V1")); 
+ assert.ok(next.includes("MYON_DEV_CITIZEN_V2_")); 
  assert.doesNotMatch(next,/localStorage\.clear\(|indexedDB\.deleteDatabase\(/);
  for(const name of ['lien','haren','serin']){
   const city=fs.readFileSync(path.resolve(__dirname,'../public/myon-city-'+name+'.webp'));
@@ -255,7 +255,7 @@ test('DEV character creation comes before the city selector and uses gender port
 
 test('DEV one-time citizen save uses an isolated key and disallows city selection after entry',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- assert.match(html,/const CITIZEN_KEY='MYON_DEV_CITIZEN_V1'/);
+ assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
  assert.match(html,/localStorage\.getItem\(CITIZEN_KEY\)/);
  assert.match(html,/localStorage\.setItem\(CITIZEN_KEY,JSON\.stringify\(v\)\)/);
  assert.match(html,/citizen=readCitizen\(\);cityLocked=Boolean\(citizen&&citizen\.city\)/);
@@ -280,11 +280,70 @@ test('DEV simplified character creation keeps usable choices and citizen storage
  assert.ok(html.includes('다음 · 도시 선택'));
  assert.doesNotMatch(html,/class="ch-steps"/);
  assert.doesNotMatch(html,/class="ch-notice"/);
- assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V1'"));
+ assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
  assert.ok(html.includes("function readCitizen(){for(const key of [CITIZEN_KEY,CITIZEN_KEY+'.backup'])"));
  assert.ok(html.includes("localStorage.setItem(CITIZEN_KEY+'.backup',prior)"));
  assert.ok(html.includes("localStorage.setItem(CITIZEN_KEY,JSON.stringify(v))"));
  assert.ok(html.includes("if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')"));
  assert.ok(html.includes("if(!cityNames[id]||(cityLocked&&selectedCity!==id))return"));
  assert.doesNotMatch(html,/indexedDB\.open\(|localStorage\.clear\(/);
+});
+
+
+test('DEV save epoch resets on version bump only and leaves LIVE/TEST keys intact',async()=>{
+ const {prepareDevVersion,DEV_ACTIVE_VERSION_KEY,deleteDevGameDatabase,purgeDevBackupRecords}=await import('../src/core/myon-dev-version.mjs');
+ const data=new Map([['MYON_DEV_CITIZEN_V1','old citizen'],['MYON_DEV_CITIZEN_V1.backup','old backup'],
+  ['MYON_DEV_QUEST_V1','old quests'],['MYON_LIVE_PROFILE','live citizen'],['MYON_TEST_PROFILE','test citizen'],
+  ['myon-release-state-v2','active release']]);
+ const storage={get length(){return data.size},key:i=>[...data.keys()][i]||null,getItem:k=>data.get(k)??null,
+  setItem:(k,v)=>data.set(k,String(v)),removeItem:k=>data.delete(k)};
+ const calls=[];
+ const params={storage,idb:{},deleteDatabase:async()=>calls.push('dev-only-db'),
+  purgeBackups:async()=>calls.push('dev-only-snapshots')};
+ await assert.rejects(prepareDevVersion({...params,version:'unsafe'}),/DEV 버전 번호/);
+ assert.equal(calls.length,0);
+ const first=await prepareDevVersion({...params,version:'0.13.75'});
+ assert.equal(first.reset,true);assert.equal(first.previous,null);
+ assert.deepEqual(calls,['dev-only-db','dev-only-snapshots']);
+ assert.equal(data.get('MYON_LIVE_PROFILE'),'live citizen');
+ assert.equal(data.get('MYON_TEST_PROFILE'),'test citizen');
+ assert.equal(data.get('myon-release-state-v2'),'active release');
+ assert.equal(data.has('MYON_DEV_CITIZEN_V1'),false);
+ assert.equal(data.has('MYON_DEV_QUEST_V1'),false);
+ assert.equal(data.get(DEV_ACTIVE_VERSION_KEY),'0.13.75');
+ data.set('MYON_DEV_CITIZEN_V2_0.13.75','current citizen');
+ const same=await prepareDevVersion({...params,version:'0.13.75'});
+ assert.equal(same.reset,false);
+ assert.equal(data.get('MYON_DEV_CITIZEN_V2_0.13.75'),'current citizen');
+ assert.equal(calls.length,2);
+ const later=await prepareDevVersion({...params,version:'0.13.76'});
+ assert.equal(later.reset,true);
+ assert.equal(data.has('MYON_DEV_CITIZEN_V2_0.13.75'),false);
+ assert.equal(data.get(DEV_ACTIVE_VERSION_KEY),'0.13.76');
+ assert.equal(data.get('MYON_LIVE_PROFILE'),'live citizen');
+ assert.equal(calls.length,4);
+ assert.equal(typeof deleteDevGameDatabase,'function');
+ assert.equal(typeof purgeDevBackupRecords,'function');
+});
+test('DEV reset refuses to mark new version if store cleanup fails',async()=>{
+ const {prepareDevVersion,DEV_ACTIVE_VERSION_KEY}=await import('../src/core/myon-dev-version.mjs');
+ const values=new Map([[DEV_ACTIVE_VERSION_KEY,'0.13.75'],['MYON_DEV_CITIZEN_V2_0.13.75','kept']]);
+ const storage={get length(){return values.size},key:i=>[...values.keys()][i]||null,
+  getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+ await assert.rejects(prepareDevVersion({version:'0.13.76',storage,idb:{},
+  deleteDatabase:async()=>{throw Error('database blocked')},purgeBackups:async()=>{}}),/blocked/);
+ assert.equal(values.get(DEV_ACTIVE_VERSION_KEY),'0.13.75');
+ assert.equal(values.get('MYON_DEV_CITIZEN_V2_0.13.75'),'kept');
+});
+test('DEV portal and embedded page pass the verified version through to the matching save namespace',()=>{
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ assert.ok(app.includes("if(server==='dev')"));
+ assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
+ assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.75'"));
+ assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
+ assert.ok(html.includes("devSaveReady=prepareCitizenVersion()"));
+ assert.ok(html.includes("citizen=devSaveReady?readCitizen():null"));
+ assert.ok(html.includes("if(!cityNames[id]||(cityLocked&&selectedCity!==id))return"));
 });
