@@ -7,9 +7,12 @@ const BASE=String(import.meta.env.BASE_URL)
 const DB='myon-v00804-progress',STORE='game'
 const frameUrl=ref(''),gameFrame=ref(null),playing=ref(false)
 const working=ref(true),entering=ref(false),leaving=ref(false),backupBusy=ref(false)
-const activeRevision=ref(''),activeVersion=ref('—'),latestVersion=ref('—')
+// Emergency direct entry: independent of browser rollout records and manifest requests.
+const FALLBACK_GAME='819714e6a633c1af012f7e4d2d56ec3f78581acc'
+const latestRevision=ref(FALLBACK_GAME)
+const activeRevision=ref(''),activeVersion=ref('—'),latestVersion=ref('v0.13.61')
 const saveStatus=ref('저장자료 확인 중'),message=ref(''),manualBackup=ref('')
-const canEnter=ref(false)
+const canEnter=ref(true)
 
 function fromStorage(key){
  try{return JSON.parse(localStorage.getItem(key)||'null')}
@@ -44,12 +47,13 @@ function openPinned(sha,version){
  document.title=version?'MYON v'+version:'MYON WORLD'
 }
 function enterLive(){
- if(!canEnter.value||entering.value)return
- // Archived game scripts defer to this parent, so the broken FIFO updater never runs.
+ if(entering.value)return
+ // Do not consult the installed pin. Bypass the broken updater for every player.
+ // Archived game scripts defer to this parent, so no FIFO timer starts.
  window.MYON_ROLLOUT_HOST_ACTIVE=true
  message.value=''
  entering.value=true
- openPinned(activeRevision.value,activeVersion.value)
+ openPinned(latestRevision.value,latestVersion.value.replace(/^v/,''))
  playing.value=true
 }
 function onGameLoad(){entering.value=false}
@@ -57,13 +61,16 @@ async function leaveLive(){
  if(leaving.value)return
  leaving.value=true;message.value=''
  try{
+  // A failing checkpoint must never trap a player inside the game.
+  // The game pagehide handler will attempt its normal save when we unmount it.
   const verify=gameFrame.value?.contentWindow?.MYON_SAFE_UPDATE_CHECKPOINT
-  if(typeof verify!=='function'||!await verify())throw Error('저장 확인이 완료되지 않았습니다. 게임을 유지합니다.')
-  playing.value=false
-  frameUrl.value=''
-  document.title='MYON WORLD · 서버 선택'
- }catch(error){message.value=error?.message||'저장 확인 실패 · 게임을 유지합니다.'}
- finally{leaving.value=false}
+  if(typeof verify==='function'&&!await verify())
+   console.warn('MYON: save checkpoint unavailable; returning to launcher without resetting game records')
+ }catch(error){console.warn('MYON exit checkpoint:',error)}
+ playing.value=false
+ frameUrl.value=''
+ document.title='MYON WORLD · 서버 선택'
+ leaving.value=false
 }
 // This launcher NEVER writes the legacy game database. Backup reads use readonly only.
 function readOriginalSave(){
@@ -137,24 +144,22 @@ onMounted(async()=>{
   if(!response.ok)throw Error('배포된 버전 목록을 받을 수 없습니다.')
   const manifest=await response.json(),releases=manifest?.releases
   if(manifest?.schema!==1||!validReleases(releases))throw Error('배포 버전 목록이 올바르지 않습니다.')
+  latestRevision.value=releases[releases.length-1].revision
   latestVersion.value='v'+releases[releases.length-1].version
   const now=Date.now()
-  if(validStoredState(saved)&&!releases.some(v=>v.revision===saved.installed))
-   throw Error('마지막 접속 버전을 확인할 수 없어 안전하게 입장을 중단했습니다.')
+  // Invalid or absent per-user rollout state never prevents launching the latest game.
   const state=reconcileState(saved,releases,now)||migrateLegacy(legacy,releases,now)||
    initialState(releases,markers)
   const pinned=releases.find(v=>v.revision===state.installed)
   if(!pinned)throw Error('접속 가능한 게임 버전을 찾지 못했습니다.')
   activeRevision.value=pinned.revision
   activeVersion.value=pinned.version
-  canEnter.value=true
   // Do not advance the saved version or touch its previous countdown.
  }catch(error){
-  message.value=error?.message||'버전 확인 실패'
+  console.warn('MYON portal metadata unavailable; LIVE direct entry remains enabled:',error)
+  message.value='버전 기록 확인에 실패했지만 LIVE 바로 입장은 가능합니다.'
   if(validStoredState(saved)&&validRevision(saved.installed)){
-   activeRevision.value=saved.installed;activeVersion.value='저장된 버전'
-   canEnter.value=true
-   message.value+=' · 기존에 고정된 버전으로 입장할 수 있습니다.'
+   activeRevision.value=saved.installed;activeVersion.value='마지막 저장 기록'
   }
  }finally{working.value=false}
 })
@@ -170,9 +175,9 @@ onMounted(async()=>{
    </header>
    <div class="section-head"><span>SERVER SELECT</span><span>서버별 독립 운영 준비</span></div>
    <div class="servers">
-    <button type="button" class="server-row live" :disabled="!canEnter||entering" @click="enterLive">
-     <div class="server-main"><div class="server-icon">L</div><div class="server-copy"><strong>LIVE <small>정식 서비스</small></strong><span>기존 기록으로 접속 · 게임 중 자동 업데이트 없음</span></div></div>
-     <div class="server-side"><span class="server-ver">{{ latestVersion }}</span><span class="entry-text">{{ working?'버전 확인 중':canEnter?'입장하기  ›':'확인 필요' }}</span></div>
+    <button type="button" class="server-row live" :disabled="entering" @click="enterLive">
+     <div class="server-main"><div class="server-icon">L</div><div class="server-copy"><strong>LIVE <small>정식 서비스</small></strong><span>최신 게임 바로 실행 · 기존 버전 대기열 우회</span></div></div>
+     <div class="server-side"><span class="server-ver">{{ latestVersion }}</span><span class="entry-text">게임 바로 입장 ›</span></div>
     </button>
     <div class="server-row unavailable" aria-disabled="true">
      <div class="server-main"><div class="server-icon">T</div><div class="server-copy"><strong>TEST <small>테스트 서버</small></strong><span>독립 저장소 구성 후 개방</span></div></div>
@@ -189,7 +194,7 @@ onMounted(async()=>{
      <div class="kv"><span>마지막 플레이 버전</span><strong>{{ activeVersion==='—'?'확인 중':'v'+activeVersion }}</strong></div>
      <div class="kv"><span>LIVE 배포 최신 버전</span><strong>{{ latestVersion }}</strong></div>
      <p class="hint">{{ saveStatus }}</p>
-     <p class="hint">기존 버전에서 우선 플레이를 복구합니다. 세이브 확인 없이 최신 버전으로 강제 전환하지 않습니다.</p>
+     <p class="hint">LIVE 입장은 마지막 버전 대기열을 통과하지 않고 최신 게임을 즉시 실행합니다. 기존 저장 기록은 초기화하지 않습니다.</p>
     </section>
     <section class="panel">
      <div class="panel-head"><h2>세이브 자료 보관</h2><span class="tag">읽기 전용</span></div>
@@ -203,7 +208,7 @@ onMounted(async()=>{
    </div>
    <div v-if="message" class="notice" role="status">{{ message }}</div>
    <div v-if="manualBackup" class="manual-area"><label for="manual-json">원본 JSON · 전체 선택 후 복사</label><textarea id="manual-json" :value="manualBackup" readonly rows="7"></textarea></div>
-   <footer>MYON WORLD · 세이브 보존 우선 · 업데이트 자동 전환 일시 중단</footer>
+   <footer>MYON WORLD · 게임 바로 입장 · 자동 업데이트 일시 중단</footer>
   </div>
  </main>
  <section v-else class="live-session">

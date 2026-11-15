@@ -72,4 +72,8 @@ test('official launcher shows server selection before game, preserving the insta
  assert.match(app,/activeRevision.value=pinned.revision/);
  assert.match(app,/function openPinned\(sha,version\)/);
  assert.match(app,/readonly/);
+ assert.match(app,/const canEnter=ref\(true\)/);
+ assert.match(app,/openPinned\(latestRevision.value/);
+ assert.match(app,/latestRevision.value=releases\[releases.length-1\].revision/);
+ assert.doesNotMatch(app,/if\(!canEnter.value\|\|entering.value\)return/);
 });

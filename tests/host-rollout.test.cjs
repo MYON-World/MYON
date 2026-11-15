@@ -150,3 +150,13 @@ test('new portal suppresses archived FIFO updater and enters LIVE only by choice
  assert.match(app,/transaction\(STORE,'readonly'\)/);
  assert.doesNotMatch(app,/localStorage\.setItem\(ROLLOUT_KEY/);
 });
+
+test('emergency launcher opens latest game irrespective of pinned rollout or missing metadata',()=>{
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ assert.match(app,/const FALLBACK_GAME='[a-f0-9]{40}'/);
+ assert.match(app,/openPinned\(latestRevision.value/);
+ assert.match(app,/:disabled="entering"/);
+ assert.doesNotMatch(app,/localStorage\.setItem\(ROLLOUT_KEY/);
+ assert.doesNotMatch(app,/createRolloutHost\(/);
+ assert.match(app,/window.MYON_ROLLOUT_HOST_ACTIVE=true/);
+});
