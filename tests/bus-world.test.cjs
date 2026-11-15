@@ -43,7 +43,7 @@ test('permanent revenue +1pp; 100% payout maximum; vehicle capacity 100',()=>{
  s.upgrades.revenue=1;assert.equal(e.rate(s),41);
  e.advance(s,at(2026,11,16,12));
  const paid=e.advance(s,at(2026,11,16,12,20)).settlements[0];
- assert.equal(paid.payout,Math.floor(paid.gross*.41));
+ assert.equal(paid.payout,Math.floor(paid.gross*41/100)); // Match integer-form production rounding.
  s.upgrades.revenue=60;assert.equal(e.rate(s),100);assert.equal(e.valid(s),true);
  for(let i=1;i<100;i++)assert.ok(e.addVehicle(s,start+i));
  assert.equal(s.vehicles.length,100);assert.equal(e.addVehicle(s,start+101),null);
