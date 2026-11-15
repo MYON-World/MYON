@@ -273,7 +273,7 @@ test('DEV simplified character creation keeps usable choices and citizen storage
  assert.match(html,/class="ch-name-wrap"/);
  assert.match(html,/class="ch-progress">01 \/ 02/);
  assert.match(html,/id="citizen-name"[^>]*maxlength="12"/);
- assert.match(html,/class="ch-visual-field"/);
+ assert.match(html,/class="ch-field ch-visual-field"/);
  for(const g of ['male','female'])assert.ok(html.includes('data-gender="'+g+'"'));
  for(const p of ['free','people','explore','economy'])assert.ok(html.includes('data-path="'+p+'"'));
  assert.ok(html.includes('선택 성향의 임무부터 시작 · 다른 임무도 가능'));
