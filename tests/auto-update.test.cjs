@@ -108,3 +108,21 @@ test('game keeps version pair, percent, timer and accessible bar',()=>{
   assert.ok(html.includes('id="'+id+'"'));
  assert.ok(script.includes('phase===\'cooldown\''));
 });
+
+test('stale staged target is corrected to the immediate next commit, never latest',async()=>{
+ const store=new Map();
+ const start=1760000000000-18*60000;
+ store.set('myon-release-state-v2',JSON.stringify({schema:2,installed:A,phase:'rollout',
+  target:D,startedAt:start}));
+ const entries=[{revision:A,version:'0.13.51'},{revision:B,version:'0.13.52'},
+  {revision:C,version:'0.13.53'},{revision:D,version:'0.13.54'}];
+ const a=harness({store,releases:entries});await a.ready();
+ assert.equal(a.state().installed,A);
+ assert.equal(a.state().target,B);
+ assert.equal(a.state().startedAt,start);
+ assert.equal(a.elements.get('auto-update-version-to').textContent,'v0.13.52');
+ await a.advance(42*60000);
+ assert.equal(a.navs.length,1);
+ assert.equal(a.state().installed,B);
+ assert.equal(a.state().phase,'cooldown');
+});

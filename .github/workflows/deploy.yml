@@ -39,6 +39,11 @@ jobs:
           test -f dist/myon-rollouts.json
           test -f "dist/releases/$GITHUB_SHA/myon.html"
           test -f "dist/releases/$GITHUB_SHA/myon-v013.js"
+          # The legacy direct URL must redirect, never serve newest game code.
+          grep -Fq 'new URL("./",location.href)' dist/myon.html
+          ! grep -Fq 'myon-v013.js' dist/myon.html
+          # Even archived URLs must not bypass the official pinned parent.
+          grep -Fq 'window.self===window.top' "dist/releases/$GITHUB_SHA/myon.html"
           ! test -e dist/test
           ! test -e dist/dev
       - uses: actions/upload-pages-artifact@v3

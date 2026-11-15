@@ -57,6 +57,17 @@ async function check(){
   const s=read();
   if(!s)return false;
   if(s.installed!==build){draw();return true;}
+  // Migrate or repair a skipped target while preserving an already-running hour.
+  // Only the immediately following immutable commit can be installed.
+  if(s.phase==='rollout'){
+   const expected=nextAfter(build);
+   if(!expected){s.phase='idle';s.target='';s.startedAt=0;save(s);}
+   else if(s.target!==expected.revision){
+    s.target=expected.revision;
+    if(s.startedAt<=0||s.startedAt>Date.now()+60000)s.startedAt=Date.now();
+    save(s);
+   }
+  }
   if(s.phase==='cooldown'&&duration(s,Date.now())===0){
    s.phase='idle';s.startedAt=0;s.target='';save(s);
   }
@@ -76,9 +87,9 @@ async function apply(){
  let locked=false;
  try{
   if(!await check())throw Error('Manifest unavailable');
-  const fresh=read();
+  const fresh=read(),expected=nextAfter(build);
   if(!fresh||fresh.installed!==build||fresh.target!==s.target||fresh.startedAt!==s.startedAt||
-   !releases.some(v=>v.revision===s.target))throw Error('Pending release changed');
+   !expected||expected.revision!==fresh.target)throw Error('Pending release changed');
   if(typeof window.MYON_SAFE_UPDATE_CHECKPOINT!=='function')throw Error('Safe checkpoint unavailable');
   locked=await window.MYON_SAFE_UPDATE_CHECKPOINT();
   if(!locked)throw Error('Save checkpoint rejected');
