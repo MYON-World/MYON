@@ -1410,7 +1410,7 @@ function updateSettings(now){
  ui.gear.setAttribute('aria-label',unlocked?'설정 열기':'설정 시스템 연구 후 해금');
  if(!unlocked){ui.settings.hidden=true;ui.gear.setAttribute('aria-expanded','false');}
  ui.version.hidden=false;
- ui.version.textContent='v0.13.53'; // Display the code actually loaded, not merely the latest online notice.
+ ui.version.textContent='v0.13.58'; // Code version frozen in this immutable release; host pin remains authoritative.
  ui.notify.textContent=progression.notifyEnabled?'켜짐':'꺼짐';
  ui.notify.setAttribute('aria-pressed',String(progression.notifyEnabled));
 }

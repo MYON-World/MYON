@@ -1,11 +1,15 @@
 <script setup>
-import {onMounted,ref} from 'vue'
+import {onMounted,ref,nextTick} from 'vue'
 import {ROLLOUT_KEY,LEGACY_ROLLOUT_KEY,validRevision,validReleases,
   validStoredState,reconcileState,migrateLegacy,initialState} from './core/myon-release-state.mjs'
+import {createRolloutHost} from './core/myon-rollout-host.mjs'
 
 const BASE=String(import.meta.env.BASE_URL)
 const FIRST_KNOWN='5fa8f6e36f4b1da0d66f933508d88b477193f5d5'
 const frameUrl=ref('')
+const gameFrame=ref(null)
+let coordinator=null
+function onGameLoad(){coordinator?.onLoad()}
 const loadingError=ref('')
 
 function fromStorage(key){
@@ -47,6 +51,8 @@ function openPinned(sha,version){
  document.title=version?'MYON v'+version:'MYON · 저장된 버전'
 }
 onMounted(async()=>{
+ // Declare host ownership BEFORE any archived game can load.
+ window.MYON_ROLLOUT_HOST_ACTIVE=true
  const saved=fromStorage(ROLLOUT_KEY),legacy=fromStorage(LEGACY_ROLLOUT_KEY)
  try{
   const response=await fetch(BASE+'myon-rollouts.json?load='+Date.now(),{cache:'no-store'})
@@ -63,6 +69,14 @@ onMounted(async()=>{
   localStorage.setItem(ROLLOUT_KEY,JSON.stringify(state))
   const pinned=releases.find(v=>v.revision===state.installed)
   openPinned(state.installed,pinned?.version)
+  await nextTick()
+  coordinator=createRolloutHost({
+   base:BASE,win:window,doc:document,storage:localStorage,initialReleases:releases,
+   getFrame:()=>gameFrame.value,
+   setFrame:url=>{frameUrl.value=url},
+   onVersion:v=>{document.title=v?'MYON v'+v:'MYON · 저장된 버전'}
+  })
+  coordinator.start()
  }catch(error){
   console.error('MYON pinned launch:',error)
   loadingError.value='업데이트 목록을 확인할 수 없습니다. 기존 버전을 유지합니다.'
@@ -74,7 +88,7 @@ onMounted(async()=>{
 </script>
 
 <template>
-  <iframe v-if="frameUrl" class="game-frame" :src="frameUrl" title="MYON" />
+  <iframe v-if="frameUrl" ref="gameFrame" class="game-frame" :src="frameUrl" title="MYON" @load="onGameLoad" />
   <div v-else class="loading">저장된 MYON 버전 확인 중…</div>
 </template>
 

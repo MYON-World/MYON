@@ -3,6 +3,13 @@
 (function(){
 'use strict';
 if(/(?:^|\/)(?:test|dev)(?:\/|$)/.test(location.pathname))return;
+try{
+ if(window.parent&&window.parent!==window&&window.parent.MYON_ROLLOUT_HOST_ACTIVE===true)
+  return; // Official launcher owns the installed SHA, countdown and navigation.
+}catch(error){
+ console.warn('MYON launcher visibility check:',error);
+}
+
 const KEY='myon-release-state-v2',WAIT=3600000,CHECK=60000;
 const build=new URLSearchParams(location.search||'').get('build')||'';
 const manifestUrl=location.pathname.match(/\/releases\/[a-f0-9]{40}\//i)?
