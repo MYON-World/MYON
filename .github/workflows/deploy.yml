@@ -37,6 +37,7 @@ jobs:
           test -f dist/myon-v013.js
           test -f dist/myon-build.json
           test -f dist/myon-rollouts.json
+          test -f dist/myon-recovery.html
           test -f "dist/releases/$GITHUB_SHA/myon.html"
           test -f "dist/releases/$GITHUB_SHA/myon-v013.js"
           # The legacy direct URL must redirect, never serve newest game code.
