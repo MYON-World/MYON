@@ -255,6 +255,48 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 }
 @media(max-height:530px){.ch-brief{display:none}.ch-gender{height:74px;min-height:65px}.path-card{min-height:35px}.ch-label{font-size:11px}}
 @media(max-width:740px) and (max-height:530px){.ch-head{min-height:28px}.ch-head h1{font-size:18px}.path-icon{font-size:14px}.gender-card .gender-caption{font-size:12px;padding:6px 8px}}
+
+/* DEV-only reference desk: deliberately text-first, no decorative images. */
+.dev-notes{width:min(1120px,100%);flex:1;min-height:0;display:flex;flex-direction:column;margin:auto;overflow:hidden;padding:clamp(10px,2vh,22px) clamp(12px,3vw,30px) 0}
+.dn-header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex:none;margin-bottom:13px}
+.dn-kicker{font-size:10px;color:#8fbed2;letter-spacing:.11em;margin-bottom:5px}
+.dn-header h1{font-size:clamp(21px,3vw,29px);margin:0 0 4px;font-weight:780}
+.dn-header p{font-size:12px;color:#a7bed2;margin:0;line-height:1.5}
+.dn-test,.dn-tab,.dev-note-link{background:#122b3f;border:1px solid #45627b;border-radius:7px;color:#e2f4ff;font-weight:700}
+.dn-test{padding:11px 15px;white-space:nowrap;font-size:12px}
+.dn-tabs{display:flex;gap:8px;padding:0 0 11px;flex:none;border-bottom:1px solid #2b4459}
+.dn-tab{padding:9px 13px;font-size:12px}
+.dn-tab[aria-selected="true"]{background:#31516a;border-color:#89b8d0}
+.dn-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:13px 1px 26px;scrollbar-color:#466982 transparent}
+.dn-panel{display:grid;gap:16px;align-content:start}
+.dn-section{display:grid;gap:9px}
+.dn-section h2{font-size:15px;margin:0 0 1px}
+.dn-stage{border:1px solid #37556d;border-radius:8px;background:#101f30;padding:15px}
+.dn-stage strong{display:block;font-size:17px;margin-bottom:5px}
+.dn-stage p{margin:0;font-size:12px;line-height:1.65;color:#b7cada}
+.dn-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.dn-lines{border:1px solid #2e495f;border-radius:8px;padding:10px 13px}
+.dn-line{padding:9px 0;font-size:12px;line-height:1.55}
+.dn-line+.dn-line{border-top:1px solid #243e50}
+.dn-line strong{display:block;font-size:12px;margin-bottom:3px}
+.dn-meta{font-size:10px;color:#9cbfd0;display:block;margin-bottom:3px}
+.dn-sub{color:#b6cddd;font-size:11px;line-height:1.6}
+.dn-search{width:100%;border:1px solid #3d596b;background:#071827;color:#e8f6ff;border-radius:7px;padding:10px 12px;font-size:12px}
+.dev-note-link{padding:7px 9px;font-size:10px;margin-right:2px}
+.dn-foot{font-size:11px;color:#8da9bb;line-height:1.6;margin:0}
+@media(max-width:740px){
+ .dn-header{align-items:start}
+ .dn-header p{font-size:11px}
+ .dn-grid{grid-template-columns:1fr}
+ .dn-test{padding:9px 10px}
+ .dn-scroll{padding-bottom:16px}
+ .dn-tab{flex:1}
+ .dev-note-link{font-size:10px;padding:6px}
+}
+@media(max-height:550px){
+ .dn-header{margin-bottom:7px}.dn-header p{display:none}.dn-tabs{padding-bottom:6px}
+}
+
 </style></head>
 <body>
 <div class="shell">
@@ -262,8 +304,40 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
  <header class="top">
   <button class="back" type="button" id="back" aria-label="시작화면 돌아가기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m14 5-7 7 7 7M7 12h14"/></svg><span>시작화면</span></button>
   <div class="brand"><b>MYON</b><em>WORLD</em></div>
-  <div class="env"><span class="env-dot"></span><span>시민 월드</span><strong>DEV</strong></div>
+  <div class="env"><button type="button" class="dev-note-link" id="dev-notes-open" hidden>개발노트</button><span class="env-dot"></span><span>시민 월드</span><strong>DEV</strong></div>
  </header>
+
+
+ <main id="dev-notes" class="dev-notes" hidden aria-label="개발 현황 및 개발노트">
+  <div class="dn-header">
+   <div><div class="dn-kicker">MYON WORLD / DEV REFERENCE</div><h1>세계 기반 설계</h1><p>완성형 세계부터 설계하고, 도시마다 다른 현재 현황을 기록합니다.</p></div>
+   <button type="button" class="dn-test" id="dn-start-test">게임 테스트 →</button>
+  </div>
+  <div class="dn-tabs" role="tablist" aria-label="개발 정보">
+   <button type="button" class="dn-tab" id="dn-tab-status" role="tab" aria-selected="true" aria-controls="dn-status">개발 현황</button>
+   <button type="button" class="dn-tab" id="dn-tab-notes" role="tab" aria-selected="false" aria-controls="dn-notes">개발노트</button>
+  </div>
+  <div class="dn-scroll">
+   <p class="dn-foot" id="dn-loading" role="status" aria-live="polite">설계 기준 자료를 불러오는 중입니다.</p>
+   <section class="dn-panel" id="dn-status" role="tabpanel" aria-labelledby="dn-tab-status" hidden>
+    <div class="dn-stage"><strong id="dn-stage-title"></strong><p id="dn-stage-desc"></p></div>
+    <div class="dn-grid">
+     <section class="dn-section"><h2>확보한 기준</h2><div class="dn-lines" id="dn-done"></div></section>
+     <section class="dn-section"><h2>다음 설계</h2><div class="dn-lines" id="dn-next"></div></section>
+    </div>
+    <p class="dn-foot">진행률은 임의로 표시하지 않습니다. 실제로 확정된 데이터만 완료 처리합니다.</p>
+   </section>
+   <section class="dn-panel" id="dn-notes" role="tabpanel" aria-labelledby="dn-tab-notes" hidden>
+    <input type="search" class="dn-search" id="dn-search" aria-label="개발노트 검색" placeholder="도시 · 산업 · 규칙 검색" autocomplete="off">
+    <section class="dn-section"><h2>세계 공통 규칙</h2><div class="dn-lines" id="dn-rules"></div></section>
+    <section class="dn-section"><h2>산업 분야 · 분류 초안</h2><div class="dn-lines" id="dn-domains"></div></section>
+    <section class="dn-section"><h2>시작 도시 3곳 · 현재 현황</h2><div class="dn-lines" id="dn-cities"></div></section>
+    <section class="dn-section"><h2>도시 간 연결 현황</h2><div class="dn-lines" id="dn-connections"></div></section>
+    <section class="dn-section"><h2>역순 설계 순서</h2><div class="dn-lines" id="dn-order"></div></section>
+    <p class="dn-foot">확정 / 초안 / 미조사는 서로 구분합니다. 인구·수요·시설 수량은 아직 임의로 채우지 않았습니다.</p>
+   </section>
+  </div>
+ </main>
 
  <main id="character" class="character" hidden aria-label="캐릭터 만들기">
   <div class="ch-head">
@@ -338,7 +412,7 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 const devSaveParams=new URLSearchParams(location.search)
 const requestedDevVersion=devSaveParams.get('dev_version')
 const isVersionedDevSave=devSaveParams.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(devSaveParams.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'')
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.75'
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.76'
 const DEV_VERSION_MARKER='MYON_DEV_ACTIVE_VERSION_V1'
 const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION
 let devSaveReady=false
@@ -377,6 +451,62 @@ function chooseCharacter(kind,value){if(kind==='gender'){if(!validGender.include
 function confirmCitizen(){if(citizen)return;const name=$('citizen-name').value.trim();if(name.length<2||name.length>12||!validGender.includes(genderChoice)||!validPaths.includes(pathChoice))return;const v={schema:1,id:createId(),name,gender:genderChoice,path:pathChoice,city:null,createdAt:new Date().toISOString()};if(!storeCitizen(v)){$('character-error').textContent='정보를 저장할 수 없습니다. 브라우저 저장 설정을 확인해주세요.';return;}citizen=v;$('city-intro').textContent=name+' 님, 첫 도시를 골라주세요. 도시에 입성한 후에는 교통편을 통해 이동해야 합니다.';showScreen('picker');}
 
 const $=id=>document.getElementById(id);
+
+// DEV development notes are read from structured world data, not authored as an image.
+let dnLoaded=false,dnActiveTab='status'
+function appendDevNote(id,title,description,meta=''){
+ const container=$(id),line=document.createElement('div')
+ line.className='dn-line'
+ if(meta){const status=document.createElement('span');status.className='dn-meta';status.textContent=meta;line.append(status)}
+ const strong=document.createElement('strong');strong.textContent=title
+ const summary=document.createElement('div');summary.className='dn-sub';summary.textContent=description
+ line.append(strong,summary);line.dataset.search=[title,description,meta].join(' ').toLowerCase()
+ container.append(line)
+}
+function switchDevTab(tab){
+ if(!['status','notes'].includes(tab))return
+ dnActiveTab=tab
+ $('dn-status').hidden=tab!=='status';$('dn-notes').hidden=tab!=='notes'
+ for(const item of ['status','notes'])$('dn-tab-'+item).setAttribute('aria-selected',String(tab===item))
+ $('dn-loading').hidden=dnLoaded
+}
+function filterDevNotes(){
+ const q=$('dn-search').value.trim().toLowerCase()
+ for(const row of document.querySelectorAll('#dn-notes .dn-line'))row.hidden=!!q&&!row.dataset.search.includes(q)
+ for(const section of document.querySelectorAll('#dn-notes .dn-section')){
+  section.hidden=!!q&&!section.querySelector('.dn-line:not([hidden])')
+ }
+}
+function renderDevNotes(data){
+ if(data?.schema!==1||!data.stage||!Array.isArray(data.domains)||!Array.isArray(data.cities)||!Array.isArray(data.principles))throw Error('개발노트 자료 형식이 맞지 않습니다.')
+ $('dn-stage-title').textContent=data.stage.title+' · '+data.stage.status+' · v'+data.release
+ $('dn-stage-desc').textContent=data.stage.summary
+ for(const name of data.stage.done)appendDevNote('dn-done',name,'','확인')
+ for(const name of data.stage.next)appendDevNote('dn-next',name,'','다음')
+ for(const rule of data.principles)appendDevNote('dn-rules',rule.title,rule.body,rule.status)
+ for(const domain of data.domains)appendDevNote('dn-domains',domain.name,domain.scope.join(' · '),domain.status)
+ for(const city of data.cities)appendDevNote('dn-cities',city.name+' · '+city.terrain,
+  city.identity+' / '+city.current+' / '+city.conditions.join(' · ')+' / 미확정: '+city.unknown.join(', '),
+  city.startingCity?'시작 도시 · 현황 일부 미확정':'도시 현황')
+ appendDevNote('dn-connections','도시 간 연결 관계',data.connections.description,data.connections.status)
+ for(const [i,step] of data.designOrder.entries())appendDevNote('dn-order',String(i+1).padStart(2,'0')+' · '+step,'','역순 설계')
+ dnLoaded=true
+ $('dn-loading').hidden=true
+ switchDevTab(dnActiveTab)
+}
+async function loadDevNotes(){
+ if(dnLoaded)return
+ const archived=/\/releases\/[a-f0-9]{40}\/myon-next\.html$/i.test(location.pathname)
+ const url=new URL(archived?'../../myon-world-baseline.json':'./myon-world-baseline.json',location.href)
+ try{
+  const response=await fetch(url,{cache:'no-store'})
+  if(!response.ok)throw Error('HTTP '+response.status)
+  const data=await response.json()
+  renderDevNotes(data)
+ }catch(error){$('dn-loading').textContent='개발노트 데이터를 열 수 없습니다. DEV의 자료 파일 배포 상태를 확인해주세요.';console.warn('DEV notes unavailable',error)}
+}
+function resumeDevGame(){if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')}
+
 const cityNames={lien:'리엔시',haren:'하렌',serin:'세린시'};
 const cityInfo={
  lien:{topic:'사람들이 만들어가는 끝없는 이야기',location:'리엔시 · 도심 광장',scene:'바쁜 거리에서 시민들이 저마다의 하루를 보내고 있습니다. 누군가의 이야기를 들을 수도, 그냥 지나갈 수도 있어요.',theme:'사람들의 도시 · 관계와 대화',zone:'ARDEN / CENTRAL DISTRICT',events:{
@@ -412,11 +542,14 @@ function showScreen(screen){
  if(screen==='character'&&citizen)screen=cityLocked?'arrival':'picker';
  if(screen==='picker'&&cityLocked)screen='arrival';
  currentScreen=screen;
+ $('dev-notes').hidden=screen!=='notes';
+ $('city-ambient').hidden=screen==='notes';
+ $('dev-notes-open').hidden=screen==='notes';
+ $('back').querySelector('span').textContent=screen==='notes'?'게임 테스트':screen==='character'?'시작화면':screen==='arrival'?'현재 도시':'시작화면';
  $('character').hidden=screen!=='character';
  document.querySelector('.main').hidden=screen!=='picker';
  $('arrival').hidden=screen!=='arrival';
  $('welcome').hidden=screen!=='welcome';
- $('back').querySelector('span').textContent=screen==='character'?'시작화면':screen==='arrival'?'현재 도시':'시작화면';
 }
 function openModal(){
  $('modal-title').textContent=cityNames[selectedCity]+'에서 시작할까요?';
@@ -458,6 +591,7 @@ function act(action,button){
 }
 function back(){
  if(modal.classList.contains('open')){closeModal();return;}
+ if(currentScreen==='notes'){resumeDevGame();return;}
  if(currentScreen==='character')return;
  if(cityLocked){showScreen('arrival');return;}
  if(currentScreen==='picker')showScreen('welcome');else showScreen('picker');
@@ -475,6 +609,11 @@ $('modal-close').addEventListener('click',closeModal);
 $('switch-city').addEventListener('click',()=>showScreen('picker'));
 $('go-city').addEventListener('click',()=>showScreen('picker'));
 $('back').addEventListener('click',back);
+$('dn-start-test').addEventListener('click',resumeDevGame);
+$('dev-notes-open').addEventListener('click',()=>{showScreen('notes');loadDevNotes()});
+$('dn-tab-status').addEventListener('click',()=>switchDevTab('status'));
+$('dn-tab-notes').addEventListener('click',()=>switchDevTab('notes'));
+$('dn-search').addEventListener('input',filterDevNotes);
 modal.addEventListener('click',event=>{if(event.target===modal)closeModal()});
 document.addEventListener('keydown',event=>{
  if(event.key==='Escape'){
@@ -490,7 +629,8 @@ citizen=devSaveReady?readCitizen():null;cityLocked=Boolean(citizen&&citizen.city
 if(cityLocked)selectedCity=citizen.city;
 if(citizen)$('city-intro').textContent=citizen.name+' 님, 첫 도시를 골라주세요. 입성 후에는 교통편을 통해 이동해야 합니다.';
 selectCity(selectedCity);
-if(cityLocked)enterCity();else showScreen(citizen?'picker':'character');
+showScreen('notes');
+loadDevNotes();
 
 // Initial ambient city background matches the default highlighted selection.
 if(!cityLocked)selectCity(selectedCity);

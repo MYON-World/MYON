@@ -341,9 +341,43 @@ test('DEV portal and embedded page pass the verified version through to the matc
  assert.ok(app.includes("if(server==='dev')"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.75'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.76'"));
  assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
  assert.ok(html.includes("devSaveReady=prepareCitizenVersion()"));
  assert.ok(html.includes("citizen=devSaveReady?readCitizen():null"));
  assert.ok(html.includes("if(!cityNames[id]||(cityLocked&&selectedCity!==id))return"));
+});
+
+
+test('DEV starts at structured development desk and keeps the existing gameplay entry intact',()=>{
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ assert.ok(html.includes('id="dev-notes" class="dev-notes" hidden'));
+ assert.ok(html.includes('id="dn-tab-status"'));
+ assert.ok(html.includes('id="dn-tab-notes"'));
+ assert.ok(html.includes('id="dn-start-test"'));
+ assert.ok(html.includes('id="dev-notes-open"'));
+ assert.ok(html.includes('myon-world-baseline.json'));
+ assert.ok(html.includes("showScreen('notes');\nloadDevNotes()"));
+ assert.ok(html.includes("function resumeDevGame(){if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')}"));
+ assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
+ assert.ok(html.includes("function confirmCitizen()"));
+ assert.ok(html.includes("function selectCity(id)"));
+ assert.ok(html.includes('data-city="lien"')&&html.includes('data-city="haren"')&&html.includes('data-city="serin"'));
+ assert.doesNotMatch(html,/indexedDB\.open\(|localStorage\.clear\(/);
+ const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
+ for(const script of scripts)new (require('node:vm').Script)(script[1]);
+});
+test('world baseline records verified policy, draft industry list and unknown fields without invented metrics',()=>{
+ const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
+ assert.equal(data.schema,1);
+ assert.equal(data.release,'0.13.76');
+ assert.equal(data.stage.status,'설계 중');
+ assert.equal(data.domains.length,14);
+ assert.ok(data.domains.every(d=>d.status==='분야 초안'));
+ assert.deepEqual(data.cities.map(c=>c.id),['lien','haren','serin']);
+ assert.ok(data.cities.every(c=>c.startingCity&&Array.isArray(c.unknown)&&c.unknown.length>1));
+ for(const id of ['complete-schema','living-cities','new-entry','spillover','viability'])
+  assert.ok(data.principles.some(p=>p.id===id&&p.status==='확정'));
+ assert.equal(data.connections.status,'미조사');
+ assert.equal(data.designOrder.length,6);
 });
