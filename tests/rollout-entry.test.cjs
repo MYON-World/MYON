@@ -258,7 +258,7 @@ test('DEV one-time citizen save uses an isolated key and disallows city selectio
  assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
  assert.match(html,/localStorage\.getItem\(CITIZEN_KEY\)/);
  assert.match(html,/localStorage\.setItem\(CITIZEN_KEY,JSON\.stringify\(v\)\)/);
- assert.match(html,/citizen=readCitizen\(\);cityLocked=Boolean\(citizen&&citizen\.city\)/);
+ assert.match(html,/citizen=devSaveReady\?readCitizen\(\):null;cityLocked=Boolean\(citizen&&citizen\.city\)/);
  assert.match(html,/if\(screen==='picker'&&cityLocked\)screen='arrival'/);
  assert.match(html,/if\(!cityNames\[id\]\|\|\(cityLocked&&selectedCity!==id\)\)return/);
  assert.match(html,/id="switch-city" hidden disabled/);
