@@ -353,25 +353,18 @@ test('DEV portal and embedded page pass the verified version through to the matc
 });
 
 
-test('DEV starts at structured development desk and keeps the existing gameplay entry intact',()=>{
+test('DEV launches mission page without developer notebook',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- assert.ok(html.includes('id="dev-notes" class="dev-notes" hidden'));
- assert.ok(html.includes('id="dn-back"'));
- assert.ok(html.includes('id="dn-home"'));
- assert.ok(html.includes('id="dn-crumbs"'));
- assert.ok(html.includes('id="dn-view"'));
- assert.ok(html.includes('id="dn-start-test"'));
- assert.ok(html.includes('id="dev-notes-open"'));
- assert.ok(html.includes('myon-world-baseline.json'));
- assert.ok(html.includes("showScreen('notes');\nloadDevNotes()"));
- assert.ok(html.includes("function resumeDevGame(){if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')}"));
- assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
- assert.ok(html.includes("function confirmCitizen()"));
- assert.ok(html.includes("function selectCity(id)"));
- assert.ok(html.includes('data-city="lien"')&&html.includes('data-city="haren"')&&html.includes('data-city="serin"'));
+ const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
+ assert.ok(!html.includes('id="dev-notes"')&&!html.includes('id="dev-notes-open"'));
+ assert.ok(!html.includes('id="dn-start-test"'));
+ assert.ok(html.includes("showScreen('welcome');"));
+ assert.ok(script.includes("  openGame();"));
+ assert.ok(!script.includes("openNotes()"));
+ assert.ok(html.includes('<script src="myon-dev-missions.js"></script>'));
  assert.doesNotMatch(html,/indexedDB\.open\(|localStorage\.clear\(/);
  const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
- for(const script of scripts)new (require('node:vm').Script)(script[1]);
+ for(const s of scripts)new (require('node:vm').Script)(s[1]);
 });
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
@@ -389,37 +382,23 @@ test('world baseline is DEV mission blueprint with 150 fields and 3 terrain citi
  assert.equal(data.designOrder.length,6);
 });
 
-test('DEV notebook uses button-based navigation through actual structured world data',()=>{
+test('DEV combines city names from data without modifying numeric engine',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
- assert.match(html,/function buildDevNotebook\(data\)/);
- assert.match(html,/dnGroup\('전체 산업 분야',data\.domains\.map/);
- assert.match(html,/dnGroup\('도시별 현황',data\.cities\.map/);
- assert.match(html,/dnLeaf\('현재 운영 현황',c\.current/);
- assert.match(html,/devNotebookGo\(\[\.\.\.dnTrail,i\]\)/);
- assert.match(html,/devNotebookBack\(\)/);
- assert.match(html,/devNotebookGo\(\[\]\)/);
- assert.ok(html.includes('id="dn-start-test"'));
- assert.ok(html.includes("function resumeDevGame(){if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')}"));
- assert.ok(html.includes("showScreen('notes');\nloadDevNotes();"));
- assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
- assert.equal(data.domains.length,15);
- assert.ok(data.domains.every(d=>d.scope.length===10));
- assert.equal(data.cities.length,3);
- assert.doesNotMatch(html,/id="dn-tab-status"|id="dn-tab-notes"/);
- // Scrolling remains active; scrollbar thumb is hidden on every major browser.
- assert.match(html,/\.dnb-scroll\{[^}]*overflow-y:auto/);
- assert.match(html,/\.dnb-scroll\{[^}]*scrollbar-width:none/);
- assert.match(html,/\.dnb-scroll\{[^}]*-ms-overflow-style:none/);
- assert.match(html,/\.dnb-scroll::-webkit-scrollbar\{display:none;width:0;height:0\}/);
- assert.ok(html.includes(" $('dn-scroll').scrollTop=0"));
- assert.match(html,/for\(const \[i,item\] of children\.entries\(\)\)/);
- assert.doesNotMatch(html,/devNotebookPager\(|devNotebookTilePageSize\(|dnb-pagebar/);
- const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
- for(const script of scripts)new (require('node:vm').Script)(script[1]);
+ const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
+ const names=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-city-names.json'),'utf8'));
+ const baseline=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
+ assert.equal(names.schema,1);
+ assert.ok(names.prefixes.length*names.roots.length>=900);
+ for(const id of ['lien','haren','serin'])assert.ok(names.endings[id].length>0);
+ assert.equal(baseline.cityNameGeneration.source,'myon-city-names.json');
+ assert.ok(script.includes("function createCityName(city)"));
+ assert.ok(script.includes("city,cityName,createdAt"));
+ assert.ok(script.includes("v.cityName===undefined"));
+ assert.ok(script.includes("world.cityName||city?.name"));
+ assert.ok(script.includes("fetch('./myon-city-names.json'"));
+ assert.ok(script.includes("openGame();"));
+ assert.ok(!html.includes('id="dev-notes"'));
 });
-
-
 test('portal version history excludes unconfigured releases and combines coincident server version pins',async()=>{
  const {visibleVersionHistory}=await import('../src/core/myon-version-history.mjs');
  const A='a'.repeat(40),B='b'.repeat(40),C='c'.repeat(40),D='d'.repeat(40);
@@ -453,7 +432,7 @@ test('DEV mission script parses and uses 150 fields with isolated versioned save
  assert.match(script,/next\.cash\+=m\.money/);
  assert.match(script,/next\.active=active/);
  assert.match(script,/mystery=\{field:randInt/);
- assert.match(script,/addEventListener\('click',e=>\{e\.stopImmediatePropagation\(\);e\.preventDefault\(\);openGame\(\)\},true\)/);
+ assert.ok(script.includes('openGame();'));
  assert.match(html,/\.mw-scroll\{[^}]*scrollbar-width:none/);
 });
 

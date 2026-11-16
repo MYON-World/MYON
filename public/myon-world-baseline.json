@@ -401,5 +401,11 @@
     "임무시간·금전·기여도·±/? 변수 추첨",
     "실제 1초/틱 수행·정산·재공급",
     "DEV 테스트와 추후 확장 검증"
-  ]
+  ],
+  "cityNameGeneration": {
+    "source": "myon-city-names.json",
+    "schema": 1,
+    "method": "prefix+root+archetype ending",
+    "note": "새 도시 시작 때 이름을 조합해 보관하고 지형·산업 수치 계산은 기존 3개 운영 유형을 따른다. 기존 도시 세이브 이름은 유지."
+  }
 }

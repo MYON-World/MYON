@@ -11,7 +11,7 @@ const CITY_TYPES={
 };
 const LIMIT=4;
 const $m=id=>document.getElementById(id);
-let catalog=[],cities=[],world=null,viewCategory=0,showStats=false,notice='';
+let catalog=[],cities=[],world=null,cityNameData=null,viewCategory=0,showStats=false,notice='';
 const randInt=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
 const round2=n=>Math.round((n+Number.EPSILON)*100)/100;
 const fmt=n=>Number(n).toLocaleString('ko-KR');
@@ -60,14 +60,18 @@ function generateMission(state){
 function fillOffers(state){
  while(state.offers.length+state.active.length<LIMIT)state.offers.push(generateMission(state));
 }
+function createCityName(city){
+ if(!cityNameData)return cities.find(c=>c.id===city)?.name||city;
+ return choose(cityNameData.prefixes)+choose(cityNameData.roots)+choose(cityNameData.endings[city]);
+}
 function newWorld(){
- const city=choose(cities).id;
- const next={schema:1,city,createdAt:Date.now(),cash:0,stats:initialStats(city),offers:[],active:[],history:[]};
+ const city=choose(cities).id,cityName=createCityName(city);
+ const next={schema:1,city,cityName,createdAt:Date.now(),cash:0,stats:initialStats(city),offers:[],active:[],history:[]};
  fillOffers(next);
  return next;
 }
 function validWorld(v){
- return !!(v&&v.schema===1&&CITY_TYPES[v.city]&&Array.isArray(v.stats)&&v.stats.length===DOMAINS_REQUIRED&&v.stats.every(n=>Number.isFinite(n)&&n>=0&&n<=100)
+ return !!(v&&v.schema===1&&CITY_TYPES[v.city]&&(v.cityName===undefined||(typeof v.cityName==='string'&&v.cityName.length>=2&&v.cityName.length<=24))&&Array.isArray(v.stats)&&v.stats.length===DOMAINS_REQUIRED&&v.stats.every(n=>Number.isFinite(n)&&n>=0&&n<=100)
   &&Number.isSafeInteger(v.cash)&&v.cash>=0&&Array.isArray(v.offers)&&Array.isArray(v.active)&&Array.isArray(v.history)
   &&v.offers.length+v.active.length<=LIMIT&&[...v.offers,...v.active].every(m=>m&&Number.isSafeInteger(m.durationTicks)&&m.durationTicks>=1800
     &&Number.isSafeInteger(m.field)&&m.field>=0&&m.field<DOMAINS_REQUIRED&&Number.isFinite(m.money)));
@@ -252,7 +256,7 @@ function render(){
  const scroller=$m('mw-scroll');
  const scrollY=scroller?.scrollTop||0;
  const city=cities.find(c=>c.id===world.city);
- $m('mw-city').textContent=city?.name||world.city;
+ $m('mw-city').textContent=world.cityName||city?.name||world.city;
  $m('mw-terrain').textContent=(city?.terrain||CITY_TYPES[world.city].terrain)+' · '+(city?.identity||'');
  $m('mw-cash').textContent=fmt(world.cash);
  $m('mw-notice').textContent=notice;
@@ -280,19 +284,13 @@ function openGame(){
  if(!world)return;
  currentScreen='missions';
  $m('mw-root').hidden=false;
- $m('dev-notes').hidden=true;
  document.querySelector('.main').hidden=true;
  $m('character').hidden=true;
  $m('arrival').hidden=true;
  $m('welcome').hidden=true;
  $m('city-ambient').hidden=true;
- $m('dev-notes-open').hidden=false;
- $m('back').querySelector('span').textContent='개발노트';
+ $m('back').querySelector('span').textContent='시작화면';
  settleDue();render();
-}
-function openNotes(){
- closeStats();$m('mw-root').hidden=true;
- showScreen('notes');devNotebookGo([]);loadDevNotes();
 }
 function setupUi(){
  const parent=document.querySelector('.shell');
@@ -328,10 +326,6 @@ function setupUi(){
  modal.addEventListener('click',event=>{if(event.target===modal){closeStats();$m('mw-stats-toggle').focus({preventScroll:true})}});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&showStats){event.stopImmediatePropagation();closeStats();$m('mw-stats-toggle').focus({preventScroll:true})}},true);
  parent.insertBefore(root,$m('character'));
- $m('dn-start-test').addEventListener('click',e=>{e.stopImmediatePropagation();e.preventDefault();openGame()},true);
- $m('dev-notes-open').addEventListener('click',()=>{root.hidden=true},true);
- $m('back').addEventListener('click',e=>{if(!root.hidden){e.stopImmediatePropagation();e.preventDefault();openNotes()}},true);
- window.resumeDevGame=openGame;
  window.MYON_SAFE_UPDATE_CHECKPOINT=async()=>world?write(world):true;
 }
 async function bootstrap(){
@@ -344,14 +338,24 @@ async function bootstrap(){
   catalog=data.domains.flatMap((d,categoryIndex)=>d.scope.map((name,i)=>({id:categoryIndex*10+i,name,category:d.name,categoryIndex})));
   cities=data.cities.filter(c=>CITY_TYPES[c.id]);
   if(catalog.length!==DOMAINS_REQUIRED||!cities.length)throw Error('도시 및 분야 개수 검증 실패');
+  const responseNames=await fetch('./myon-city-names.json',{cache:'no-store'});
+  if(!responseNames.ok)throw Error('도시 이름 자료 로드 실패');
+  const names=await responseNames.json();
+  if(names?.schema!==1||!Array.isArray(names.prefixes)||!names.prefixes.length||
+     !Array.isArray(names.roots)||!names.roots.length||!names.endings||
+     cities.some(c=>!Array.isArray(names.endings[c.id])||!names.endings[c.id].length)||
+     [...names.prefixes,...names.roots,...cities.flatMap(c=>names.endings[c.id])].some(s=>typeof s!=='string'||!s||s.length>12))
+     throw Error('도시 이름 자료 형식 오류');
+  cityNameData=names;
   world=load()||newWorld();
   if(!write(world))throw Error('DEV 저장소를 사용할 수 없습니다.');
   setupUi();
+  openGame();
   window.setInterval(tick,1000);
  }catch(error){
   console.error('MYON DEV mission start failed:',error);
-  const button=$m('dn-start-test');
-  if(button){button.disabled=true;button.textContent='게임 테스트 준비 실패';button.title=String(error.message||error);}
+  const fallback=$m('welcome');
+  if(fallback){fallback.hidden=false;fallback.textContent='게임 시작 실패 · '+String(error.message||error);}
  }
 }
 bootstrap();

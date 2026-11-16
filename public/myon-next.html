@@ -257,41 +257,6 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 @media(max-width:740px) and (max-height:530px){.ch-head{min-height:28px}.ch-head h1{font-size:18px}.path-icon{font-size:14px}.gender-card .gender-caption{font-size:12px;padding:6px 8px}}
 
 
-/* DEV reference desk: button-by-button navigation (data first, no illustrations) */
-.dev-notes{width:min(1100px,100%);flex:1;min-height:0;display:flex;flex-direction:column;margin:0 auto;overflow:hidden;padding:clamp(10px,2vh,23px) clamp(12px,3vw,32px) 0}
-.dnb-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;padding-bottom:11px;border-bottom:1px solid #2d485c}
-.dnb-kicker{font-size:10px;color:#82acc4;letter-spacing:.11em;margin-bottom:4px}
-.dnb-head h1{font-size:clamp(19px,3vw,26px);margin:0 0 2px}.dnb-head p{font-size:11px;color:#a8c2d3;margin:0;line-height:1.5}
-.dnb-game,.dnb-nav-btn{background:#132d40;color:#e3f3fc;border:1px solid #44687f;border-radius:7px;font-size:11px;font-weight:700;white-space:nowrap}
-.dnb-game{padding:10px 13px}.dnb-nav-btn{padding:8px 11px}
-.dnb-toolbar{display:flex;align-items:center;gap:7px;flex:none;padding:10px 0;min-height:43px}
-.dnb-nav-btn:hover,.dnb-game:hover,.dnb-tile:hover{background:#214055;border-color:#80bdd8}
-.dnb-nav-btn:disabled{opacity:.35;cursor:default}
-.dnb-crumbs{display:flex;align-items:center;gap:3px;flex-wrap:wrap;min-width:0}
-.dnb-crumb{border:0;background:none;color:#accddd;font:inherit;font-size:11px;padding:6px 4px;cursor:pointer}
-.dnb-crumb:last-child{color:#f1faff;font-weight:750}.dnb-divider{font-size:11px;color:#718da1}
-.dnb-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none;padding:7px 1px 24px}
-.dnb-scroll::-webkit-scrollbar{display:none;width:0;height:0}
-.dnb-intro{display:flex;justify-content:space-between;align-items:start;gap:10px;margin:3px 0 16px}
-.dnb-title{font-size:clamp(19px,2.7vw,25px);margin:0 0 5px}
-.dnb-sub{margin:0;font-size:12px;color:#a7bfd0;line-height:1.6}
-.dnb-count{font-size:11px;color:#94b3c8;white-space:nowrap;padding-top:6px}
-.dnb-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-content:start}
-.dnb-tile{display:flex;align-items:center;justify-content:space-between;gap:9px;min-height:75px;width:100%;padding:16px 17px;background:#112739;border:1px solid #34536b;border-radius:9px;color:#eff8ff;text-align:left}
-.dnb-tile-name{display:block;font-size:14px;font-weight:740;line-height:1.35}.dnb-tile-sub{display:block;color:#9abacd;font-size:11px;line-height:1.45;margin-top:5px}
-.dnb-chevron{font-size:19px;color:#8fb5c8;flex:none}
-.dnb-detail{border:1px solid #355267;border-radius:9px;background:#102436;padding:18px}
-.dnb-detail h2{font-size:17px;margin:0 0 12px}
-.dnb-status{display:inline-block;font-size:11px;color:#b7dcef;border:1px solid #42657a;border-radius:5px;padding:4px 8px;margin-bottom:13px}
-.dnb-detail p{font-size:13px;line-height:1.9;color:#c6dce8;white-space:pre-line;margin:0}
-.dnb-foot{margin:19px 1px 0;font-size:11px;color:#91aebf;line-height:1.65}
-.dnb-error{color:#f1b6b6;font-size:12px;padding:10px}
-@media(min-width:860px){.dnb-tiles.dnb-root{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:560px){.dev-notes{padding-top:9px}.dnb-head p{display:none}.dnb-game{padding:8px 10px}.dnb-toolbar{flex-wrap:wrap;gap:5px}.dnb-crumbs{width:100%}.dnb-scroll{padding-top:4px}.dnb-intro{margin-bottom:12px}.dnb-tiles{grid-template-columns:1fr;gap:7px}.dnb-tile{min-height:62px;padding:12px 13px}.dnb-tile-name{font-size:13px}.dnb-detail{padding:14px}.dnb-count{display:none}}
-@media(max-height:550px){.dnb-head{padding-bottom:7px}.dnb-toolbar{padding:5px 0}.dnb-intro{margin-bottom:8px}}
-
-
-
 /* DEV mission sandbox: text-first UI with invisible scrollbar and usable wheel/touch scrolling. */
 .mw-root{width:min(1190px,100%);flex:1;min-height:0;margin:auto;display:flex;flex-direction:column;gap:13px;padding:20px clamp(13px,3.6vw,38px) 12px}
 .mw-head{flex:none;display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:1px solid #36536b;padding-bottom:13px}
@@ -413,27 +378,11 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
  <header class="top">
   <button class="back" type="button" id="back" aria-label="시작화면 돌아가기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m14 5-7 7 7 7M7 12h14"/></svg><span>시작화면</span></button>
   <div class="brand"><b>MYON</b><em>WORLD</em></div>
-  <div class="env"><button type="button" class="dev-note-link" id="dev-notes-open" hidden>개발노트</button><span class="env-dot"></span><span>임무 월드</span><strong>DEV</strong></div>
+  <div class="env"><span class="env-dot"></span><span>임무 월드</span><strong>DEV</strong></div>
  </header>
 
 
 
- <main id="dev-notes" class="dev-notes" hidden aria-label="MYON DEV 개발 현황 및 개발노트">
-  <div class="dnb-head">
-   <div><div class="dnb-kicker">MYON WORLD / DEV</div><h1>개발 현황 · 개발노트</h1><p>랜덤 도시와 임무 엔진을 테스트합니다.</p></div>
-   <button type="button" class="dnb-game" id="dn-start-test">게임 테스트 →</button>
-  </div>
-  <div class="dnb-toolbar">
-   <button type="button" class="dnb-nav-btn" id="dn-back">← 이전</button>
-   <button type="button" class="dnb-nav-btn" id="dn-home">처음으로</button>
-   <nav class="dnb-crumbs" id="dn-crumbs" aria-label="개발노트 메뉴 위치"></nav>
-  </div>
-  <div class="dnb-scroll" id="dn-scroll">
-   <div class="dnb-intro"><div><h2 class="dnb-title" id="dn-title">개발노트</h2><p class="dnb-sub" id="dn-subtitle">상위 메뉴를 선택하세요.</p></div><span class="dnb-count" id="dn-count"></span></div>
-   <div id="dn-view" aria-live="polite"><p class="dnb-foot">설계 기준 자료를 불러오는 중입니다.</p></div>
-   <p class="dnb-foot">확정 · 초안 · 미조사 항목을 구분합니다. 미확정 수치는 임의로 입력하지 않습니다.</p>
-  </div>
- </main>
  <main id="character" class="character" hidden aria-label="캐릭터 만들기">
   <div class="ch-head">
     <div><span class="ch-mark">MYON WORLD</span><h1>캐릭터 만들기</h1></div>
@@ -548,118 +497,6 @@ function confirmCitizen(){if(citizen)return;const name=$('citizen-name').value.t
 const $=id=>document.getElementById(id);
 
 
-// DEV developer notebook follows the approved button-screen hierarchy.
-// The source of truth is the structured JSON used by the previous release.
-let dnLoaded=false,dnTrail=[],dnMenu=[]
-function dnLeaf(title,detail,status='현황 초안'){return {title,detail,status}}
-function dnGroup(title,children,subtitle=''){return {title,children,subtitle}}
-function buildDevNotebook(data){
- return [
-  dnGroup('개발 현황',[
-   dnLeaf('현재 개발 단계',data.stage.title+' — '+data.stage.summary,data.stage.status),
-   dnGroup('확보한 기준',data.stage.done.map(s=>dnLeaf(s,'실제 구현 또는 합의된 항목입니다.','확인')),'완료된 기준'),
-   dnGroup('다음 설계',data.stage.next.map(s=>dnLeaf(s,'현황 확인 후 확정할 설계 작업입니다.','다음')),'이후 진행할 항목')
-  ],'현재 진행 단계와 다음 작업'),
-  dnGroup('세계 공통 규칙',data.principles.map(x=>dnLeaf(x.title,x.body,x.status)),'확정된 세계 운영 원칙'),
-  dnGroup('전체 산업 분야',data.domains.map(x=>dnGroup(x.name,x.scope.map(z=>dnLeaf(z,'공통 분야의 세부 항목입니다. 도시별 시설·인력·운영량·수요는 현황 설계에서 채웁니다.',x.status)),x.status+' · '+x.scope.length+'개 항목')),'15개 대분류 · 150개 상세 분야'),
-  dnGroup('도시별 현황',data.cities.map(c=>dnGroup(c.name,[
-   dnLeaf('지형·지역 특징',c.terrain+' / '+c.identity,'도시 기본 설정'),
-   dnLeaf('현재 운영 현황',c.current,'현황 일부 미확정'),
-   dnGroup('신규 도입 변수',c.conditions.map(s=>dnLeaf(s,'실제 도입 규모와 기존 산업 상태에 따라 발생 조건이 달라집니다.','설계 방향')),'건설·도입에 영향을 주는 조건'),
-   dnGroup('미확정 자료',c.unknown.map(s=>dnLeaf(s,'아직 현황 자료를 확정하지 않았습니다. 수치와 세부 사항은 추후 입력합니다.','미조사')),'확정할 자료')
-  ],c.terrain+' · '+c.identity)),'리엔시 · 하렌 · 세린시'),
-  dnGroup('도시 간 연결',[
-   dnLeaf('연결 현황',data.connections.description,data.connections.status),
-   dnLeaf('교통망','도시 간 도로·철도·항공·해운 연결 현황을 정리할 예정입니다.','미조사'),
-   dnLeaf('자원·물류','공급 계약과 자재 운송 관계를 정리할 예정입니다.','미조사'),
-   dnLeaf('인력·수요','도시별 노동력 이동과 수요 변화를 정리할 예정입니다.','미조사')
-  ],'도시 간 실제 연결 관계'),
-  dnGroup('역순 설계 순서',data.designOrder.map((s,i)=>dnLeaf(String(i+1).padStart(2,'0')+' · '+s,'해당 단계의 자료는 각 메뉴에서 확정합니다.','설계 순서')),'미래 완성형부터 화면까지')
- ]
-}
-function devNotebookAt(path){
- let node={title:'개발노트',children:dnMenu,subtitle:'상위 메뉴 버튼을 선택하면 다음 단계로 이동합니다.'}
- for(const i of path){if(!node.children?.[i])return null;node=node.children[i]}
- return node
-}
-function devNotebookElement(tag,text,cls){
- const node=document.createElement(tag)
- if(text!==undefined)node.textContent=text
- if(cls)node.className=cls
- return node
-}
-function devNotebookGo(path){
- if(!devNotebookAt(path))return
- dnTrail=path.slice()
- devNotebookRender()
- $('dn-scroll').scrollTop=0
-}
-
-function devNotebookRender(){
- const node=devNotebookAt(dnTrail)
- if(!node)return
- const children=node.children||[]
- $('dn-back').disabled=dnTrail.length===0
- $('dn-title').textContent=node.title
- $('dn-subtitle').textContent=node.subtitle||(children.length?'원하는 항목을 선택하세요.':'선택한 항목의 현재 설계 내용입니다.')
- $('dn-count').textContent=children.length?children.length+'개 항목':'상세 자료'
- const crumbs=$('dn-crumbs')
- crumbs.replaceChildren()
- const parts=[{title:'개발노트',path:[]}]
- for(let i=1;i<=dnTrail.length;i++)parts.push({title:devNotebookAt(dnTrail.slice(0,i)).title,path:dnTrail.slice(0,i)})
- for(const [i,item] of parts.entries()){
-  if(i)crumbs.append(devNotebookElement('span','/','dnb-divider'))
-  const button=devNotebookElement('button',item.title,'dnb-crumb')
-  button.type='button'
-  button.addEventListener('click',()=>devNotebookGo(item.path))
-  crumbs.append(button)
- }
- const view=$('dn-view')
- view.replaceChildren()
- if(children.length){
-  const tiles=devNotebookElement('div',undefined,'dnb-tiles'+(dnTrail.length===0?' dnb-root':''))
-  for(const [i,item] of children.entries()){
-   const tile=devNotebookElement('button',undefined,'dnb-tile')
-   tile.type='button'
-   const content=devNotebookElement('div')
-   content.append(devNotebookElement('span',item.title,'dnb-tile-name'))
-   if(item.subtitle||item.status)content.append(devNotebookElement('small',item.subtitle||item.status,'dnb-tile-sub'))
-   tile.append(content,devNotebookElement('span','›','dnb-chevron'))
-   tile.addEventListener('click',()=>devNotebookGo([...dnTrail,i]))
-   tiles.append(tile)
-  }
-  view.append(tiles)
- }else{
-  const detail=devNotebookElement('div',undefined,'dnb-detail')
-  if(node.status)detail.append(devNotebookElement('span',node.status,'dnb-status'))
-  detail.append(devNotebookElement('h2',node.title))
-  detail.append(devNotebookElement('p',node.detail||'세부 현황은 아직 설계 중입니다.'))
-  view.append(detail)
- }
-}
-function devNotebookBack(){
- if(dnTrail.length){devNotebookGo(dnTrail.slice(0,-1));return}
- resumeDevGame()
-}
-async function loadDevNotes(){
- if(dnLoaded){devNotebookRender();return}
- const archived=/\/releases\/[a-f0-9]{40}\/myon-next\.html$/i.test(location.pathname)
- const url=new URL(archived?'../../myon-world-baseline.json':'./myon-world-baseline.json',location.href)
- try{
-  const response=await fetch(url,{cache:'no-store'})
-  if(!response.ok)throw Error('HTTP '+response.status)
-  const data=await response.json()
-  if(data?.schema!==1||!data.stage||!Array.isArray(data.domains)||!Array.isArray(data.cities)||!Array.isArray(data.principles)||!Array.isArray(data.designOrder))throw Error('자료 형식 오류')
-  dnMenu=buildDevNotebook(data)
-  dnLoaded=true
-  devNotebookGo([])
- }catch(error){
-  $('dn-view').replaceChildren(devNotebookElement('p','개발노트 자료를 불러올 수 없습니다. 다시 접속하거나 DEV 자료 파일을 확인해 주세요.','dnb-error'))
-  console.warn('DEV reference error',error)
- }
-}
-function resumeDevGame(){if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')}
-
 const cityNames={lien:'리엔시',haren:'하렌',serin:'세린시'};
 const cityInfo={
  lien:{topic:'사람들이 만들어가는 끝없는 이야기',location:'리엔시 · 도심 광장',scene:'바쁜 거리에서 시민들이 저마다의 하루를 보내고 있습니다. 누군가의 이야기를 들을 수도, 그냥 지나갈 수도 있어요.',theme:'사람들의 도시 · 관계와 대화',zone:'ARDEN / CENTRAL DISTRICT',events:{
@@ -695,10 +532,8 @@ function showScreen(screen){
  if(screen==='character'&&citizen)screen=cityLocked?'arrival':'picker';
  if(screen==='picker'&&cityLocked)screen='arrival';
  currentScreen=screen;
- $('dev-notes').hidden=screen!=='notes';
- $('city-ambient').hidden=screen==='notes';
- $('dev-notes-open').hidden=screen==='notes';
- $('back').querySelector('span').textContent=screen==='notes'?'게임 테스트':screen==='character'?'시작화면':screen==='arrival'?'현재 도시':'시작화면';
+ $('city-ambient').hidden=true;
+ $('back').querySelector('span').textContent=screen==='arrival'?'현재 도시':'시작화면';
  $('character').hidden=screen!=='character';
  document.querySelector('.main').hidden=screen!=='picker';
  $('arrival').hidden=screen!=='arrival';
@@ -744,7 +579,6 @@ function act(action,button){
 }
 function back(){
  if(modal.classList.contains('open')){closeModal();return;}
- if(currentScreen==='notes'){devNotebookBack();return;}
  if(currentScreen==='character')return;
  if(cityLocked){showScreen('arrival');return;}
  if(currentScreen==='picker')showScreen('welcome');else showScreen('picker');
@@ -762,11 +596,6 @@ $('modal-close').addEventListener('click',closeModal);
 $('switch-city').addEventListener('click',()=>showScreen('picker'));
 $('go-city').addEventListener('click',()=>showScreen('picker'));
 $('back').addEventListener('click',back);
-$('dn-start-test').addEventListener('click',resumeDevGame);
-$('dev-notes-open').addEventListener('click',()=>{showScreen('notes');devNotebookGo([]);loadDevNotes()});
-$('dn-back').addEventListener('click',devNotebookBack);
-$('dn-home').addEventListener('click',()=>devNotebookGo([]));
-window.addEventListener('resize',()=>{if(currentScreen==='notes'&&dnLoaded)devNotebookRender()});
 modal.addEventListener('click',event=>{if(event.target===modal)closeModal()});
 document.addEventListener('keydown',event=>{
  if(event.key==='Escape'){
@@ -782,8 +611,7 @@ citizen=devSaveReady?readCitizen():null;cityLocked=Boolean(citizen&&citizen.city
 if(cityLocked)selectedCity=citizen.city;
 if(citizen)$('city-intro').textContent=citizen.name+' 님, 첫 도시를 골라주세요. 입성 후에는 교통편을 통해 이동해야 합니다.';
 selectCity(selectedCity);
-showScreen('notes');
-loadDevNotes();
+showScreen('welcome');
 
 // Initial ambient city background matches the default highlighted selection.
 if(!cityLocked)selectCity(selectedCity);
