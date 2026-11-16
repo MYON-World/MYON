@@ -458,3 +458,26 @@ test('city information uses a separate scrollable modal and 15 category buttons'
  assert.match(html,/\.mw-stat-zone\{[^}]*scrollbar-width:none/);
  assert.match(html,/\.mw-stat-zone::-webkit-scrollbar\{display:none;width:0;height:0\}/);
 });
+
+test('DEV top bar reuses portal M emblem and displays KST plus M cash',()=>{
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ assert.ok(app.includes('class="brand-mark">M</span>'));
+ assert.ok(html.includes('class="top-emblem" role="img" aria-label="MYON 엠블럼">M</span>'));
+ assert.ok(html.includes('class="top-server">개발서버</span>'));
+ assert.ok(html.includes('id="top-clock-time"'));
+ assert.ok(html.includes('id="top-clock-date"'));
+ assert.ok(html.includes("timeZone:'Asia/Seoul'"));
+ assert.ok(html.includes("window.setInterval(updateTopClock,1000)"));
+ assert.ok(html.includes('id="mw-money-strip" class="mw-money-strip" hidden'));
+ assert.ok(html.includes('id="mw-cash" class="mw-money-value"'));
+ assert.ok(html.includes('class="mw-money-unit">M</span>'));
+ assert.ok(!html.includes('<div class="brand"><b>MYON</b>'));
+ assert.ok(game.includes("$m('mw-money-strip').hidden=false"));
+ assert.ok(game.includes("$m('mw-cash').textContent=fmt(world.cash)"));
+ assert.ok(!game.includes("'mw-cash-box'"));
+ assert.ok(!game.includes("add(left,'h1','mw-city'"));
+ assert.ok(game.includes('world.cityName||city?.name||world.city'));
+ new (require('node:vm').Script)(game);
+});

@@ -371,15 +371,52 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 }
 @media(max-width:360px){.mw-rewards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+
+/* DEV header: reuse the portal's circular M emblem, KST clock, and cash-only row. */
+.top{height:70px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 clamp(14px,3.6vw,38px);background:#081b2c;border-bottom:1px solid #29445a}
+.top-identity{display:flex;align-items:center;gap:10px;min-width:0}
+.top-emblem{position:relative;display:grid;place-items:center;flex:none;width:44px;height:44px;border:1px solid rgba(176,225,255,.67);border-radius:50%;font:700 22px Georgia,serif;color:#d4f6ff;box-shadow:0 0 24px rgba(62,176,255,.13)}
+.top-emblem:before{content:'';position:absolute;inset:14px -6px;border-top:1px solid rgba(117,218,255,.8);transform:rotate(-29deg);pointer-events:none}
+.top-server{font-size:12px;font-weight:650;color:#9bd9c4;white-space:nowrap}
+.top-clock{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;white-space:nowrap}
+.top-time{font-size:23px;font-weight:750;font-variant-numeric:tabular-nums;color:#eff9ff;letter-spacing:-.035em;line-height:1.15}
+.top-date{font-size:10px;letter-spacing:.04em;color:#92b3c8}
+.mw-money-strip{width:100%;height:57px;flex:none;display:flex;align-items:center;background:#081b2c;border-bottom:1px solid #29445a}
+.mw-money-inner{display:flex;align-items:baseline;justify-content:flex-end;gap:9px;margin:0 auto;width:min(1190px,100%);padding:0 clamp(14px,3.6vw,38px)}
+.mw-money-value{color:#eff9ff;font-size:27px;line-height:1.2;letter-spacing:-.035em;font-variant-numeric:tabular-nums;font-weight:750}
+.mw-money-unit{color:#9bd9c4;font-size:18px;font-weight:650}
+.mw-head{justify-content:flex-end;border-bottom:0;padding-bottom:0}
+.mw-header-actions{justify-content:flex-end}
+@media(max-width:740px){
+ .top{height:64px;padding:0 13px}
+ .top-emblem{width:40px;height:40px;font-size:21px}
+ .top-server{font-size:11px}
+ .top-time{font-size:21px}
+ .top-date{font-size:9px}
+ .mw-money-strip{height:49px}
+ .mw-money-inner{padding:0 13px}
+ .mw-money-value{font-size:24px}
+ .mw-money-unit{font-size:17px}
+}
+@media(max-height:520px){
+ .top{height:55px}
+ .top-emblem{width:36px;height:36px}
+ .mw-money-strip{height:44px}
+ .mw-money-value{font-size:22px}
+}
+
 </style></head>
 <body>
 <div class="shell">
  <div class="city-ambient" id="city-ambient" aria-hidden="true"></div>
- <header class="top">
-  <button class="back" type="button" id="back" aria-label="시작화면 돌아가기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m14 5-7 7 7 7M7 12h14"/></svg><span>시작화면</span></button>
-  <div class="brand"><b>MYON</b><em>WORLD</em></div>
-  <div class="env"><span class="env-dot"></span><span>임무 월드</span><strong>DEV</strong></div>
+ <header class="top" aria-label="MYON 개발서버 상단 메뉴">
+  <button class="back" type="button" id="back" hidden aria-label="시작화면 돌아가기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m14 5-7 7 7 7M7 12h14"/></svg><span>시작화면</span></button>
+  <div class="top-identity"><span class="top-emblem" role="img" aria-label="MYON 엠블럼">M</span><span class="top-server">개발서버</span></div>
+  <div class="top-clock" aria-label="한국 표준시간"><strong class="top-time" id="top-clock-time">--:--:--</strong><span class="top-date" id="top-clock-date">--.-- --- · KST</span></div>
  </header>
+ <div id="mw-money-strip" class="mw-money-strip" hidden aria-label="현재 보유 자금">
+  <div class="mw-money-inner"><strong id="mw-cash" class="mw-money-value">0</strong><span class="mw-money-unit">M</span></div>
+ </div>
 
 
 
@@ -495,6 +532,19 @@ function chooseCharacter(kind,value){if(kind==='gender'){if(!validGender.include
 function confirmCitizen(){if(citizen)return;const name=$('citizen-name').value.trim();if(name.length<2||name.length>12||!validGender.includes(genderChoice)||!validPaths.includes(pathChoice))return;const v={schema:1,id:createId(),name,gender:genderChoice,path:pathChoice,city:null,createdAt:new Date().toISOString()};if(!storeCitizen(v)){$('character-error').textContent='정보를 저장할 수 없습니다. 브라우저 저장 설정을 확인해주세요.';return;}citizen=v;$('city-intro').textContent=name+' 님, 첫 도시를 골라주세요. 도시에 입성한 후에는 교통편을 통해 이동해야 합니다.';showScreen('picker');}
 
 const $=id=>document.getElementById(id);
+
+// MYON standard-time clock; always render in KST regardless of device timezone.
+const topClockFormat=new Intl.DateTimeFormat('en-US',{
+ timeZone:'Asia/Seoul',hourCycle:'h23',hour:'2-digit',minute:'2-digit',second:'2-digit',
+ month:'2-digit',day:'2-digit',weekday:'short'
+});
+function updateTopClock(){
+ const parts=Object.fromEntries(topClockFormat.formatToParts(new Date()).map(part=>[part.type,part.value]));
+ $('top-clock-time').textContent=parts.hour+':'+parts.minute+':'+parts.second;
+ $('top-clock-date').textContent=parts.month+'.'+parts.day+' '+parts.weekday.toUpperCase()+' · KST';
+}
+updateTopClock();
+window.setInterval(updateTopClock,1000);
 
 
 const cityNames={lien:'리엔시',haren:'하렌',serin:'세린시'};

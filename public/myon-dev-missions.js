@@ -256,8 +256,7 @@ function render(){
  const scroller=$m('mw-scroll');
  const scrollY=scroller?.scrollTop||0;
  const city=cities.find(c=>c.id===world.city);
- $m('mw-city').textContent=world.cityName||city?.name||world.city;
- $m('mw-terrain').textContent=(city?.terrain||CITY_TYPES[world.city].terrain)+' · '+(city?.identity||'');
+ $m('mw-stats-title').textContent=(world.cityName||city?.name||world.city)+' · 도시 정보';
  $m('mw-cash').textContent=fmt(world.cash);
  $m('mw-notice').textContent=notice;
  $m('mw-stats-toggle').textContent=showStats?'정보창 닫기':'도시 정보창';
@@ -284,6 +283,7 @@ function openGame(){
  if(!world)return;
  currentScreen='missions';
  $m('mw-root').hidden=false;
+ $m('mw-money-strip').hidden=false;
  document.querySelector('.main').hidden=true;
  $m('character').hidden=true;
  $m('arrival').hidden=true;
@@ -297,12 +297,7 @@ function setupUi(){
  const root=elem('main','mw-root');root.id='mw-root';root.hidden=true;
  root.setAttribute('aria-label','MYON DEV 임무 테스트');
  const head=add(root,'div','mw-head');
- const left=add(head,'div','');
- add(left,'span','mw-eyebrow','MYON WORLD / MISSION TEST');
- add(left,'h1','mw-city','').id='mw-city';
- add(left,'p','mw-terrain','').id='mw-terrain';
  const headerRight=add(head,'div','mw-header-actions');
- const cash=add(headerRight,'div','mw-cash-box');add(cash,'span','mw-label','보유 금전');add(cash,'strong','mw-cash','0').id='mw-cash';
  const toggle=add(headerRight,'button','mw-button','도시 정보창');toggle.type='button';toggle.id='mw-stats-toggle';
  toggle.setAttribute('aria-haspopup','dialog');toggle.setAttribute('aria-expanded','false');
  toggle.addEventListener('click',toggleStats);
