@@ -11,13 +11,12 @@ const CITY_TYPES={
 };
 const INITIAL_OFFERS=4,MAX_WAITING_OFFERS=10,OFFER_INTERVAL_MS=600000,OFFER_LIFETIME_MS=3600000;
 const $m=id=>document.getElementById(id);
-let catalog=[],cities=[],world=null,cityNameData=null,viewCategory=0,showStats=false,notice='';
+let catalog=[],cities=[],world=null,cityNameData=null,notice='';
 const randInt=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
 const round2=n=>Math.round((n+Number.EPSILON)*100)/100;
 const fmt=n=>Number(n).toLocaleString('ko-KR');
 const two=n=>Number(n).toFixed(2);
 const signed=n=>(n>=0?'+':'−')+two(Math.abs(n));
-const hourClock=seconds=>{const s=Math.max(0,Math.floor(seconds));return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
 const choose=list=>list[randInt(0,list.length-1)];
 const fieldTitle=id=>catalog[id]?.name||'알 수 없음';
 function bandValue(){
@@ -171,23 +170,16 @@ function begin(id){
   next.active.push(task);
  })) {notice='임무 수락 · '+fmt(m.acceptCost)+' M 차감';render()}
 }
-function restart(){
- if(!window.confirm('새 무작위 도시에서 처음부터 시작할까요?\n현재 자금·임무·분야 수치가 초기화됩니다.'))return;
- const fresh=newWorld();
- try{
-  const before=localStorage.getItem(STORE);if(before)localStorage.setItem(STORE+'.backup',before);
- }catch(error){console.warn('MYON DEV city backup',error)}
- if(!write(fresh)){notice='저장할 수 없어 도시를 변경하지 않았습니다.';render();return}
- world=fresh;notice='새 도시에서 시작했습니다.';closeStats();render();
-}
 function elem(tag,cl,text){
  const e=document.createElement(tag);if(cl)e.className=cl;
  if(text!==undefined)e.textContent=text;return e;
 }
 function add(parent,tag,cl,text){const e=elem(tag,cl,text);parent.append(e);return e}
-function statCell(parent,label,value,cl){
+function statCell(parent,label,value,cl,unit){
  const cell=add(parent,'div','mw-value');
- add(cell,'span','mw-label',label);add(cell,'strong',cl||'',value);
+ add(cell,'span','mw-label',label);
+ add(cell,'strong',cl||'',value);
+ if(unit)add(cell,'small','mw-unit',unit);
 }
 function renderMission(m,active){
  const item=elem('article','mw-card');item.dataset.missionId=m.id;
@@ -200,8 +192,8 @@ function renderMission(m,active){
   button.type='button';button.addEventListener('click',()=>begin(m.id));
  }
  const grid=add(item,'div','mw-rewards');
- statCell(grid,'수락',fmt(m.acceptCost)+' M','mw-cost');
- statCell(grid,'보상',fmt(m.money)+' M');
+ statCell(grid,'수락',fmt(m.acceptCost),'mw-cost','M');
+ statCell(grid,'보상',fmt(m.money),'','M');
  statCell(grid,'기여',signed(m.direct),'mw-positive');
  statCell(grid,'+변수',signed(m.plus.amount),'mw-positive');
  statCell(grid,'−변수',signed(m.minus.amount),'mw-negative');
@@ -224,47 +216,6 @@ function renderHistory(parent){
   values.append('+'+fmt(m.money)+' · '+signed(m.direct)+' · '+fieldTitle(m.mystery.field)+' '+signed(m.mystery.amount));
  }
 }
-function renderStats(parent){
- const contents=add(parent,'div','mw-info-grid');
- const categories=add(contents,'nav','mw-categories');
- categories.setAttribute('aria-label','대분류 선택');
- for(let i=0;i<CATEGORIES_REQUIRED;i++){
-  const button=add(categories,'button','mw-category'+(viewCategory===i?' active':''),catalog[i*10].category);
-  button.type='button';button.setAttribute('aria-pressed',String(viewCategory===i));
-  button.addEventListener('click',()=>{
-   viewCategory=i;
-   const body=$m('mw-stat-zone');
-   body.replaceChildren();renderStats(body);
-   const buttons=body.querySelectorAll('.mw-category');
-   if(buttons[i])buttons[i].focus({preventScroll:true});
-  });
- }
- const fields=add(contents,'section','mw-fields');
- add(fields,'h3','mw-fields-title',catalog[viewCategory*10].category+' · 10개 분야');
- for(const field of catalog.filter(x=>x.categoryIndex===viewCategory)){
-  const row=add(fields,'div','mw-stat-row');
-  add(row,'span','',field.name);
-  add(row,'strong','',two(world.stats[field.id]));
- }
-}
-function closeStats(){
- showStats=false;
- const modal=$m('mw-stats-modal');
- if(modal)modal.hidden=true;
- const toggle=$m('mw-stats-toggle');
- if(toggle){toggle.setAttribute('aria-expanded','false');toggle.textContent='도시 정보창'}
-}
-function toggleStats(){
- showStats=!showStats;
- const modal=$m('mw-stats-modal'),toggle=$m('mw-stats-toggle');
- modal.hidden=!showStats;
- toggle.setAttribute('aria-expanded',String(showStats));
- toggle.textContent=showStats?'정보창 닫기':'도시 정보창';
- if(showStats){
-  const stats=$m('mw-stat-zone');stats.replaceChildren();renderStats(stats);
-  $m('mw-stats-close').focus({preventScroll:true});
- }else toggle.focus({preventScroll:true});
-}
 function updateProgress(){
  if(!world)return;
  for(const m of world.active){
@@ -286,8 +237,6 @@ function render(){
  const root=$m('mw-root');if(!root)return;
  const scroller=$m('mw-scroll');
  const scrollY=scroller?.scrollTop||0;
- const city=cities.find(c=>c.id===world.city);
- $m('mw-stats-title').textContent=(world.cityName||city?.name||world.city)+' · 도시 정보';
  $m('mw-cash').textContent=fmt(world.cash);
  $m('mw-notice').textContent=notice;
 
@@ -300,8 +249,6 @@ function render(){
  if(world.active.length)for(const m of world.active)active.append(renderMission(m,true));
  else add(active,'p','mw-muted','진행 중인 임무가 없습니다.');
  const history=$m('mw-history');history.replaceChildren();renderHistory(history);
- const stats=$m('mw-stat-zone');
- if(showStats){stats.replaceChildren();renderStats(stats)}
  if(scroller)scroller.scrollTop=scrollY;
 }
 function tick(){
@@ -337,15 +284,6 @@ function setupUi(){
  const h2=add(section2,'div','mw-section-head');add(h2,'h2','mw-section-title','진행 중');add(h2,'span','mw-small','').id='mw-active-count';
  add(section2,'div','mw-cards','').id='mw-active';
  add(scroll,'section','mw-section','').id='mw-history';
- const modal=add(parent,'div','mw-stats-modal');modal.id='mw-stats-modal';modal.hidden=true;
- const panel=add(modal,'div','mw-stats-panel');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','mw-stats-title');
- const panelHead=add(panel,'div','mw-modal-head');
- const title=add(panelHead,'h2','mw-section-title','도시 정보창');title.id='mw-stats-title';
- const close=add(panelHead,'button','mw-button','닫기');close.id='mw-stats-close';close.type='button';
- close.addEventListener('click',()=>{closeStats()});
- add(panel,'div','mw-stat-zone').id='mw-stat-zone';
- modal.addEventListener('click',event=>{if(event.target===modal){closeStats()}});
- document.addEventListener('keydown',event=>{if(event.key==='Escape'&&showStats){event.stopImmediatePropagation();closeStats()}},true);
  parent.insertBefore(root,$m('character'));
 
 }

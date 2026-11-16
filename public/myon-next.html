@@ -310,7 +310,7 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 @media(max-height:530px){.mw-head h1{font-size:20px}.mw-root{gap:6px}.mw-head{padding-bottom:7px}}
 
 
-/* Compact mission cards, city information as separate button-menu dialog. */
+/* DEV mission cards: same five fields on desktop and mobile. */
 .mw-root{gap:8px;padding-top:12px}
 .mw-head{gap:10px;padding-bottom:9px}
 .mw-head h1{font-size:clamp(21px,2.5vw,27px);margin:3px 0}
@@ -333,6 +333,9 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 .mw-value{padding:6px 7px;gap:3px;border:1px solid #28465b;background:#11283a}
 .mw-value .mw-label{font-size:9px;line-height:1.25;overflow-wrap:anywhere}
 .mw-value strong{font-size:12px;line-height:1.2}
+.mw-value .mw-unit{font-size:9px;color:#7f9bad;line-height:1.1}
+.mw-value{align-items:center;text-align:center}
+#mw-notice:empty{display:none}
 .mw-card-bottom{border:0;padding:0;gap:7px;min-height:0}
 .mw-track{height:5px}
 .mw-count{font-size:10px}
@@ -358,13 +361,13 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
  .mw-header-actions{gap:5px}
  .mw-button{padding:8px 9px}
  .mw-card{padding:9px;gap:7px}
- .mw-card-top{flex-wrap:wrap}
- .mw-card-identity{flex-basis:100%}
+ .mw-card-top{flex-wrap:nowrap}
+ .mw-card-identity{flex-basis:auto}
  .mw-name{font-size:15px}
- .mw-card-controls{flex:1;justify-content:flex-end}
- .mw-rewards{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
- .mw-value{padding:6px}
- .mw-value strong{font-size:12px}
+ .mw-card-controls{flex:none;justify-content:flex-end}
+ .mw-rewards{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+ .mw-value{padding:6px 2px;min-width:0}
+ .mw-value strong{font-size:11px;white-space:nowrap}
  .mw-info-grid{grid-template-columns:1fr;gap:10px}
  .mw-categories{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
  .mw-category{min-height:32px;font-size:10px;padding:4px 3px}
@@ -372,7 +375,7 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
  .mw-stats-panel{max-height:calc(100dvh - 20px)}
  .mw-stat-row{padding:7px 2px}
 }
-@media(max-width:360px){.mw-rewards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:360px){.mw-value{padding:6px 1px}.mw-value strong{font-size:9px}.mw-value .mw-label{font-size:8px}}
 
 
 /* DEV header: reuse the portal's circular M emblem, KST clock, and cash-only row. */
@@ -518,7 +521,7 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 const devSaveParams=new URLSearchParams(location.search)
 const requestedDevVersion=devSaveParams.get('dev_version')
 const isVersionedDevSave=devSaveParams.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(devSaveParams.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'')
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.81'
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.82'
 const DEV_VERSION_MARKER='MYON_DEV_ACTIVE_VERSION_V1'
 const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION
 let devSaveReady=false
