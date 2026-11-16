@@ -9,7 +9,7 @@ const CITY_TYPES={
  haren:{terrain:'산악·내륙',favored:[0,1,2,9,12],hard:[6,7,8]},
  serin:{terrain:'해안·항만',favored:[1,6,7,8,3],hard:[0,2,9]}
 };
-const LIMIT=4;
+const INITIAL_OFFERS=4,MAX_WAITING_OFFERS=10,OFFER_INTERVAL_MS=600000,OFFER_LIFETIME_MS=3600000;
 const $m=id=>document.getElementById(id);
 let catalog=[],cities=[],world=null,cityNameData=null,viewCategory=0,showStats=false,notice='';
 const randInt=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
@@ -43,22 +43,43 @@ function initialStats(cityId){
   return randInt(...limits)/100;
  });
 }
-function generateMission(state){
- const field=randInt(0,catalog.length-1);
- const entry=catalog[field],score=state.stats[field];
- const r=Math.random()*100;
- const grade=r<94?'일반':r<99?'극한':'리얼';
+function generateMission(state,createdAt=Date.now(),free=false){
+ const field=randInt(0,catalog.length-1),entry=catalog[field],score=state.stats[field];
+ const r=Math.random()*100,grade=r<94?'일반':r<99?'극한':'리얼';
  const minutes=grade==='일반'?randInt(30,180):grade==='극한'?randInt(180,360):randInt(360,1440);
  const bonus=grade==='극한'?10000:grade==='리얼'?50000:0;
  const fit=profile(state.city,entry.categoryIndex,entry.name);
  const direct=Math.max(0.01,round2(bandValue()*fit));
  const plus={field:randInt(0,catalog.length-1),amount:bandValue()};
  const minus={field:randInt(0,catalog.length-1),amount:-bandValue()};
- return {id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,10),field,stage:stage(score),
-  grade,minutes,durationTicks:minutes*60,money:minutes*100+bonus,direct,plus,minus,createdAt:Date.now()};
+ return {id:'m'+createdAt.toString(36)+Math.random().toString(36).slice(2,10),
+  field,stage:stage(score),grade,minutes,durationTicks:minutes*60,money:minutes*100+bonus,
+  acceptCost:free?0:minutes,direct,plus,minus,createdAt,expiresAt:createdAt+OFFER_LIFETIME_MS};
 }
-function fillOffers(state){
- while(state.offers.length+state.active.length<LIMIT)state.offers.push(generateMission(state));
+function ensureFreeRecovery(state){
+ // Missing all starter offers must not block a zero-money player permanently.
+ if(state.cash===0&&state.active.length===0&&state.offers.length&&!state.offers.some(m=>m.acceptCost===0))
+  state.offers[0].acceptCost=0;
+}
+function refreshOffers(){
+ if(!world)return false;
+ const now=Date.now();
+ if(now<world.nextOfferAt&&!world.offers.some(m=>m.expiresAt<=now))return false;
+ const ok=transact(next=>{
+  next.offers=next.offers.filter(m=>m.expiresAt>now);
+  let scheduled=next.nextOfferAt;
+  if(scheduled<now-OFFER_LIFETIME_MS)
+   scheduled+=Math.ceil((now-OFFER_LIFETIME_MS-scheduled)/OFFER_INTERVAL_MS)*OFFER_INTERVAL_MS;
+  for(;scheduled<=now;scheduled+=OFFER_INTERVAL_MS){
+   if(next.offers.length<MAX_WAITING_OFFERS)next.offers.push(generateMission(next,scheduled));
+  }
+  next.offers=next.offers.filter(m=>m.expiresAt>now);
+  if(now>=next.nextOfferAt)
+   next.nextOfferAt+=(Math.floor((now-next.nextOfferAt)/OFFER_INTERVAL_MS)+1)*OFFER_INTERVAL_MS;
+  ensureFreeRecovery(next);
+ });
+ if(ok)render();
+ return ok;
 }
 function createCityName(city){
  if(!cityNameData)return cities.find(c=>c.id===city)?.name||city;
@@ -66,15 +87,19 @@ function createCityName(city){
 }
 function newWorld(){
  const city=choose(cities).id,cityName=createCityName(city);
- const next={schema:1,city,cityName,createdAt:Date.now(),cash:0,stats:initialStats(city),offers:[],active:[],history:[]};
- fillOffers(next);
+ const createdAt=Date.now();
+ const next={schema:1,city,cityName,createdAt,cash:0,stats:initialStats(city),offers:[],active:[],history:[],nextOfferAt:createdAt+OFFER_INTERVAL_MS};
+ for(let i=0;i<INITIAL_OFFERS;i++)next.offers.push(generateMission(next,createdAt,true));
  return next;
 }
 function validWorld(v){
  return !!(v&&v.schema===1&&CITY_TYPES[v.city]&&(v.cityName===undefined||(typeof v.cityName==='string'&&v.cityName.length>=2&&v.cityName.length<=24))&&Array.isArray(v.stats)&&v.stats.length===DOMAINS_REQUIRED&&v.stats.every(n=>Number.isFinite(n)&&n>=0&&n<=100)
   &&Number.isSafeInteger(v.cash)&&v.cash>=0&&Array.isArray(v.offers)&&Array.isArray(v.active)&&Array.isArray(v.history)
-  &&v.offers.length+v.active.length<=LIMIT&&[...v.offers,...v.active].every(m=>m&&Number.isSafeInteger(m.durationTicks)&&m.durationTicks>=1800
-    &&Number.isSafeInteger(m.field)&&m.field>=0&&m.field<DOMAINS_REQUIRED&&Number.isFinite(m.money)));
+  &&v.offers.length<=MAX_WAITING_OFFERS&&Number.isSafeInteger(v.nextOfferAt)&&v.nextOfferAt>0&&[...v.offers,...v.active].every(m=>m&&Number.isSafeInteger(m.durationTicks)&&m.durationTicks>=1800
+    &&Number.isSafeInteger(m.field)&&m.field>=0&&m.field<DOMAINS_REQUIRED&&Number.isSafeInteger(m.money)
+     &&Number.isSafeInteger(m.acceptCost)&&m.acceptCost>=0)
+   &&v.offers.every(m=>Number.isSafeInteger(m.createdAt)&&m.expiresAt===m.createdAt+OFFER_LIFETIME_MS)
+   &&v.active.every(m=>Number.isSafeInteger(m.startedAt)&&m.endsAt===m.startedAt+m.durationTicks*1000));
 }
 function write(next){
  if(!validWorld(next))return false;
@@ -129,19 +154,22 @@ function settleDue(){
   }
   next.active=active;
   next.history=next.history.slice(0,40);
-  fillOffers(next);
+
  });
  if(ok&&done.length){notice=done.length+'건 정산 완료';render()}
 }
 function begin(id){
  if(!world)return;
- const found=world.offers.find(m=>m.id===id);if(!found)return;
+ const m=world.offers.find(m=>m.id===id);if(!m)return;
+ if(m.expiresAt<=Date.now()){refreshOffers();return}
+ if(m.acceptCost>world.cash){notice='자금 부족 · 수락 비용 '+fmt(m.acceptCost)+' M';render();return}
  if(transact(next=>{
-  const index=next.offers.findIndex(m=>m.id===id);if(index<0)return;
-  const m=next.offers.splice(index,1)[0];
-  m.startedAt=Date.now();m.endsAt=m.startedAt+m.durationTicks*1000;
-  next.active.push(m);
- })) {notice='임무 수락 · 현실시간으로 진행됩니다.';render()}
+  const index=next.offers.findIndex(x=>x.id===id);if(index<0)return;
+  const task=next.offers.splice(index,1)[0];
+  next.cash-=task.acceptCost;
+  task.startedAt=Date.now();task.endsAt=task.startedAt+task.durationTicks*1000;
+  next.active.push(task);
+ })) {notice='임무 수락 · '+fmt(m.acceptCost)+' M 차감';render()}
 }
 function restart(){
  if(!window.confirm('새 무작위 도시에서 처음부터 시작할까요?\n현재 자금·임무·분야 수치가 초기화됩니다.'))return;
@@ -162,36 +190,28 @@ function statCell(parent,label,value,cl){
  add(cell,'span','mw-label',label);add(cell,'strong',cl||'',value);
 }
 function renderMission(m,active){
- const item=elem('article','mw-card');
- item.dataset.missionId=m.id;
- const top=add(item,'div','mw-card-top');
- const identity=add(top,'div','mw-card-identity');
+ const item=elem('article','mw-card');item.dataset.missionId=m.id;
+ const top=add(item,'div','mw-card-top'),identity=add(top,'div','mw-card-identity');
  add(identity,'span','mw-tag',catalog[m.field].category);
  add(identity,'h3','mw-name',fieldTitle(m.field));
- const controls=add(top,'div','mw-card-controls');
- if(m.grade!=='일반')add(controls,'span','mw-tier mw-special',m.grade);
- add(controls,'span','mw-stage',m.stage+'단계');
- if(active){
-  const remaining=Math.max(0,Math.ceil((m.endsAt-Date.now())/1000));
-  add(controls,'span','mw-time',hourClock(remaining)+' 남음');
- }else{
-  add(controls,'span','mw-time',hourClock(m.durationTicks));
+ if(!active){
+  const controls=add(top,'div','mw-card-controls');
   const button=add(controls,'button','mw-button mw-accept','수락');
   button.type='button';button.addEventListener('click',()=>begin(m.id));
  }
  const grid=add(item,'div','mw-rewards');
- statCell(grid,'금전',fmt(m.money));
+ statCell(grid,'수락',fmt(m.acceptCost)+' M','mw-cost');
+ statCell(grid,'보상',fmt(m.money)+' M');
  statCell(grid,'기여',signed(m.direct),'mw-positive');
- statCell(grid,'+ · '+fieldTitle(m.plus.field),signed(m.plus.amount),'mw-positive');
- statCell(grid,'− · '+fieldTitle(m.minus.field),signed(m.minus.amount),'mw-negative');
- statCell(grid,'? · 미지','?');
- if(active){
-  const foot=add(item,'div','mw-card-bottom');
-  const track=add(foot,'div','mw-track');
-  const progress=Math.min(100,Math.max(0,((Date.now()-m.startedAt)/(m.durationTicks*1000))*100));
-  add(track,'div','mw-fill').style.width=progress+'%';
-  add(foot,'span','mw-count',Math.floor(progress)+'%');
- }
+ statCell(grid,'+변수',signed(m.plus.amount),'mw-positive');
+ statCell(grid,'−변수',signed(m.minus.amount),'mw-negative');
+ const foot=add(item,'div','mw-card-bottom');
+ const track=add(foot,'div','mw-track'+(active?'':' mw-expire-track'));
+ const progress=active
+  ?Math.min(100,Math.max(0,((Date.now()-m.startedAt)/(m.durationTicks*1000))*100))
+  :Math.min(100,Math.max(0,((Date.now()-m.createdAt)/OFFER_LIFETIME_MS)*100));
+ add(track,'div','mw-fill'+(active?'':' mw-expire-fill')).style.width=progress+'%';
+ if(active)add(foot,'span','mw-count',Math.floor(progress)+'%');
  return item;
 }
 function renderHistory(parent){
@@ -250,12 +270,15 @@ function updateProgress(){
  for(const m of world.active){
   const card=$m('mw-active')?.querySelector('[data-mission-id="'+m.id+'"]');
   if(!card)continue;
-  const remaining=Math.max(0,Math.ceil((m.endsAt-Date.now())/1000));
   const progress=Math.min(100,Math.max(0,((Date.now()-m.startedAt)/(m.durationTicks*1000))*100));
-  const clock=card.querySelector('.mw-time'),fill=card.querySelector('.mw-fill'),count=card.querySelector('.mw-count');
-  if(clock)clock.textContent=hourClock(remaining)+' 남음';
+  const fill=card.querySelector('.mw-fill'),count=card.querySelector('.mw-count');
   if(fill)fill.style.width=progress+'%';
   if(count)count.textContent=Math.floor(progress)+'%';
+ }
+ for(const m of world.offers){
+  const card=$m('mw-offers')?.querySelector('[data-mission-id="'+m.id+'"]');
+  const fill=card?.querySelector('.mw-expire-fill');
+  if(fill)fill.style.width=Math.min(100,Math.max(0,((Date.now()-m.createdAt)/OFFER_LIFETIME_MS)*100))+'%';
  }
 }
 function render(){
@@ -267,13 +290,12 @@ function render(){
  $m('mw-stats-title').textContent=(world.cityName||city?.name||world.city)+' · 도시 정보';
  $m('mw-cash').textContent=fmt(world.cash);
  $m('mw-notice').textContent=notice;
- $m('mw-stats-toggle').textContent=showStats?'정보창 닫기':'도시 정보창';
- $m('mw-stats-toggle').setAttribute('aria-expanded',String(showStats));
+
  $m('mw-offer-count').textContent=world.offers.length+'건';
  $m('mw-active-count').textContent=world.active.length+'건';
  const offers=$m('mw-offers');offers.replaceChildren();
  if(world.offers.length)for(const m of world.offers)offers.append(renderMission(m,false));
- else add(offers,'p','mw-muted','진행 중인 임무가 완료되면 새로운 임무가 등장합니다.');
+ else add(offers,'p','mw-muted','다음 10분 주기에 새로운 임무가 등장합니다.');
  const active=$m('mw-active');active.replaceChildren();
  if(world.active.length)for(const m of world.active)active.append(renderMission(m,true));
  else add(active,'p','mw-muted','진행 중인 임무가 없습니다.');
@@ -285,6 +307,7 @@ function render(){
 function tick(){
  if($m('mw-root')?.hidden)return;
  settleDue();
+ refreshOffers();
  updateProgress();
 }
 function openGame(){
@@ -298,18 +321,13 @@ function openGame(){
  $m('welcome').hidden=true;
  $m('city-ambient').hidden=true;
  $m('back').querySelector('span').textContent='시작화면';
- settleDue();render();
+ settleDue();refreshOffers();render();
 }
 function setupUi(){
  const parent=document.querySelector('.shell');
  const root=elem('main','mw-root');root.id='mw-root';root.hidden=true;
  root.setAttribute('aria-label','MYON DEV 임무 테스트');
- const head=add(root,'div','mw-head');
- const headerRight=add(head,'div','mw-header-actions');
- const toggle=add(headerRight,'button','mw-button','도시 정보창');toggle.type='button';toggle.id='mw-stats-toggle';
- toggle.setAttribute('aria-haspopup','dialog');toggle.setAttribute('aria-expanded','false');
- toggle.addEventListener('click',toggleStats);
- const restartButton=add(headerRight,'button','mw-button mw-restart','새 도시 시작');restartButton.type='button';restartButton.addEventListener('click',restart);
+
  const scroll=add(root,'div','mw-scroll');scroll.id='mw-scroll';
  add(scroll,'p','mw-notice','').id='mw-notice';
  const section1=add(scroll,'section','mw-section');
@@ -324,12 +342,12 @@ function setupUi(){
  const panelHead=add(panel,'div','mw-modal-head');
  const title=add(panelHead,'h2','mw-section-title','도시 정보창');title.id='mw-stats-title';
  const close=add(panelHead,'button','mw-button','닫기');close.id='mw-stats-close';close.type='button';
- close.addEventListener('click',()=>{closeStats();$m('mw-stats-toggle').focus({preventScroll:true})});
+ close.addEventListener('click',()=>{closeStats()});
  add(panel,'div','mw-stat-zone').id='mw-stat-zone';
- modal.addEventListener('click',event=>{if(event.target===modal){closeStats();$m('mw-stats-toggle').focus({preventScroll:true})}});
- document.addEventListener('keydown',event=>{if(event.key==='Escape'&&showStats){event.stopImmediatePropagation();closeStats();$m('mw-stats-toggle').focus({preventScroll:true})}},true);
+ modal.addEventListener('click',event=>{if(event.target===modal){closeStats()}});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&showStats){event.stopImmediatePropagation();closeStats()}},true);
  parent.insertBefore(root,$m('character'));
- window.MYON_SAFE_UPDATE_CHECKPOINT=async()=>world?write(world):true;
+
 }
 async function bootstrap(){
  try{

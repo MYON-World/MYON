@@ -345,7 +345,7 @@ test('DEV portal and embedded page pass the verified version through to the matc
  assert.ok(app.includes("if(server==='dev')"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.79'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.80'"));
  assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
  assert.ok(html.includes("devSaveReady=prepareCitizenVersion()"));
  assert.ok(html.includes("citizen=devSaveReady?readCitizen():null"));
@@ -369,7 +369,7 @@ test('DEV launches mission page without developer notebook',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.79');
+ assert.equal(data.release,'0.13.80');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -436,14 +436,20 @@ test('DEV mission script parses and uses 150 fields with isolated versioned save
  assert.match(html,/\.mw-scroll\{[^}]*scrollbar-width:none/);
 });
 
-test('DEV compact mission layout still shows money, contribution, plus, minus and hidden variable',()=>{
+test('DEV 5-field card and timed mission supply',()=>{
  const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- new (require('node:vm').Script)(script,{filename:'myon-dev-missions.js'});
- for(const field of ["'금전'","'기여'","'+ · '","'− · '","'? · 미지'"])assert.ok(script.includes('statCell(grid,'+field));
- assert.match(script,/function updateProgress\(\)/);
- assert.match(script,/function tick\(\)\{[\s\S]*?settleDue\(\);\s*updateProgress\(\);/);
+ new (require('node:vm').Script)(script);
+ for(const field of ["'수락'","'보상'","'기여'","'+변수'","'−변수'"])assert.ok(script.includes('statCell(grid,'+field));
+ assert.match(script,/MAX_WAITING_OFFERS=10/);
+ assert.match(script,/OFFER_INTERVAL_MS=600000/);
+ assert.match(script,/OFFER_LIFETIME_MS=3600000/);
+ assert.match(script,/next\.cash-=task\.acceptCost/);
+ assert.ok(!script.includes("const toggle=add(headerRight,'button'"));
+ assert.ok(!script.includes("const restartButton=add(headerRight,'button'"));
+ assert.match(html,/\.mw-expire-fill\{background:#cf6670/);
  assert.match(html,/\.mw-rewards\{grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+ assert.match(script,/function tick\(\)\{[\s\S]*?settleDue\(\);\s*refreshOffers\(\);\s*updateProgress\(\);/);
 });
 test('city information uses a separate scrollable modal and 15 category buttons',()=>{
  const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
@@ -524,9 +530,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.79');
- assert.equal(lock.version,'0.13.79');
- assert.equal(lock.packages[''].version,'0.13.79');
+ assert.equal(pkg.version,'0.13.80');
+ assert.equal(lock.version,'0.13.80');
+ assert.equal(lock.packages[''].version,'0.13.80');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));
