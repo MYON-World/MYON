@@ -181,119 +181,26 @@ test('world access ring advances smoothly only after verified entry steps',()=>{
 });
 
 
-test('DEV city selection remains isolated from pinned LIVE and stored progress',()=>{
+test('DEV numeric missions are the only runtime page (no city-picker or character UI)',()=>{
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
- const next=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  assert.ok(app.includes("const gameUrl=server==='dev'?url.replace('/myon.html?','/myon-next.html?'):url"));
  assert.ok(app.includes("await fetch(gameUrl,{method:'HEAD',cache:'no-store'})"));
- assert.ok(app.includes('frameUrl.value=gameUrl'));
  assert.ok(app.indexOf('await createEntryCheckpoint')<app.indexOf('frameUrl.value=gameUrl'));
- assert.ok(next.includes('MYON_SAFE_UPDATE_CHECKPOINT=async function(){return true}'));
- assert.ok(next.includes('window.self===window.top'));
- assert.ok(next.includes('html.myon-embedded .top .back{visibility:hidden;pointer-events:none}'));
- assert.ok(app.includes("'dev-controls':currentServer==='dev'"));
- assert.ok(app.includes('.game-controls.dev-controls{bottom:auto;top:83px;'));
- assert.doesNotMatch(next,/myon-v013\.js|indexedDB\.open\(/); 
- assert.ok(next.includes("MYON_DEV_CITIZEN_V2_")); 
- assert.doesNotMatch(next,/localStorage\.clear\(|indexedDB\.deleteDatabase\(/);
- for(const name of ['lien','haren','serin']){
-  const city=fs.readFileSync(path.resolve(__dirname,'../public/myon-city-'+name+'.webp'));
-  assert.equal(city.toString('ascii',0,4),'RIFF');
-  assert.equal(city.toString('ascii',8,12),'WEBP');
-  assert.ok(city.length>40000,'City backdrop too small '+name);
-  assert.ok(next.includes('myon-city-'+name+'.webp'));
-  assert.ok(next.includes('data-city="'+name+'"'));
-  assert.ok(next.includes('data-city-button="'+name+'"'));
- }
- const sprite=/data:image\/webp;base64,([A-Za-z0-9+/=]+)/.exec(next); 
- assert.ok(sprite,'Male/female portrait image should be embedded');
- const data=Buffer.from(sprite[1],'base64'); 
- assert.equal(data.toString('ascii',0,4),'RIFF'); 
- assert.equal(data.toString('ascii',8,12),'WEBP'); 
- assert.ok(data.length>6000);
-});
-
-test('DEV city selection offers interactive no-scroll arrival on mobile',()=>{
- const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- assert.ok(html.includes('overflow:hidden;overscroll-behavior:none'));
- assert.ok(html.includes('height:100dvh'));
- assert.doesNotMatch(html,/scrollIntoView|window\.scrollTo/);
- // The DEV mission board scrolls while its scrollbar remains hidden.
+ for(const forbidden of ['도시 선택','캐릭터 만들기','showScreen(', 'selectedCity','data-city','data-gender','class="main"','id="welcome"','id="arrival"','id="modal"','id="character"'])
+  assert.ok(!html.includes(forbidden),'obsolete entry UI: '+forbidden);
+ assert.ok(html.includes('id="mw-money-strip"'));
+ assert.ok(html.includes('id="mw-start-error"'));
+ assert.ok(html.includes('src="myon-dev-missions.js"'));
+ assert.ok(html.includes('src="myon-dev-update.js"'));
+ assert.ok(game.includes('parent.append(root)'));
+ assert.ok(!game.includes("document.querySelector('.main')"));
+ assert.ok(!game.includes("$m('character')"));
+ assert.ok(!game.includes("$m('welcome')"));
  assert.match(html,/\.mw-scroll\{flex:1;min-height:0;overflow:auto/);
  assert.match(html,/\.mw-scroll::-webkit-scrollbar\{display:none;width:0;height:0\}/);
- assert.doesNotMatch(html,/function devNotebookPager\(/);
- assert.doesNotMatch(html,/function devNotebookDetailChunks\(/);
- assert.ok(html.includes("function selectCity(id)"));
- assert.ok(html.includes("function openModal()"));
- assert.ok(html.includes("function enterCity()"));
- assert.ok(html.includes("function act(action,button)"));
- assert.ok(html.includes("document.querySelectorAll('[data-city-button]')"));
- for(const action of ['people','look','facility','rest'])
-  assert.ok(html.includes('data-action="'+action+'"'));
- assert.ok(html.includes('id="modal-confirm"'));
- assert.ok(html.includes('id="switch-city"'));
- assert.ok(html.includes('id="arrival-landscape"'));
- assert.ok(html.includes('id="city-ambient"'));
- assert.ok(html.includes('showScreen(' + "'picker'" + ')'));
 });
-
-
-test('DEV character creation comes before the city selector and uses gender portrait choices',()=>{
- const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- assert.ok(html.includes('id="character"'));
- assert.ok(html.indexOf('id="character"')<html.indexOf('class="main"'));
- assert.ok(html.includes('id="citizen-name"'));
- assert.ok(html.includes('data-gender="male"')&&html.includes('data-gender="female"'));
- for(const value of ['free','people','explore','economy'])assert.ok(html.includes('data-path="'+value+'"'));
- assert.ok(html.includes('id="create-citizen" disabled'));
- assert.ok(html.includes('function confirmCitizen()'));
- assert.ok(html.includes("showScreen('welcome');"));
- assert.ok(html.includes("if(!citizen){closeModal();showScreen('character');return;}"));
- assert.ok(html.includes("const startingQuest={"));
- assert.ok(html.includes("const quest=startingQuest[citizen.path]"));
- const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
- assert.ok(scripts.length>=2);
- const vm=require('node:vm');
- for(const script of scripts)new vm.Script(script[1]);
-});
-
-test('DEV one-time citizen save uses an isolated key and disallows city selection after entry',()=>{
- const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
- assert.match(html,/localStorage\.getItem\(CITIZEN_KEY\)/);
- assert.match(html,/localStorage\.setItem\(CITIZEN_KEY,JSON\.stringify\(v\)\)/);
- assert.match(html,/citizen=devSaveReady\?readCitizen\(\):null;cityLocked=Boolean\(citizen&&citizen\.city\)/);
- assert.match(html,/if\(screen==='picker'&&cityLocked\)screen='arrival'/);
- assert.match(html,/if\(!cityNames\[id\]\|\|\(cityLocked&&selectedCity!==id\)\)return/);
- assert.match(html,/id="switch-city" hidden disabled/);
- assert.match(html,/if\(cityLocked\)\{showScreen\('arrival'\);return;\}/);
- assert.doesNotMatch(html,/indexedDB\.open\(|localStorage\.clear\(/);
-});
-
-
-test('DEV simplified character creation keeps usable choices and citizen storage',()=>{
- const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- assert.match(html,/<h1>캐릭터 만들기<\/h1>/);
- assert.match(html,/class="ch-name-wrap"/);
- assert.match(html,/class="ch-progress">01 \/ 02/);
- assert.match(html,/id="citizen-name"[^>]*maxlength="12"/);
- assert.match(html,/class="ch-field ch-visual-field"/);
- for(const g of ['male','female'])assert.ok(html.includes('data-gender="'+g+'"'));
- for(const p of ['free','people','explore','economy'])assert.ok(html.includes('data-path="'+p+'"'));
- assert.ok(html.includes('선택 성향의 임무부터 시작 · 다른 임무도 가능'));
- assert.ok(html.includes('다음 · 도시 선택'));
- assert.doesNotMatch(html,/class="ch-steps"/);
- assert.doesNotMatch(html,/class="ch-notice"/);
- assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
- assert.ok(html.includes("function readCitizen(){for(const key of [CITIZEN_KEY,CITIZEN_KEY+'.backup'])"));
- assert.ok(html.includes("localStorage.setItem(CITIZEN_KEY+'.backup',prior)"));
- assert.ok(html.includes("localStorage.setItem(CITIZEN_KEY,JSON.stringify(v))"));
- assert.ok(html.includes("showScreen('welcome');"));
- assert.ok(html.includes("if(!cityNames[id]||(cityLocked&&selectedCity!==id))return"));
- assert.doesNotMatch(html,/indexedDB\.open\(|localStorage\.clear\(/);
-});
-
-
 test('DEV save epoch resets on version bump only and leaves LIVE/TEST keys intact',async()=>{
  const {prepareDevVersion,DEV_ACTIVE_VERSION_KEY,deleteDevGameDatabase,purgeDevBackupRecords}=await import('../src/core/myon-dev-version.mjs');
  const data=new Map([['MYON_DEV_CITIZEN_V1','old citizen'],['MYON_DEV_CITIZEN_V1.backup','old backup'],
@@ -339,37 +246,24 @@ test('DEV reset refuses to mark new version if store cleanup fails',async()=>{
  assert.equal(values.get(DEV_ACTIVE_VERSION_KEY),'0.13.75');
  assert.equal(values.get('MYON_DEV_CITIZEN_V2_0.13.75'),'kept');
 });
-test('DEV portal and embedded page pass the verified version through to the matching save namespace',()=>{
+test('DEV keeps versioned save through verified portal entry',()=>{
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- assert.ok(app.includes("if(server==='dev')"));
- assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
+ const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.82'"));
- assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
- assert.ok(html.includes("devSaveReady=prepareCitizenVersion()"));
- assert.ok(html.includes("citizen=devSaveReady?readCitizen():null"));
- assert.ok(html.includes("if(!cityNames[id]||(cityLocked&&selectedCity!==id))return"));
-});
-
-
-test('DEV launches mission page without developer notebook',()=>{
- const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
- const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
- assert.ok(!html.includes('id="dev-notes"')&&!html.includes('id="dev-notes-open"'));
- assert.ok(!html.includes('id="dn-start-test"'));
- assert.ok(html.includes("showScreen('welcome');"));
- assert.ok(script.includes("  openGame();"));
- assert.ok(!script.includes("openNotes()"));
- assert.ok(html.includes('<script src="myon-dev-missions.js"></script>'));
- assert.doesNotMatch(html,/indexedDB\.open\(|localStorage\.clear\(/);
- const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
- for(const s of scripts)new (require('node:vm').Script)(s[1]);
+ assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.83'"));
+ assert.ok(!html.includes('CITIZEN_KEY'));
+ assert.ok(!html.includes('function selectCity('));
+ assert.ok(!html.includes('showScreen('));
+ assert.ok(game.includes('  openGame();'));
+ const scripts=[...html.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)];
+ for(const script of scripts)new (require('node:vm').Script)(script[1]);
 });
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.82');
+ assert.equal(data.release,'0.13.83');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -570,9 +464,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.82');
- assert.equal(lock.version,'0.13.82');
- assert.equal(lock.packages[''].version,'0.13.82');
+ assert.equal(pkg.version,'0.13.83');
+ assert.equal(lock.version,'0.13.83');
+ assert.equal(lock.packages[''].version,'0.13.83');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));

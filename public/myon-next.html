@@ -1,262 +1,19 @@
 <!doctype html>
 <html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06101d"><title>MYON WORLD · DEV 임무 테스트</title>
 <script>
-// Only portal-embedded DEV may display an immutable archived game page.
-if(window.self===window.top){
- const archived=/\/releases\/[a-f0-9]{40}\/myon-next\.html$/.test(location.pathname);
- if(archived){const portal=new URL('../../',location.href);portal.search=location.search;portal.hash=location.hash;location.replace(portal.href)}
-}else document.documentElement.classList.add('myon-embedded');
-// DEV-only citizen profile fields are saved locally; the legacy LIVE game database is never modified.
-window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){return true};
+if(window.self===window.top && location.pathname.includes('/releases/')){
+ const portal=new URL('../../',location.href);portal.search=location.search;portal.hash=location.hash;location.replace(portal.href);
+}
 </script>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="theme-color" content="#06101d"/>
-<title>MYON WORLD · DEV 임무 테스트</title>
 <style>
 :root{color-scheme:dark;--ink:#eff8ff;--soft:#a7bed2;--faint:#6788a2;--line:#335571;--blue:#9cdef8;font-family:Inter,"Pretendard Variable","Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;overscroll-behavior:none}body{background:radial-gradient(ellipse at 55% 15%,#153450 0%,#08192a 38%,#050d18 100%);color:var(--ink);-webkit-font-smoothing:antialiased}button{font:inherit;cursor:pointer}button:focus-visible{outline:2px solid #beeaff;outline-offset:2px}button:disabled{cursor:default;opacity:.6}
 .shell{height:100vh;height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden;isolation:isolate;position:relative}
 .shell:before{content:'';position:absolute;inset:0;z-index:-1;background:radial-gradient(circle at 79% 72%,#16425d30,transparent 50%);pointer-events:none}
-.top{height:60px;flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;border-bottom:1px solid #2c4d6475;background:#081623b9;padding:0 clamp(16px,4vw,54px)}
-.back{justify-self:start;display:flex;gap:9px;align-items:center;background:none;border:0;color:#b3d2e3;padding:10px 0;font-size:12px;white-space:nowrap}.back svg{width:16px;height:16px}
-.brand{font-family:Georgia,serif;font-size:21px;letter-spacing:.19em;color:#f0fcff;white-space:nowrap}.brand b{font-weight:400}.brand em{font-family:inherit;font-style:normal;color:#a1d4ec;letter-spacing:.16em;font-size:11px;margin-left:7px}
-.env{justify-self:end;display:flex;align-items:center;gap:8px;color:#9cbed3;font-size:10px;letter-spacing:.08em}.env-dot{height:6px;width:6px;border-radius:50%;background:#83d9be}.env strong{border:1px solid #3e6b85;color:#c4e8f9;border-radius:4px;padding:6px 8px;font-size:10px}
-.main{width:min(1210px,100%);flex:1;min-height:0;margin:0 auto;display:flex;flex-direction:column;gap:clamp(9px,1.6vh,18px);padding:clamp(12px,2.5vh,24px) clamp(13px,3.6vw,38px) clamp(10px,1.6vh,17px)}
-.intro{display:flex;flex:none;align-items:end;justify-content:space-between;gap:15px}.eyebrow{font-size:10px;letter-spacing:.17em;font-weight:700;color:#82b7d4}.intro h1{font-size:clamp(23px,3vw,35px);line-height:1.18;letter-spacing:-.06em;font-weight:670;margin:7px 0}.intro p{font-size:12px;line-height:1.45;color:#a4bdce;margin:0}.intro-right{display:flex;gap:7px;align-items:center;padding:0 0 5px;color:#88a9be;font-size:11px;white-space:nowrap}.intro-right strong{color:#d0eeff;font-variant-numeric:tabular-nums}
-.city-tabs{display:none}
-.city-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(10px,1.5vw,18px);flex:1;min-height:0}
-.city-card{position:relative;min-height:0;border:1px solid #365873;border-radius:15px;background:linear-gradient(180deg,#142d43,#0b1b2d);overflow:hidden;display:flex;flex-direction:column;padding:0;text-align:left;color:var(--ink);box-shadow:0 12px 35px #0003;transition:border-color .15s,box-shadow .15s,transform .15s}
-.city-card.selected{border-color:#9ce8ff;box-shadow:0 0 0 1px #9ce8ff56,0 18px 40px #0005}.city-card:active{transform:scale(.996)}
-.city-pic{width:100%;min-height:0;flex:1;position:relative;background-position:center;background-size:cover;overflow:hidden}
-.city-pic:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,#07152605 0%,transparent 55%,#071526b0 100%)}
-.city-pic .picture-tag{position:absolute;left:15px;top:15px;z-index:2;font-size:9px;letter-spacing:.11em;padding:6px 8px;border:1px solid #b6e6f66e;border-radius:4px;background:#06192cb5;color:#cfeeff}
-.city-selected{position:absolute;z-index:3;right:14px;top:14px;display:grid;place-items:center;width:27px;height:27px;border-radius:50%;background:#b3edff;color:#052035;opacity:0;transform:scale(.85);transition:opacity .15s,transform .15s}.selected .city-selected{opacity:1;transform:scale(1)}.city-selected svg{width:16px;height:16px}
-.city-pic .city-num{position:absolute;right:16px;bottom:13px;z-index:2;font-family:Georgia,serif;font-size:35px;letter-spacing:.02em;color:#deefff7a}
-.city-body{flex:none;padding:clamp(12px,2vh,22px) clamp(13px,1.8vw,20px) clamp(13px,2vh,19px);display:flex;flex-direction:column;gap:8px}
-.city-name{font-size:clamp(18px,2vw,23px);font-weight:680;letter-spacing:-.04em}.city-zone{font-size:10px;color:#8ec1d7;letter-spacing:.07em}.city-desc{font-size:11px;line-height:1.55;color:#b0c6d7;min-height:2em}.city-foot{display:flex;align-items:center;justify-content:space-between;gap:7px;padding-top:9px;border-top:1px solid #34546b69;font-size:10px;color:#85a9bf}.city-foot strong{font-size:10px;color:#bfd9ea;font-weight:600}.city-foot .status{display:flex;align-items:center;gap:7px}.city-foot .status:before{content:'';height:5px;width:5px;background:#dcb783;border-radius:50%}
-.bottom{flex:none;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:clamp(8px,1.4vh,14px) 0 0;border-top:1px solid #35516a7e}.tip{display:flex;flex-direction:column;gap:4px}.tip strong{font-size:12px;font-weight:600;color:#d1e9f8}.tip small{color:#7e9fb3;font-size:10px;line-height:1.5}.submit{background:#b4e6f7;border:1px solid #d1f7ff;color:#082336;min-width:210px;max-width:40%;border-radius:9px;padding:13px 18px;font-size:12px;font-weight:800;display:flex;gap:10px;align-items:center;justify-content:center;white-space:nowrap}.submit:hover{background:#d1f3ff}.submit svg{height:15px;width:15px}
-.stepbar{display:none}
-.modal-back{position:fixed;inset:0;z-index:20;background:#010916c9;backdrop-filter:blur(7px);display:none;place-items:center;padding:16px}.modal-back.open{display:grid}.modal{width:min(400px,100%);border:1px solid #5486a0;border-radius:15px;background:linear-gradient(140deg,#16334c,#09192b);padding:24px;box-shadow:0 25px 60px #000b}.modal .eyebrow{margin-bottom:12px}.modal h2{font-size:23px;margin:0 0 10px}.modal p{font-size:12px;line-height:1.8;color:#b5d0e0;margin:0 0 14px}.modal small{font-size:10px;color:#88acbf;line-height:1.6;display:block;margin-bottom:17px}.modal-actions{display:flex;gap:8px}.modal-actions button{padding:11px 14px;border-radius:8px;flex:1;font-size:11px;font-weight:700}.btn-muted{background:#152b3c;border:1px solid #456e85;color:#c5e0ed}.btn-primary{background:#b4e6f7;border:1px solid #c9eefa;color:#052036}
-@media (max-width:740px){
- .top{height:51px;padding:0 13px}.brand{font-size:18px}.brand em{font-size:9px}.back{font-size:11px}.env span:not(.env-dot){display:none}
- .main{gap:clamp(8px,1.5vh,11px);padding:clamp(10px,2vh,14px) 12px calc(12px + env(safe-area-inset-bottom))}
- .intro h1{font-size:clamp(22px,6vw,28px);margin:6px 0}.intro p{font-size:11px;line-height:1.4}.intro-right{display:none}
- .city-tabs{flex:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
- .city-tab{display:flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:7px 4px;background:#112539;border:1px solid #30536c;border-radius:7px;color:#85a7bd;font-size:11px}.city-tab.active{background:#1c4258;border-color:#8ed5f2;color:#e4f6ff;font-weight:750}.city-tab .bullet{height:5px;width:5px;border-radius:50%;background:currentColor;opacity:.7}
- .city-grid{display:block;position:relative;min-height:0;overflow:hidden}
- .city-card{height:100%;display:none;border-radius:12px}.city-card.selected{display:flex}
- .city-pic{flex:1;min-height:0;background-position:center 43%}.city-pic .picture-tag{left:12px;top:12px;font-size:9px}.city-pic .city-num{font-size:29px}
- .city-body{padding:clamp(11px,1.6vh,15px) 14px;gap:6px}.city-name{font-size:20px}.city-desc{font-size:11px;min-height:0}.city-foot{padding-top:7px}
- .bottom{padding:clamp(8px,1.5vh,12px) 0 0;display:flex;flex-direction:column;align-items:stretch;gap:7px}.tip strong{font-size:10px}.tip small{font-size:9px}.submit{max-width:none;min-width:0;width:100%;padding:12px 14px}
-}
-@media(max-height:650px){.intro p{display:none}.intro h1{font-size:22px}.main{gap:7px;padding-top:9px}.city-pic .picture-tag{display:none}.city-body{padding:9px 13px;gap:4px}.city-name{font-size:18px}.city-foot{padding-top:6px}.tip small{display:none}.bottom{padding-top:6px}.submit{padding:9px 12px}.city-tab{min-height:31px;padding:5px}}
-@media(max-height:520px){.top{height:42px}.main{padding-top:6px;gap:5px}.intro h1{font-size:18px;margin:1px 0}.eyebrow{font-size:8px}.city-name{font-size:16px}.city-desc{display:none}.city-body{padding:7px 11px}.city-foot{padding-top:4px}.tip{display:none}.bottom{padding:5px 0 0}.submit{padding:8px 12px}}
-@media(prefers-reduced-motion:reduce){.city-card,.city-selected{transition:none}}
 
-/* v2 working start preview. No document or internal scrolling. */
 [hidden]{display:none!important}
-.city-theme{font-size:11px;color:#9ce0e9;font-weight:650;line-height:1.4}
-.city-body{gap:6px}
-.arrival,.welcome{width:min(1210px,100%);margin:0 auto;flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:clamp(9px,1.6vh,17px);padding:clamp(12px,2.5vh,24px) clamp(13px,3.6vw,38px) clamp(10px,1.6vh,17px)}
-.arrival-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;flex:none}
-.arrival-heading h1{font-size:clamp(21px,2.6vw,32px);margin:6px 0 4px}
-.arrival-heading p{font-size:11px;color:#a8c0d0;margin:0;line-height:1.5}
-.switch-city{flex:none;border:1px solid #5c829b;background:#163044;color:#d5efff;padding:10px 12px;border-radius:8px;font-size:11px}
-.arrival-landscape{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:15px;border:1px solid #547d94;background:#17334d center 48%/cover no-repeat;display:flex;align-items:end}
-.arrival-landscape:before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#071422df 0%,#091b2c89 42%,transparent 78%),linear-gradient(0deg,#05111bdc,transparent 50%)}
-.arrival-landscape-shade{position:relative;padding:clamp(16px,3vh,32px);max-width:580px}
-.arrival-landscape-shade h2{margin:7px 0;font-size:clamp(28px,4vw,50px)}
-.arrival-landscape-shade p{font-size:clamp(11px,1.3vw,14px);color:#cfedfb;margin:0;line-height:1.5}
-.world-clock{position:absolute;right:16px;top:16px;color:#bad2e5;font-size:9px;letter-spacing:.13em}
-.arrival-board{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(8px,1.4vw,17px);height:clamp(240px,39vh,322px);min-height:0;flex:none}
-.arrival-situation,.arrival-activities{min-width:0;min-height:0;border:1px solid #33556e;border-radius:13px;background:linear-gradient(155deg,#10263a,#091929);padding:clamp(12px,2.2vh,20px);display:flex;flex-direction:column;gap:7px;overflow:hidden}
-.arrival-situation h2,.arrival-activities h2{font-size:clamp(16px,1.7vw,21px);margin:2px 0 0}
-.arrival-situation>p{font-size:11px;line-height:1.55;color:#b1c7d8;margin:0}
-.arrival-event{flex:1;min-height:0;background:#162e40;border:1px solid #40677c;border-radius:8px;padding:clamp(9px,1.5vh,14px);display:flex;flex-direction:column;justify-content:center;gap:6px}
-.event-label{color:#91d5e6;font-size:11px;font-weight:750}
-.arrival-event p{font-size:clamp(10px,1.1vw,12px);line-height:1.55;color:#d6e7f1;margin:0}
-.activity-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:7px;flex:1;min-height:0}
-.activity{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;min-height:0;min-width:0;border:1px solid #41687e;background:#173449;color:#e8f4ff;padding:8px 13px;text-align:left;border-radius:9px;font-size:12px;font-weight:700}
-.activity:hover,.activity.active{border-color:#a1dff7;background:#24536a}
-.activity small{color:#9bbacb;font-size:10px;font-weight:400}
-.activity-icon{font-size:15px;color:#99e0f0}
-.arrival-note{font-size:9px;color:#799cb2;line-height:1.4;margin:1px 0 0}
-.welcome{align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#10304d,#091a2c 65%,transparent 100%)}
-.welcome-panel{width:min(610px,100%);padding:clamp(22px,5vw,56px);border-radius:22px;border:1px solid #447998;background:#0b2237b8;box-shadow:0 20px 100px #0008;text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px}
-.welcome-panel h1{font-size:clamp(26px,4vw,45px);margin:0}
-.welcome-panel p{font-size:13px;color:#aac9dc;line-height:1.7;max-width:410px;margin:0}
-.welcome-panel .submit{max-width:none;margin:4px 0}
-.welcome-panel small{font-size:10px;color:#7c9eb3}
-@media(max-width:740px){
- .arrival,.welcome{padding:clamp(8px,1.6vh,13px) 11px calc(10px + env(safe-area-inset-bottom));gap:clamp(6px,1.1vh,10px)}
- .arrival-heading h1{font-size:22px}
- .arrival-heading p{font-size:10px}
- .switch-city{padding:8px;font-size:10px}
- .arrival-landscape{border-radius:11px;min-height:0}
- .arrival-landscape-shade{padding:14px}
- .arrival-landscape-shade h2{font-size:28px}
- .arrival-landscape-shade p{font-size:11px}
- .arrival-board{grid-template-columns:1fr;height:clamp(290px,53vh,410px);grid-template-rows: minmax(0,.85fr) minmax(0,1.15fr);gap:7px}
- .arrival-situation,.arrival-activities{padding:10px 12px;gap:4px;border-radius:10px}
- .arrival-situation h2,.arrival-activities h2{font-size:15px}
- .arrival-situation>p{font-size:10px}
- .arrival-event{padding:8px 10px;gap:3px}
- .arrival-event p{font-size:10px;line-height:1.35}
- .event-label{font-size:10px}
- .activity-grid{gap:5px}
- .activity{font-size:11px;padding:6px 9px;gap:2px}
- .activity small{font-size:9px}
- .activity-icon{display:none}
- .arrival-note{font-size:8px}
- .city-theme{font-size:10px}
-}
-@media(max-height:650px){
- .arrival-heading p{display:none}
- .arrival-board{height:clamp(218px,48vh,285px)}
- .arrival-situation>p{display:none}
- .arrival-landscape-shade h2{font-size:23px}
- .arrival-landscape-shade p{font-size:10px}
- .arrival-note{display:none}
- .arrival-heading h1{font-size:18px}
- .arrival-heading .eyebrow{font-size:8px}
-}
-@media(max-height:520px){
- .arrival-board{height:clamp(134px,54vh,200px);grid-template-columns:1fr 1fr;grid-template-rows:1fr}
- .arrival-landscape-shade h2{font-size:18px;margin:2px 0}
- .arrival-landscape-shade p{display:none}
- .arrival-situation h2,.arrival-activities h2{font-size:13px}
- .arrival-situation,.arrival-activities{padding:6px 8px}
- .arrival-event{padding:5px}
- .arrival-event p{font-size:9px}
- .activity{padding:4px 7px;font-size:10px}
- .activity small{display:none}
- .welcome-panel{padding:15px;gap:8px}
- .welcome-panel p{font-size:10px}
-}
-
-/* City-based atmospheric backgrounds; controls remain above the images. */
-.shell{background:#05101c}
-.city-ambient{position:absolute;inset:-16px;pointer-events:none;z-index:0;background-color:#0b2235;background-repeat:no-repeat;background-position:center 42%;background-size:cover;opacity:.25;filter:blur(5px) saturate(.94);transition:opacity .25s ease}
-.city-ambient:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,#06121a30 0%,#05111b59 48%,#030914da 100%),linear-gradient(90deg,#050d167a,transparent 42%,#06101c7a)}
-.shell>.top,.shell>.main,.shell>.arrival,.shell>.welcome{position:relative;z-index:2}
-.shell:before{z-index:1}
-@media(max-width:740px){.city-ambient{opacity:.23;background-position:52% center;filter:blur(5px) saturate(.94)}}
-
-/* v3: distinctive self-contained city artwork, full-bleed panels and city-aware background */
-.city-pic{background-color:#19374b;background-repeat:no-repeat;background-size:cover;background-position:center 48%}
-.city-pic:after{background:linear-gradient(0deg,rgba(3,15,30,.57),transparent 50%)}
-.city-card[data-city="lien"]{border-color:#527cab}
-.city-card[data-city="haren"]{border-color:#608c79}
-.city-card[data-city="serin"]{border-color:#9a7c63}
-.city-card.selected{border-color:#9ce8ff;box-shadow:0 0 0 2px #96e9ff5c,0 15px 48px #0008}
-.city-card[data-city="haren"].selected{border-color:#9be7ba;box-shadow:0 0 0 2px #a0ffc15a,0 15px 48px #0008}
-.city-card[data-city="serin"].selected{border-color:#ffd6a4;box-shadow:0 0 0 2px #ffcc905a,0 15px 48px #0008}
-.arrival-landscape{background-position:center 48%;background-size:cover}
-@media(max-width:740px){.city-pic{background-position:center 49%}.arrival-landscape{background-position:center 48%}}
-
-/* v4 image fidelity: scenic artwork is painted at native-like scale instead of stretching thumbnail crops to full-card height. */
-.city-pic{flex:0 0 53%;max-height:260px;background-size:cover;background-position:center center;image-rendering:auto}
-.city-body{flex:1;min-height:0;justify-content:space-evenly;gap:clamp(7px,1.5vh,14px);padding:clamp(12px,2.2vh,22px) clamp(14px,1.8vw,20px)}
-.city-name{font-size:clamp(20px,2vw,24px)}
-.city-theme{line-height:1.6}
-.city-desc{max-width:410px}
-.city-card[data-city="haren"] .city-pic{background-position:center 49%}
-.city-card[data-city="serin"] .city-pic{background-position:center 48%}
-.city-card[data-city="lien"] .city-pic{background-position:center 52%}
-.arrival-landscape{background-size:cover;background-position:center 45%}
-/* Dark ambient is deliberately subtle; only foreground art is shown sharply. */
-.city-ambient{opacity:.22;filter:blur(9px) saturate(.86)}
-@media(min-width:741px){.city-grid{align-items:center}.city-card{height:min(100%,540px)}}
-@media(max-width:740px){
- .city-card.selected{height:min(100%,490px);margin:auto 0}
- .city-pic{flex:0 0 min(50%,245px);max-height:none;background-position:center center!important}
- .city-body{flex:1;justify-content:space-evenly;padding:clamp(10px,1.5vh,17px) 15px;gap:clamp(6px,1.2vh,10px)}
- .city-ambient{opacity:.2;filter:blur(10px) saturate(.85)}
- .city-desc{line-height:1.6}
-}
-@media(max-height:650px){
- .city-pic{flex-basis:48%;max-height:260px}
- .city-body{gap:5px;padding:8px 13px}
-}
-@media(max-height:520px){.city-pic{flex-basis:47%;max-height:210px}}
-/* Only one usable start-screen control in an embedded DEV session: the portal hosts the verified exit button. */
-html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
-
-/* v0.13.73 citizen creation, before any first-city selection. */
-[hidden]{display:none!important}
-.character{width:min(1210px,100%);margin:0 auto;flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:clamp(10px,2vh,20px) clamp(13px,3.6vw,38px) clamp(9px,1.5vh,16px);gap:clamp(8px,1.3vh,13px);position:relative;z-index:1}
-.character:before{content:'';position:fixed;z-index:-1;inset:60px 0 0;background:linear-gradient(90deg,#071522f5 0%,#0a2132e3 64%,#09203582 100%),url('myon-city-lien.webp') center 40%/cover no-repeat;opacity:.9;pointer-events:none}
-.ch-head{flex:none;display:flex;justify-content:space-between;align-items:end;gap:10px}.ch-head h1{font-size:clamp(22px,3vw,34px);letter-spacing:-.05em;margin:3px 0}.ch-head p{font-size:11px;color:#b1d2e5;margin:0}.ch-mark{color:#79c5e6;font-size:10px;letter-spacing:.2em;font-weight:700}
-.ch-layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px;min-height:0;flex:1}
-.ch-steps{align-self:start;padding:15px 12px;border:1px solid #315a74a0;background:#08192cbd;border-radius:12px;display:flex;flex-direction:column;gap:14px}
-.ch-step{display:flex;gap:10px;color:#7592a8;font-size:12px;align-items:center}.ch-step b{border:1px solid #46667d;flex:none;width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-size:11px;font-weight:600}.ch-step.active{color:#dcf8ff;font-weight:750}.ch-step.active b{background:#9de9ff;color:#062235;border-color:#baf3ff}
-.ch-panel{display:flex;flex-direction:column;min-height:0;gap:clamp(8px,1.25vh,12px);padding:clamp(12px,1.8vh,19px);border:1px solid #396a83a8;border-radius:13px;background:linear-gradient(135deg,#091b2de6,#092033df);box-shadow:0 10px 45px #0006;overflow:hidden}
-.ch-field{display:flex;flex-direction:column;gap:5px;flex:none}.ch-label{display:flex;align-items:center;gap:8px;font-size:clamp(12px,1.3vw,15px);font-weight:780;color:#e9f8ff}.ch-label b{font-size:10px;font-weight:700;border:1px solid #6294aa;border-radius:5px;padding:3px 5px;color:#a6dffa}.ch-name{width:100%;min-height:38px;padding:9px 12px;border:1px solid #47748c;border-radius:8px;background:#061a2fd9;color:white;font:inherit;font-size:12px;outline:none}.ch-name:focus{border-color:#a9e8ff;box-shadow:0 0 0 2px #8adcff36}.ch-name::placeholder{color:#769cb5}.ch-count{align-self:end;color:#89b2c6;font-size:9px;margin-top:-23px;margin-right:12px;pointer-events:none}.ch-name{padding-right:55px}
-.ch-gender{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;flex:1;min-height:100px;max-height:230px}.gender-card{display:flex;flex-direction:column;min-height:0;overflow:hidden;border:1px solid #3b6980;border-radius:11px;background:#102a3a;color:#e9f8ff;position:relative;padding:0}.gender-card[aria-pressed=true]{border:2px solid #77e5ff;box-shadow:0 0 0 1px #8be5ff44,0 0 24px #1fb5ff38}.gender-art{flex:1;min-height:0;background-image:url('data:image/webp;base64,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');background-repeat:no-repeat;background-size:200% 100%;background-position:0 center;background-color:#18354b}.gender-card[data-gender=female] .gender-art{background-position:100% center}.gender-card .gender-caption{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:18px 13px 9px;background:linear-gradient(0deg,#06182df0,transparent);font-size:clamp(12px,1.5vw,17px);font-weight:750}.gender-card .gender-check{height:20px;width:20px;border-radius:50%;background:#7ee5ff;color:#062439;display:none;place-items:center;font-size:12px}.gender-card[aria-pressed=true] .gender-check{display:grid}
-.ch-paths{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex:none}.path-card{text-align:left;display:flex;flex-direction:column;gap:5px;border:1px solid #45697f;border-radius:9px;background:#0c2435d9;color:#e8f7ff;padding:clamp(9px,1.2vh,12px);min-width:0}.path-card[aria-pressed=true]{border-color:#89e5ff;box-shadow:inset 0 0 0 1px #4dcfff6b;background:#12354c}.path-card strong{font-size:12px}.path-card small{font-size:10px;color:#9fbdcc;line-height:1.45}.path-icon{color:#83c8e4;font-size:19px;line-height:1}.path-card[aria-pressed=true] .path-icon{color:#b4f3ff}
-.ch-notice{flex:none;font-size:11px;line-height:1.55;color:#b1d6e8;padding:9px 12px;border:1px solid #385b72;background:#071c2ccd;border-radius:8px}.ch-notice strong{color:#d9f5ff}
-.ch-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;flex:none}.ch-footer small{font-size:10px;color:#87acbe}.ch-go{background:linear-gradient(#b3efff,#77d8f8);color:#072236;border:1px solid #c5f8ff;border-radius:8px;font-size:12px;font-weight:800;padding:11px 21px;min-width:180px;box-shadow:0 0 20px #4ec6ff36}.ch-go:disabled{opacity:.48;box-shadow:none}.ch-error{display:block;min-height:14px;color:#ffcfbc;font-size:10px}
-@media(max-width:740px){.character:before{inset:51px 0 0}.character{padding:10px 12px calc(9px + env(safe-area-inset-bottom))}.ch-steps{display:none}.ch-layout{display:flex;flex:1}.ch-panel{flex:1;padding:11px;gap:9px}.ch-head h1{font-size:23px}.ch-head p{font-size:10px}.ch-gender{min-height:120px;max-height:215px}.ch-paths{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.path-card{padding:8px 10px;gap:4px}.path-card strong{font-size:11px}.path-card small{font-size:9px}.path-icon{font-size:14px}.ch-notice{font-size:10px;padding:8px 9px}.ch-footer small{font-size:9px}.ch-go{min-width:140px;padding:10px 13px}}
-@media(max-height:690px){.character{gap:5px;padding-top:7px;padding-bottom:7px}.ch-head h1{font-size:21px}.ch-head p{display:none}.ch-panel{padding:8px 10px;gap:6px}.ch-gender{min-height:85px;max-height:155px}.ch-label{font-size:11px}.ch-name{min-height:32px;padding-block:6px}.ch-notice{font-size:9px;padding:5px 8px}.path-card{padding:6px 9px}.ch-go{padding:7px 13px}.ch-step{font-size:10px}}
-@media(max-height:525px) and (min-width:741px){.ch-head p{display:none}.ch-panel{gap:5px;padding:7px 11px}.ch-gender{max-height:120px;min-height:70px}.ch-paths{gap:5px}.path-card{padding:5px 7px}.ch-notice{padding:5px 8px}.ch-go{padding:6px}.ch-name{padding-block:5px;min-height:29px}}
-@media(max-height:525px) and (max-width:740px){.ch-gender{min-height:68px;max-height:90px}.path-card small{display:none}.ch-head h1{font-size:18px}.ch-notice{display:none}.ch-footer small{display:none}.ch-panel{gap:4px}.path-card{padding:6px 9px}}
-
-/* Design iteration: show only the choices, not several paragraphs of explanation. */
-.character{width:min(1040px,100%);gap:clamp(8px,1.8vh,16px);padding:clamp(12px,2vh,20px) clamp(14px,3vw,26px) clamp(14px,2vh,22px)}
-.ch-head{align-items:center;min-height:48px}
-.ch-head h1{font-size:clamp(23px,2.8vw,30px);margin:3px 0 0}
-.ch-progress{font-size:12px;color:#95bed0;white-space:nowrap;letter-spacing:.02em}
-.ch-progress span{opacity:.83}
-.ch-layout{display:flex;flex:1;min-height:0}
-.ch-panel{width:100%;height:auto;align-self:center;flex:none;padding:clamp(12px,2vh,20px);gap:clamp(12px,1.8vh,17px);background:linear-gradient(130deg,#071a2cdc,#0a2336e4)}
-.ch-field{gap:8px}
-.ch-label{font-size:clamp(13px,1.4vw,16px);font-weight:760}
-.ch-name-wrap{position:relative}
-.ch-name{min-height:44px;font-size:14px;padding:10px 60px 10px 13px;background:#061829e8}
-.ch-count{position:absolute;right:13px;top:50%;transform:translateY(-50%);margin:0;font-size:11px}
-.ch-visual-field{flex:1;min-height:0}
-.ch-gender{flex:none;height:clamp(150px,22vh,195px);min-height:112px;max-height:195px;gap:12px}.ch-visual-field{flex:none!important}
-.gender-card{border-radius:12px;cursor:pointer}
-.gender-art{background-size:200% 100%}
-.gender-card .gender-caption{padding:20px 16px 12px;font-size:clamp(15px,1.6vw,19px)}
-.path-card{flex-direction:row;align-items:center;justify-content:center;text-align:center;padding:14px 6px;gap:9px;min-height:53px;cursor:pointer}
-.path-card strong{font-size:clamp(12px,1.2vw,14px);white-space:nowrap}
-.path-icon{font-size:19px}
-.ch-footer{padding-top:1px;gap:12px}
-.ch-footer-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
-.ch-brief{font-size:11px;color:#9bc8dc;line-height:1.35}
-.ch-error{min-height:0;font-size:11px}
-.ch-go{min-width:198px;padding:14px 20px;font-size:14px;cursor:pointer}
-.ch-go:focus-visible,.gender-card:focus-visible,.path-card:focus-visible{outline:2px solid #bcefff;outline-offset:3px}
-@media(max-width:740px){
- .character{padding:9px 11px calc(9px + env(safe-area-inset-bottom));gap:9px}
- .ch-head{min-height:42px}.ch-head h1{font-size:23px}
- .ch-progress{font-size:11px}.ch-progress span{display:none}
- .ch-panel{padding:11px;gap:clamp(8px,1.5vh,12px)}
- .ch-name{min-height:42px;font-size:13px}
- .ch-gender{gap:9px;height:clamp(130px,21vh,172px);min-height:110px;max-height:172px}
- .gender-card .gender-caption{font-size:15px;padding:16px 11px 10px}
- .ch-paths{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
- .path-card{min-height:50px;padding:10px 5px;gap:7px}
- .path-card strong{font-size:12px}.path-icon{font-size:18px}
- .ch-footer{align-items:stretch;flex-direction:column;gap:8px}
- .ch-brief{font-size:10px}
- .ch-go{width:100%;min-height:44px;padding:10px 13px;font-size:13px}
-}
-@media(max-height:670px){
- .character{gap:5px;padding-top:7px;padding-bottom:6px}
- .ch-head h1{font-size:21px}.ch-head{min-height:35px}
- .ch-panel{gap:6px;padding:9px}
- .ch-field{gap:4px}.ch-name{min-height:34px;padding-block:6px}
- .ch-gender{height:clamp(80px,16vh,115px);min-height:76px}
- .path-card{min-height:40px;padding:7px 5px}
- .ch-go{min-height:34px;padding:7px 10px}
- .ch-footer{gap:5px}
-}
-@media(max-height:530px){.ch-brief{display:none}.ch-gender{height:74px;min-height:65px}.path-card{min-height:35px}.ch-label{font-size:11px}}
-@media(max-width:740px) and (max-height:530px){.ch-head{min-height:28px}.ch-head h1{font-size:18px}.path-icon{font-size:14px}.gender-card .gender-caption{font-size:12px;padding:6px 8px}}
-
-
 /* DEV mission sandbox: text-first UI with invisible scrollbar and usable wheel/touch scrolling. */
 .mw-root{width:min(1190px,100%);flex:1;min-height:0;margin:auto;display:flex;flex-direction:column;gap:13px;padding:20px clamp(13px,3.6vw,38px) 12px}
 .mw-head{flex:none;display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:1px solid #36536b;padding-bottom:13px}
@@ -300,14 +57,11 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 .mw-history-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;padding:12px 0;border-bottom:1px solid #29475b}
 .mw-history-title{color:#e2f4fd;font-weight:700}
 .mw-history-reward{color:#9dc0d2;text-align:right;font-variant-numeric:tabular-nums}
-.mw-stats{padding:14px;margin-top:7px;background:#10283a;border:1px solid #42617a;border-radius:10px}
-.mw-stats-top{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
-.mw-select{background:#193b51;border:1px solid #51768b;border-radius:6px;color:#e1f2fd;font:inherit;font-size:12px;padding:6px}
-.mw-stat-row{display:flex;justify-content:space-between;gap:8px;padding:7px 2px;border-bottom:1px solid #244357;font-size:12px}
-.mw-stat-row strong{font-variant-numeric:tabular-nums}
+
 #mw-notice{min-height:14px;font-size:11px;color:#95dacc;margin:0 0 7px}
 @media(max-width:740px){.mw-root{padding:11px 12px}.mw-head{align-items:start;flex-direction:column;gap:10px}.mw-header-actions{width:100%;justify-content:flex-start}.mw-cash-box{margin-right:auto;text-align:left}.mw-cards{grid-template-columns:1fr}.mw-card{padding:13px}.mw-name{font-size:18px}.mw-rewards{gap:6px}.mw-value{padding:8px}.mw-value strong{font-size:13px}.mw-history-row{align-items:start;flex-direction:column;gap:4px}.mw-history-reward{text-align:left}}
 @media(max-height:530px){.mw-head h1{font-size:20px}.mw-root{gap:6px}.mw-head{padding-bottom:7px}}
+
 
 
 /* DEV mission cards: same five fields on desktop and mobile. */
@@ -339,44 +93,22 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 .mw-card-bottom{border:0;padding:0;gap:7px;min-height:0}
 .mw-track{height:5px}
 .mw-count{font-size:10px}
-.mw-stats-modal{position:fixed;inset:0;z-index:40;background:#03101dd6;display:flex;align-items:center;justify-content:center;padding:clamp(9px,2vw,20px);backdrop-filter:blur(5px)}
-.mw-stats-panel{display:flex;flex-direction:column;width:min(830px,100%);max-height:min(680px,calc(100dvh - 26px));background:#0c2235;border:1px solid #587b92;box-shadow:0 25px 80px #0009;border-radius:13px;overflow:hidden}
-.mw-modal-head{flex:none;display:flex;justify-content:space-between;align-items:center;padding:12px 15px;border-bottom:1px solid #2b506b}
-.mw-modal-head h2{font-size:16px}
-.mw-stat-zone{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;-ms-overflow-style:none;padding:12px}
-.mw-stat-zone::-webkit-scrollbar{display:none;width:0;height:0}
-.mw-info-grid{display:grid;grid-template-columns:minmax(280px,1fr) minmax(230px,.86fr);gap:13px;align-items:start}
-.mw-categories{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-.mw-category{min-height:38px;background:#132f43;color:#b2cbdc;border:1px solid #37576e;border-radius:7px;padding:6px 5px;font:inherit;font-size:11px;font-weight:650;line-height:1.2}
-.mw-category:hover,.mw-category:focus-visible{border-color:#a1d6ef;color:#eaf8ff}
-.mw-category.active{background:#24516b;color:#f0fbff;border-color:#91d8f5}
-.mw-fields{background:#112a3f;border:1px solid #32536b;border-radius:8px;padding:9px 12px}
-.mw-fields-title{font-size:12px;color:#c8e8f6;margin:1px 0 6px}
-.mw-stat-row{padding:8px 2px}
-.mw-stat-row strong{font-size:12px}
+
 @media(max-width:740px){
- .mw-root{gap:6px;padding:8px 10px}
- .mw-head{gap:7px;padding-bottom:7px}
- .mw-head h1{font-size:19px}
- .mw-header-actions{gap:5px}
- .mw-button{padding:8px 9px}
- .mw-card{padding:9px;gap:7px}
- .mw-card-top{flex-wrap:nowrap}
- .mw-card-identity{flex-basis:auto}
- .mw-name{font-size:15px}
- .mw-card-controls{flex:none;justify-content:flex-end}
+.mw-root{padding:8px 10px;gap:6px}
+.mw-cards{grid-template-columns:1fr}
+.mw-card{padding:9px;gap:7px}
+.mw-card-top{flex-wrap:nowrap}
+.mw-card-identity{min-width:0;flex:1}
+.mw-card-controls{flex:none}
+.mw-name{font-size:14px}
  .mw-rewards{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
- .mw-value{padding:6px 2px;min-width:0}
- .mw-value strong{font-size:11px;white-space:nowrap}
- .mw-info-grid{grid-template-columns:1fr;gap:10px}
- .mw-categories{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
- .mw-category{min-height:32px;font-size:10px;padding:4px 3px}
- .mw-stat-zone{padding:10px}
- .mw-stats-panel{max-height:calc(100dvh - 20px)}
- .mw-stat-row{padding:7px 2px}
+.mw-value{padding:6px 2px;min-width:0}
+.mw-value strong{font-size:11px;white-space:nowrap}
+.mw-history-row{align-items:start;flex-direction:column;gap:4px}
 }
 @media(max-width:360px){.mw-value{padding:6px 1px}.mw-value strong{font-size:9px}.mw-value .mw-label{font-size:8px}}
-
+.mw-start-error{margin:clamp(18px,5vw,50px) auto;padding:18px;width:min(660px,calc(100% - 28px));border:1px solid #765562;background:#2a1e2c;color:#ffe3e7;border-radius:11px;font-size:13px;line-height:1.6}
 
 /* DEV header: reuse the portal's circular M emblem, KST clock, and cash-only row. */
 .top{height:70px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 clamp(14px,3.6vw,38px);background:#081b2c;border-bottom:1px solid #29445a}
@@ -429,14 +161,13 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 @media(max-width:390px){.mw-update-inner{height:34px;gap:6px}.mw-update-copy{font-size:10px}.mw-update-separator{margin:0 2px}.mw-update-symbol{width:13px;height:13px}}
 @media(prefers-reduced-motion:reduce){.mw-update-reveal,.mw-update-panel{transition:none}}
 
+
 </style></head>
 <body>
 <div class="shell">
- <div class="city-ambient" id="city-ambient" aria-hidden="true"></div>
  <header class="top" aria-label="MYON 개발서버 상단 메뉴">
-  <button class="back" type="button" id="back" hidden aria-label="시작화면 돌아가기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m14 5-7 7 7 7M7 12h14"/></svg><span>시작화면</span></button>
   <div class="top-identity"><span class="top-emblem" role="img" aria-label="MYON 엠블럼">M</span><span class="top-server">개발서버</span></div>
-  <div class="top-clock" aria-label="한국 표준시간"><strong class="top-time" id="top-clock-time">--:--:--</strong><span class="top-date" id="top-clock-date">--.-- ---</span></div>
+  <div class="top-clock" aria-label="한국 표준시간"><strong class="top-time" id="top-clock-time">--:--</strong><span class="top-date" id="top-clock-date">--.-- ---</span></div>
  </header>
  <div id="mw-money-strip" class="mw-money-strip" hidden aria-label="현재 보유 자금">
   <div class="mw-money-inner"><strong id="mw-cash" class="mw-money-value">0</strong><span class="mw-money-unit">M</span></div>
@@ -447,250 +178,25 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
    <div class="mw-update-inner"><span class="mw-update-symbol" aria-hidden="true"><span></span></span><span class="mw-update-copy">신규 업데이트 적용 가능 <span class="mw-update-separator">·</span> <span class="mw-update-restart">재시작 요망</span></span></div>
   </div>
  </div>
-
- <main id="character" class="character" hidden aria-label="캐릭터 만들기">
-  <div class="ch-head">
-    <div><span class="ch-mark">MYON WORLD</span><h1>캐릭터 만들기</h1></div>
-    <div class="ch-progress">01 / 02 <span>· 다음은 도시 선택</span></div>
-  </div>
-  <div class="ch-layout"><section class="ch-panel">
-    <div class="ch-field"><label class="ch-label" for="citizen-name">이름</label><div class="ch-name-wrap"><input class="ch-name" id="citizen-name" type="text" maxlength="12" autocomplete="off" placeholder="캐릭터 이름 (2~12자)"><span class="ch-count" id="citizen-name-count">0 / 12</span></div></div>
-    <div class="ch-field ch-visual-field"><span class="ch-label">성별</span>
-      <div class="ch-gender" role="group" aria-label="캐릭터 성별">
-        <button type="button" class="gender-card" data-gender="male" aria-pressed="false"><span class="gender-art" role="img" aria-label="실사 스타일 남자 시민 초상"></span><span class="gender-caption">남자 <span class="gender-check">✓</span></span></button>
-        <button type="button" class="gender-card" data-gender="female" aria-pressed="false"><span class="gender-art" role="img" aria-label="실사 스타일 여자 시민 초상"></span><span class="gender-caption">여자 <span class="gender-check">✓</span></span></button>
-      </div>
-    </div>
-    <div class="ch-field ch-path-field"><span class="ch-label">플레이 성향</span>
-      <div class="ch-paths" role="group" aria-label="초기 플레이 성향">
-        <button type="button" class="path-card" data-path="free" aria-pressed="false"><span class="path-icon" aria-hidden="true">◇</span><strong>자유로운 삶</strong></button>
-        <button type="button" class="path-card" data-path="people" aria-pressed="false"><span class="path-icon" aria-hidden="true">♧</span><strong>사람과 이야기</strong></button>
-        <button type="button" class="path-card" data-path="explore" aria-pressed="false"><span class="path-icon" aria-hidden="true">⌖</span><strong>탐험과 발견</strong></button>
-        <button type="button" class="path-card" data-path="economy" aria-pressed="false"><span class="path-icon" aria-hidden="true">▥</span><strong>경제와 성장</strong></button>
-      </div>
-    </div>
-    <div class="ch-footer">
-      <div class="ch-footer-copy"><span class="ch-brief">선택 성향의 임무부터 시작 · 다른 임무도 가능</span><span class="ch-error" id="character-error" role="status" aria-live="polite"></span></div>
-      <button type="button" class="ch-go" id="create-citizen" disabled>다음 · 도시 선택 <span aria-hidden="true">→</span></button>
-    </div>
-  </section></div>
- </main>
- <main class="main">
-  <div class="intro"><div><div class="eyebrow">MYON WORLD / CHOOSE YOUR BEGINNING</div><h1>나의 첫 도시를 선택하세요</h1><p id="city-intro">도시는 각자의 분위기를 가지고 있습니다. 어떤 삶을 살아갈지는 당신이 정합니다.</p></div><div class="intro-right">STARTING CITIES <strong>03</strong></div></div>
-  <div class="city-tabs" role="tablist" aria-label="시작 도시 선택">
-   <button type="button" class="city-tab active" data-city-button="lien" role="tab" aria-selected="true"><span class="bullet"></span>리엔시</button>
-   <button type="button" class="city-tab" data-city-button="haren" role="tab" aria-selected="false"><span class="bullet"></span>하렌시</button>
-   <button type="button" class="city-tab" data-city-button="serin" role="tab" aria-selected="false"><span class="bullet"></span>세린시</button>
-  </div>
-  <section class="city-grid" aria-label="선택 가능한 도시">
-   <button type="button" class="city-card selected" data-city="lien" aria-pressed="true">
-    <span class="city-pic" style="background-image:url('myon-city-lien.webp')"><span class="picture-tag">ARDEN · CENTRAL REGION</span><span class="city-selected"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="m5 12 5 5L19 7"/></svg></span><span class="city-num">01</span></span>
-    <span class="city-body"><span class="city-zone">아르덴 대륙 · 중앙 지역</span><span class="city-name">리엔시</span><span class="city-theme">도시 중심 · 사람들의 이야기</span><span class="city-desc">수많은 시민과 관계가 얽힌 중심 도시. 이야기는 사람들 사이에서 끝없이 시작됩니다.</span><span class="city-foot"><span class="status">시설 상태 · 입성 후 확인</span><strong>선택 가능</strong></span></span>
-   </button>
-   <button type="button" class="city-card" data-city="haren" aria-pressed="false">
-    <span class="city-pic" style="background-image:url('myon-city-haren.webp')"><span class="picture-tag">ARDEN · HIGHLANDS</span><span class="city-selected"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="m5 12 5 5L19 7"/></svg></span><span class="city-num">02</span></span>
-    <span class="city-body"><span class="city-zone">아르덴 대륙 · 농촌 지역</span><span class="city-name">하렌</span><span class="city-theme">평화로운 시골마을 · 자연과 이웃</span><span class="city-desc">작지만 평화로운 시골마을. 자연과 이웃이 어우러진 일상을 만나보세요.</span><span class="city-foot"><span class="status">시설 상태 · 입성 후 확인</span><strong>선택 가능</strong></span></span>
-   </button>
-   <button type="button" class="city-card" data-city="serin" aria-pressed="false">
-    <span class="city-pic" style="background-image:url('myon-city-serin.webp')"><span class="picture-tag">ARDEN · COASTAL REGION</span><span class="city-selected"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="m5 12 5 5L19 7"/></svg></span><span class="city-num">03</span></span>
-    <span class="city-body"><span class="city-zone">아르덴 대륙 · 해안 지역</span><span class="city-name">세린시</span><span class="city-theme">산업 중심 · 생산과 경제</span><span class="city-desc">생산과 물류, 거래가 만나는 산업 도시. 사람과 경제가 서로 이어집니다.</span><span class="city-foot"><span class="status">시설 상태 · 입성 후 확인</span><strong>선택 가능</strong></span></span>
-   </button>
-  </section>
-  <div class="bottom"><div class="tip"><strong>도시는 삶의 배경일 뿐, 정해진 길은 없습니다.</strong><small>이곳에서 무엇을 할지는 직접 발견하세요. 다른 도시에도 방문할 수 있습니다.</small></div><button id="start" type="button" class="submit"><span id="start-label">리엔시에서 시작</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button></div>
- </main>
-
- <main class="arrival" id="arrival" hidden aria-label="도시 첫 입성 미리보기">
-  <div class="arrival-heading"><div><span class="eyebrow">YOUR FIRST DAY / ARRIVAL</span><h1 id="arrival-heading">리엔시에 도착했습니다</h1><p id="arrival-subtitle">도시는 이미 저마다의 하루를 살아가고 있습니다.</p></div><button type="button" class="switch-city" id="switch-city" hidden disabled>다른 도시 선택</button></div>
-  <section class="arrival-landscape" id="arrival-landscape" aria-label="선택한 도시 풍경"><div class="arrival-landscape-shade"><div class="eyebrow" id="arrival-zone">ARDEN CONTINENT</div><h2 id="arrival-landscape-title">리엔시</h2><p id="arrival-theme">수많은 시민의 이야기가 시작되는 곳</p></div><span class="world-clock">MYON WORLD · FIRST ARRIVAL</span></section>
-  <div class="arrival-board">
-   <section class="arrival-situation" aria-label="현재 상황"><div class="eyebrow">CURRENT LOCATION / 첫 도착지</div><h2 id="arrival-location">리엔시 · 도심 광장</h2><p id="arrival-scene">거리에는 낯선 시민들이 오갑니다. 특별한 목표는 정해져 있지 않습니다.</p><div class="arrival-event" id="arrival-event" role="status" aria-live="polite"><span class="event-label">지금은 당신의 선택을 기다립니다.</span><p id="event-copy">주변 사람을 만나거나 다른 곳을 살펴보세요. 무슨 일이 생길지는 직접 알아가게 됩니다.</p></div></section>
-   <section class="arrival-activities" aria-label="가능한 첫 행동"><div class="eyebrow">FIRST ACTION / 첫 행동</div><h2>무엇부터 할까요?</h2><div class="activity-grid"><button type="button" class="activity" data-action="people"><span class="activity-icon">♧</span>근처 사람 만나기<small>대화 · 관계</small></button><button type="button" class="activity" data-action="look"><span class="activity-icon">◈</span>주변 둘러보기<small>발견 · 관찰</small></button><button type="button" class="activity" data-action="facility"><span class="activity-icon">⌁</span>시설 살펴보기<small>조사 · 상황</small></button><button type="button" class="activity" data-action="rest"><span class="activity-icon">⌂</span>머물 곳 찾기<small>생활 · 휴식</small></button></div><p class="arrival-note">※ 이 시안의 사건은 미리보기용 예시입니다. 정식 게임은 고정 스토리가 아닌 변수·상황 기반으로 진행됩니다.</p></section>
-  </div>
- </main>
- <main class="welcome" id="welcome" hidden aria-label="시작화면 미리보기"><div class="welcome-panel"><div class="eyebrow">MYON WORLD · DEV PREVIEW</div><h1>하나의 세계, 수많은 삶</h1><p>누군가가 만들어 둔 길을 따라가지 않습니다. 당신이 선택한 도시에서 첫 번째 하루가 시작됩니다.</p><button type="button" class="submit" id="go-city">첫 도시 선택하기 <span>→</span></button><small>캐릭터 정보와 시작 도시만 이 기기에 저장됩니다. 다른 게임 진행 정보는 아직 연결되지 않았습니다.</small></div></main>
+ <section id="mw-start-error" class="mw-start-error" hidden role="alert"></section>
 </div>
-<div class="modal-back" id="modal" role="presentation"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
- <div class="eyebrow">FIRST ARRIVAL / DESIGN PREVIEW</div><h2 id="modal-title">리엔시로 입성</h2>
- <p id="modal-text">선택한 도시에서 주변을 살펴보며 스스로 첫 행동을 정하게 됩니다.</p>
- <small id="modal-warning">도시 입성은 첫 거주 도시 확정입니다. 이후 도시 간 이동에는 교통시설과 이동 시간이 필요합니다.</small>
- <div class="modal-actions"><button class="btn-muted" id="modal-close" type="button">도시 다시 선택</button><button class="btn-primary" id="modal-confirm" type="button">선택한 도시로 입성</button></div>
-</div></div>
 <script>
-
-// New citizen record is DEV-only, separate from the legacy game database.
-const devSaveParams=new URLSearchParams(location.search)
-const requestedDevVersion=devSaveParams.get('dev_version')
-const isVersionedDevSave=devSaveParams.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(devSaveParams.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'')
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.82'
-const DEV_VERSION_MARKER='MYON_DEV_ACTIVE_VERSION_V1'
-const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION
-let devSaveReady=false
-function prepareCitizenVersion(){
- if(!isVersionedDevSave)return true // Preview has its own isolated, non-versioned save key.
- try{
-  if(localStorage.getItem(DEV_VERSION_MARKER)===DEV_SAVE_VERSION)return true
-  // Fallback if an archived DEV page was opened without its portal entry check.
-  // Only DEV-owned keys can be removed; LIVE/TEST data is never touched.
-  const oldKeys=[]
-  for(let i=0;i<localStorage.length;i++){
-   const key=localStorage.key(i)
-   if(key&&key.startsWith('MYON_DEV_')&&key!==DEV_VERSION_MARKER)oldKeys.push(key)
-  }
-  for(const key of oldKeys)localStorage.removeItem(key)
-  localStorage.setItem(DEV_VERSION_MARKER,DEV_SAVE_VERSION)
-  return true
- }catch(error){console.warn('DEV version reset failed',error);return false}
-}
-
-const validGender=['male','female'];
-const validPaths=['free','people','explore','economy'];
-const startingQuest={
- free:{title:'첫걸음 · 도시의 하루 살펴보기',detail:'가까운 거리와 사람들을 살펴보세요. 어느 활동부터 시작해도 괜찮습니다.'},
- people:{title:'첫 만남 · 가까운 시민에게 인사하기',detail:'낯선 시민과 대화를 나누며 도시의 이야기를 들어보세요.'},
- explore:{title:'첫 발견 · 주변의 작은 단서 찾기',detail:'도시에서 눈에 띄는 장소를 찾아보고 주변 환경을 조사해보세요.'},
- economy:{title:'첫 일거리 · 도시의 일터 살펴보기',detail:'주변의 가게나 작업시설을 살펴보고 필요한 일거리를 찾아보세요.'}
-};
-function citizenValid(v){return v&&v.schema===1&&typeof v.id==='string'&&v.id.length>3&&typeof v.name==='string'&&v.name.trim().length>=2&&v.name.trim().length<=12&&validGender.includes(v.gender)&&validPaths.includes(v.path)&&(!v.city||['lien','haren','serin'].includes(v.city));}
-function readCitizen(){for(const key of [CITIZEN_KEY,CITIZEN_KEY+'.backup']){try{const s=localStorage.getItem(key);if(!s)continue;const p=JSON.parse(s);if(citizenValid(p))return p;}catch(e){console.warn('Citizen read warning',e)}}return null;}
-function storeCitizen(v){if(!devSaveReady)return false;try{if(!citizenValid(v))throw Error('시민 정보가 올바르지 않습니다.');const prior=localStorage.getItem(CITIZEN_KEY);if(prior)localStorage.setItem(CITIZEN_KEY+'.backup',prior);localStorage.setItem(CITIZEN_KEY,JSON.stringify(v));return true;}catch(e){console.warn('Citizen storage unavailable',e);return false;}}
-function createId(){return (globalThis.crypto&&typeof crypto.randomUUID==='function')?crypto.randomUUID():'citizen-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}
-let citizen=null,cityLocked=false,genderChoice='',pathChoice='';
-function validateCitizenForm(){const n=$('citizen-name').value.trim();$('citizen-name-count').textContent=$('citizen-name').value.length+' / 12';$('create-citizen').disabled=!(n.length>=2&&n.length<=12&&genderChoice&&pathChoice);}
-function chooseCharacter(kind,value){if(kind==='gender'){if(!validGender.includes(value))return;genderChoice=value;document.querySelectorAll('[data-gender]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.gender===value)));}else{if(!validPaths.includes(value))return;pathChoice=value;document.querySelectorAll('[data-path]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.path===value)));}validateCitizenForm();}
-function confirmCitizen(){if(citizen)return;const name=$('citizen-name').value.trim();if(name.length<2||name.length>12||!validGender.includes(genderChoice)||!validPaths.includes(pathChoice))return;const v={schema:1,id:createId(),name,gender:genderChoice,path:pathChoice,city:null,createdAt:new Date().toISOString()};if(!storeCitizen(v)){$('character-error').textContent='정보를 저장할 수 없습니다. 브라우저 저장 설정을 확인해주세요.';return;}citizen=v;$('city-intro').textContent=name+' 님, 첫 도시를 골라주세요. 도시에 입성한 후에는 교통편을 통해 이동해야 합니다.';showScreen('picker');}
-
-const $=id=>document.getElementById(id);
-
-// MYON standard-time clock; always render in KST regardless of device timezone.
+const params=new URLSearchParams(location.search);
+const requestedDevVersion=params.get('dev_version');
+const isVersionedDevSave=params.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(params.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'');
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.83';
 const topClockFormat=new Intl.DateTimeFormat('en-US',{
  timeZone:'Asia/Seoul',hourCycle:'h23',hour:'2-digit',minute:'2-digit',
  month:'2-digit',day:'2-digit',weekday:'short'
 });
 function updateTopClock(){
  const parts=Object.fromEntries(topClockFormat.formatToParts(new Date()).map(part=>[part.type,part.value]));
- $('top-clock-time').textContent=parts.hour+':'+parts.minute;
- $('top-clock-date').textContent=parts.month+'.'+parts.day+' '+parts.weekday.toUpperCase();
+ document.getElementById('top-clock-time').textContent=parts.hour+':'+parts.minute;
+ document.getElementById('top-clock-date').textContent=parts.month+'.'+parts.day+' '+parts.weekday.toUpperCase();
 }
 updateTopClock();
 window.setInterval(updateTopClock,1000);
-
-
-const cityNames={lien:'리엔시',haren:'하렌',serin:'세린시'};
-const cityInfo={
- lien:{topic:'사람들이 만들어가는 끝없는 이야기',location:'리엔시 · 도심 광장',scene:'바쁜 거리에서 시민들이 저마다의 하루를 보내고 있습니다. 누군가의 이야기를 들을 수도, 그냥 지나갈 수도 있어요.',theme:'사람들의 도시 · 관계와 대화',zone:'ARDEN / CENTRAL DISTRICT',events:{
-  people:[['광장의 낯선 인사','시장 상인이 물건을 정리하다 당신에게 길을 묻습니다. 도와줄 수도, 잠시 이야기를 나눌 수도 있어요.'],['오래된 친구들의 다툼','광장 벤치에서 두 시민이 의견을 나누고 있습니다. 당신을 알아본 사람은 아직 없습니다.']],
-  look:[['도시의 작은 변화','전광판은 일부 꺼져 있지만 광장 한쪽의 작은 가게에서는 여전히 음악이 흘러나옵니다.'],['벽에 붙은 안내문','구도심 주민 모임을 알리는 오래된 안내문이 눈에 들어옵니다. 방문해 볼지 선택할 수 있습니다.']],
-  facility:[['정지된 안내 단말기','광장 단말기에 전원이 들어오지 않습니다. 근처 관리인의 이야기를 들으면 원인을 알 수 있을지도 모릅니다.'],['연락처가 적힌 쪽지','버스 정류장의 안내판 옆에 시설 점검 담당자의 연락처가 남아 있습니다.']],
-  rest:[['작은 찻집','골목의 찻집에는 빈자리가 있습니다. 주인이 조용히 인사합니다.'],['임시 숙소 안내','숙소를 찾는 시민들을 위한 게시판이 있습니다. 먼저 읽어 보아도 좋겠네요.']]}
- },
- haren:{topic:'자연과 이웃이 가까운 평화로운 삶',location:'하렌 · 마을 입구',scene:'낮은 집들이 이어진 길가에서 바람이 불어옵니다. 마을 사람들은 서두르지 않고 저마다의 일을 하고 있습니다.',theme:'평화로운 시골 · 자연과 공동체',zone:'ARDEN / RURAL VALLEY',events:{
-  people:[['길가의 농부','밭에서 돌아오는 농부가 인사를 건넵니다. 무슨 일로 이 마을에 왔는지 궁금한 모양입니다.'],['익숙하지 않은 얼굴','이웃들은 서로의 이름을 알고 있습니다. 낯선 당신에게도 각자의 반응을 보입니다.']],
-  look:[['냇가의 갈림길','오솔길은 마을 광장과 작은 농장 쪽으로 갈라집니다. 어디로 가든 새로운 풍경이 기다립니다.'],['마을 게시판','평범한 일상 소식들이 적혀 있습니다. 그중 누군가 잃어버린 물건을 찾는 안내가 보입니다.']],
-  facility:[['낡은 물레방아','마을 가장자리의 오래된 장치가 멈춰 있습니다. 고장인지 단순한 휴지 상태인지는 알 수 없습니다.'],['공동 창고','마을 공동 창고에는 여러 사람의 물건이 모여 있습니다. 관리인과 대화할 수 있습니다.']],
-  rest:[['시골 여관','작은 여관에서 따뜻한 차를 권합니다. 잠시 머무르며 마을 소식을 들을 수 있습니다.'],['넓은 들판','한가로운 들판에서 잠시 쉬어갑니다. 바람이 지나가는 소리가 들립니다.']]}
- },
- serin:{topic:'생산과 물류, 거래가 만드는 경제의 흐름',location:'세린시 · 항만 입구',scene:'항만에는 화물차와 작업자들이 오갑니다. 생산과 운송이 이어지는 이곳에는 수많은 생활과 일이 얽혀 있습니다.',theme:'산업과 경제 · 생산과 연결',zone:'ARDEN / INDUSTRIAL COAST',events:{
-  people:[['교대 근무자','퇴근하는 작업자들이 오늘 작업에 관한 이야기를 나눕니다. 한 사람은 어딘가 곤란해 보입니다.'],['첫 거래 제안','소규모 상인이 당신에게 물건을 실어 줄 사람을 아는지 묻습니다. 반드시 응할 필요는 없습니다.']],
-  look:[['항만의 활기','적재 구역마다 움직이는 속도가 다릅니다. 바쁜 구역도 있고 한산한 창고도 있습니다.'],['화물 게시판','여러 상인의 공고가 붙어 있습니다. 일부는 이미 기한이 지났고 일부는 막 새로 올라왔습니다.']],
-  facility:[['유휴 하역 장치','부두 한쪽에서 멈춰 있는 하역 장치를 발견합니다. 정비사가 부품을 점검하고 있습니다.'],['배전 관리실','항만 주변 시설에 전력을 공급하는 관리실입니다. 담당자를 만나면 상황을 들을 수 있습니다.']],
-  rest:[['작업자 식당','교대 시간에 맞춰 식당이 붐빕니다. 다양한 직업의 사람들이 식사를 하고 있습니다.'],['항만 숙소','여행자와 작업자를 위한 작은 숙소가 있습니다. 머무르며 이곳의 생활을 알아갈 수 있습니다.']]}
- }};
-let selectedCity='lien',currentScreen='character',actionCounts={};
-const modal=$('modal');
-function selectCity(id){
- if(!cityNames[id]||(cityLocked&&selectedCity!==id))return;
- selectedCity=id;
- document.querySelectorAll('[data-city]').forEach(card=>{const yes=card.dataset.city===id;card.classList.toggle('selected',yes);card.setAttribute('aria-pressed',String(yes))});
- document.querySelectorAll('[data-city-button]').forEach(tab=>{const yes=tab.dataset.cityButton===id;tab.classList.toggle('active',yes);tab.setAttribute('aria-selected',String(yes))});
- $('start-label').textContent=cityNames[id]+'에서 시작';
- const cityArt=document.querySelector('[data-city="'+id+'"] .city-pic');
- if(cityArt)$('city-ambient').style.backgroundImage=cityArt.style.backgroundImage;
-}
-function showScreen(screen){
- if(screen==='character'&&citizen)screen=cityLocked?'arrival':'picker';
- if(screen==='picker'&&cityLocked)screen='arrival';
- currentScreen=screen;
- $('city-ambient').hidden=true;
- $('back').querySelector('span').textContent=screen==='arrival'?'현재 도시':'시작화면';
- $('character').hidden=screen!=='character';
- document.querySelector('.main').hidden=screen!=='picker';
- $('arrival').hidden=screen!=='arrival';
- $('welcome').hidden=screen!=='welcome';
-}
-function openModal(){
- $('modal-title').textContent=cityNames[selectedCity]+'에서 시작할까요?';
- $('modal-text').textContent=cityInfo[selectedCity].topic+'. 도시의 환경과 사람들은 존재하지만, 첫 행동은 당신이 정하게 됩니다.';
- $('modal-confirm').textContent='선택한 도시로 입성';
- modal.classList.add('open');$('modal-confirm').focus();
-}
-function closeModal(){modal.classList.remove('open')}
-function enterCity(){
- if(!citizen){closeModal();showScreen('character');return;}
- if(!cityLocked){const v={...citizen,city:selectedCity};if(!storeCitizen(v)){$('modal-warning').textContent='도시 위치를 저장할 수 없습니다. 저장 설정을 확인해주세요.';return;}citizen=v;cityLocked=true;}
- closeModal(); const city=cityInfo[selectedCity], name=cityNames[selectedCity];
- $('arrival-heading').textContent=name+'에 도착했습니다';
- $('arrival-subtitle').textContent='지금부터 이 도시에서의 하루를 시작합니다.';
- $('arrival-landscape-title').textContent=name;
- $('arrival-theme').textContent=city.theme;
- $('arrival-zone').textContent=city.zone;
- $('arrival-location').textContent=city.location;
- $('arrival-scene').textContent=city.scene;
- $('arrival-landscape').style.backgroundImage=document.querySelector('[data-city="'+selectedCity+'"] .city-pic').style.backgroundImage;
- $('arrival-event').querySelector('.event-label').textContent='첫 도착 · 아직 어떤 행동도 하지 않았습니다.';
- $('event-copy').textContent='지금 눈앞에 보이는 것부터 살펴보세요. 행동을 선택하면 이곳에서 마주친 상황이 나타납니다.';
- document.querySelectorAll('.activity').forEach(b=>b.classList.remove('active'));
- actionCounts={};
- const quest=startingQuest[citizen.path]||startingQuest.free;
- $('arrival-event').querySelector('.event-label').textContent=quest.title;
- $('event-copy').textContent=quest.detail+' 다른 종류의 임무도 자유롭게 진행할 수 있습니다.';
- $('arrival-scene').textContent=citizen.name+' 님, '+city.scene;
- showScreen('arrival');
-}
-function act(action,button){
- const city=cityInfo[selectedCity];if(!city||!city.events[action])return;
- const events=city.events[action],key=selectedCity+'-'+action;
- const count=actionCounts[key]||0;
- const pick=events[count%events.length];actionCounts[key]=count+1;
- $('arrival-event').querySelector('.event-label').textContent=pick[0];
- $('event-copy').textContent=pick[1];
- document.querySelectorAll('.activity').forEach(b=>b.classList.toggle('active',b===button));
-}
-function back(){
- if(modal.classList.contains('open')){closeModal();return;}
- if(currentScreen==='character')return;
- if(cityLocked){showScreen('arrival');return;}
- if(currentScreen==='picker')showScreen('welcome');else showScreen('picker');
-}
-document.querySelectorAll('[data-gender]').forEach(b=>b.addEventListener('click',()=>chooseCharacter('gender',b.dataset.gender)));
-document.querySelectorAll('[data-path]').forEach(b=>b.addEventListener('click',()=>chooseCharacter('path',b.dataset.path)));
-$('citizen-name').addEventListener('input',()=>{$('character-error').textContent='';validateCitizenForm()});
-$('create-citizen').addEventListener('click',confirmCitizen);
-document.querySelectorAll('[data-city]').forEach(card=>card.addEventListener('click',()=>selectCity(card.dataset.city)));
-document.querySelectorAll('[data-city-button]').forEach(tab=>tab.addEventListener('click',()=>selectCity(tab.dataset.cityButton)));
-document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>act(b.dataset.action,b)));
-$('start').addEventListener('click',openModal);
-$('modal-confirm').addEventListener('click',enterCity);
-$('modal-close').addEventListener('click',closeModal);
-$('switch-city').addEventListener('click',()=>showScreen('picker'));
-$('go-city').addEventListener('click',()=>showScreen('picker'));
-$('back').addEventListener('click',back);
-modal.addEventListener('click',event=>{if(event.target===modal)closeModal()});
-document.addEventListener('keydown',event=>{
- if(event.key==='Escape'){
-  if(modal.classList.contains('open'))closeModal();else back();
- }
- if(currentScreen==='picker'&&window.innerWidth<=740&&(event.key==='ArrowRight'||event.key==='ArrowLeft')){
-  const ids=Object.keys(cityNames),at=ids.indexOf(selectedCity),step=event.key==='ArrowRight'?1:-1;
-  selectCity(ids[(at+step+ids.length)%ids.length]);
- }
-});
-devSaveReady=prepareCitizenVersion();
-citizen=devSaveReady?readCitizen():null;cityLocked=Boolean(citizen&&citizen.city);
-if(cityLocked)selectedCity=citizen.city;
-if(citizen)$('city-intro').textContent=citizen.name+' 님, 첫 도시를 골라주세요. 입성 후에는 교통편을 통해 이동해야 합니다.';
-selectCity(selectedCity);
-showScreen('welcome');
-
-// Initial ambient city background matches the default highlighted selection.
-if(!cityLocked)selectCity(selectedCity);
-</script><script src="myon-dev-missions.js"></script><script src="myon-dev-update.js"></script></body></html>
+</script>
+<script src="myon-dev-missions.js"></script>
+<script src="myon-dev-update.js"></script>
+</body></html>

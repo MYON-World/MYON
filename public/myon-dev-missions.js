@@ -259,15 +259,8 @@ function tick(){
 }
 function openGame(){
  if(!world)return;
- currentScreen='missions';
  $m('mw-root').hidden=false;
  $m('mw-money-strip').hidden=false;
- document.querySelector('.main').hidden=true;
- $m('character').hidden=true;
- $m('arrival').hidden=true;
- $m('welcome').hidden=true;
- $m('city-ambient').hidden=true;
- $m('back').querySelector('span').textContent='시작화면';
  settleDue();refreshOffers();render();
 }
 function setupUi(){
@@ -284,7 +277,7 @@ function setupUi(){
  const h2=add(section2,'div','mw-section-head');add(h2,'h2','mw-section-title','진행 중');add(h2,'span','mw-small','').id='mw-active-count';
  add(section2,'div','mw-cards','').id='mw-active';
  add(scroll,'section','mw-section','').id='mw-history';
- parent.insertBefore(root,$m('character'));
+ parent.append(root);
 
 }
 async function bootstrap(){
@@ -313,8 +306,8 @@ async function bootstrap(){
   window.setInterval(tick,1000);
  }catch(error){
   console.error('MYON DEV mission start failed:',error);
-  const fallback=$m('welcome');
-  if(fallback){fallback.hidden=false;fallback.textContent='게임 시작 실패 · '+String(error.message||error);}
+  const errorPanel=$m('mw-start-error');
+  if(errorPanel){errorPanel.hidden=false;errorPanel.textContent='임무판 시작 실패 · '+String(error.message||error);}
  }
 }
 bootstrap();
