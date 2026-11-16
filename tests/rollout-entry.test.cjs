@@ -218,9 +218,9 @@ test('DEV city selection offers interactive no-scroll arrival on mobile',()=>{
  assert.ok(html.includes('overflow:hidden;overscroll-behavior:none'));
  assert.ok(html.includes('height:100dvh'));
  assert.doesNotMatch(html,/scrollIntoView|window\.scrollTo/);
- // Only the DEV notebook scrolls; its scrollbar is visually hidden.
- assert.match(html,/\.dnb-scroll\{flex:1;min-height:0;overflow-y:auto/);
- assert.match(html,/\.dnb-scroll::-webkit-scrollbar\{display:none;width:0;height:0\}/);
+ // The DEV mission board scrolls while its scrollbar remains hidden.
+ assert.match(html,/\.mw-scroll\{flex:1;min-height:0;overflow:auto/);
+ assert.match(html,/\.mw-scroll::-webkit-scrollbar\{display:none;width:0;height:0\}/);
  assert.doesNotMatch(html,/function devNotebookPager\(/);
  assert.doesNotMatch(html,/function devNotebookDetailChunks\(/);
  assert.ok(html.includes("function selectCity(id)"));
@@ -247,7 +247,7 @@ test('DEV character creation comes before the city selector and uses gender port
  for(const value of ['free','people','explore','economy'])assert.ok(html.includes('data-path="'+value+'"'));
  assert.ok(html.includes('id="create-citizen" disabled'));
  assert.ok(html.includes('function confirmCitizen()'));
- assert.ok(html.includes("showScreen(citizen?'picker':'character')"));
+ assert.ok(html.includes("showScreen('welcome');"));
  assert.ok(html.includes("if(!citizen){closeModal();showScreen('character');return;}"));
  assert.ok(html.includes("const startingQuest={"));
  assert.ok(html.includes("const quest=startingQuest[citizen.path]"));
@@ -288,7 +288,7 @@ test('DEV simplified character creation keeps usable choices and citizen storage
  assert.ok(html.includes("function readCitizen(){for(const key of [CITIZEN_KEY,CITIZEN_KEY+'.backup'])"));
  assert.ok(html.includes("localStorage.setItem(CITIZEN_KEY+'.backup',prior)"));
  assert.ok(html.includes("localStorage.setItem(CITIZEN_KEY,JSON.stringify(v))"));
- assert.ok(html.includes("if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')"));
+ assert.ok(html.includes("showScreen('welcome');"));
  assert.ok(html.includes("if(!cityNames[id]||(cityLocked&&selectedCity!==id))return"));
  assert.doesNotMatch(html,/indexedDB\.open\(|localStorage\.clear\(/);
 });
