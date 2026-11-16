@@ -398,7 +398,7 @@ test('DEV notebook uses button-based navigation through actual structured world 
  assert.match(html,/dnGroup\('전체 산업 분야',data\.domains\.map/);
  assert.match(html,/dnGroup\('도시별 현황',data\.cities\.map/);
  assert.match(html,/dnLeaf\('현재 운영 현황',c\.current/);
- assert.match(html,/devNotebookGo\(\[\.\.\.dnTrail,start\+index\]\)/);
+ assert.match(html,/devNotebookGo\(\[\.\.\.dnTrail,i\]\)/);
  assert.match(html,/devNotebookBack\(\)/);
  assert.match(html,/devNotebookGo\(\[\]\)/);
  assert.ok(html.includes('id="dn-start-test"'));
@@ -408,11 +408,14 @@ test('DEV notebook uses button-based navigation through actual structured world 
  assert.equal(data.domains.length,14);
  assert.equal(data.cities.length,3);
  assert.doesNotMatch(html,/id="dn-tab-status"|id="dn-tab-notes"/);
- assert.doesNotMatch(html,/\.dnb-scroll\{[^}]*overflow-y:auto/);
- assert.doesNotMatch(html,/\.dnb-scroll\{[^}]*scrollbar-color/);
- assert.doesNotMatch(html,/\$\('dn-scroll'\)\.scrollTop/);
- assert.match(html,/dnPage=0/);
- assert.match(html,/children\.slice\(start,start\+perPage\)/);
+ // Scrolling remains active; scrollbar thumb is hidden on every major browser.
+ assert.match(html,/\.dnb-scroll\{[^}]*overflow-y:auto/);
+ assert.match(html,/\.dnb-scroll\{[^}]*scrollbar-width:none/);
+ assert.match(html,/\.dnb-scroll\{[^}]*-ms-overflow-style:none/);
+ assert.match(html,/\.dnb-scroll::-webkit-scrollbar\{display:none;width:0;height:0\}/);
+ assert.ok(html.includes(" $('dn-scroll').scrollTop=0"));
+ assert.match(html,/for\(const \[i,item\] of children\.entries\(\)\)/);
+ assert.doesNotMatch(html,/devNotebookPager\(|devNotebookTilePageSize\(|dnb-pagebar/);
  const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
  for(const script of scripts)new (require('node:vm').Script)(script[1]);
 });
