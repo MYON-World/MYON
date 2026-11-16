@@ -275,6 +275,7 @@ function setupUi(){
  add(section2,'div','mw-cards','').id='mw-active';
  add(scroll,'section','mw-section','').id='mw-history';
  parent.insertBefore(root,$m('character'));
+ $m('dn-start-test').addEventListener('click',e=>{e.stopImmediatePropagation();e.preventDefault();openGame()},true);
  $m('dev-notes-open').addEventListener('click',()=>{root.hidden=true},true);
  $m('back').addEventListener('click',e=>{if(!root.hidden){e.stopImmediatePropagation();e.preventDefault();openNotes()}},true);
  window.resumeDevGame=openGame;

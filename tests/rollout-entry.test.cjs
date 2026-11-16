@@ -373,21 +373,21 @@ test('DEV starts at structured development desk and keeps the existing gameplay 
  const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)];
  for(const script of scripts)new (require('node:vm').Script)(script[1]);
 });
-test('world baseline records verified policy, draft industry list and unknown fields without invented metrics',()=>{
+test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.77');
- assert.equal(data.stage.status,'설계 중');
- assert.equal(data.domains.length,14);
- assert.ok(data.domains.every(d=>d.status==='분야 초안'));
+ assert.equal(data.release,'0.13.78');
+ assert.equal(data.stage.status,'개발 테스트 중');
+ assert.equal(data.domains.length,15);
+ assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
+ assert.equal(data.domains.flatMap(d=>d.scope).length,150);
  assert.deepEqual(data.cities.map(c=>c.id),['lien','haren','serin']);
- assert.ok(data.cities.every(c=>c.startingCity&&Array.isArray(c.unknown)&&c.unknown.length>1));
- for(const id of ['complete-schema','living-cities','new-entry','spillover','viability'])
-  assert.ok(data.principles.some(p=>p.id===id&&p.status==='확정'));
+ assert.ok(data.cities.every(c=>c.startingCity&&Array.isArray(c.unknown)));
+ for(const id of ['random-city','terrain','time','money','direct','variables','save'])
+  assert.ok(data.principles.some(p=>p.id===id&&p.status==='DEV 테스트'));
  assert.equal(data.connections.status,'미조사');
  assert.equal(data.designOrder.length,6);
 });
-
 
 test('DEV notebook uses button-based navigation through actual structured world data',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
@@ -403,7 +403,8 @@ test('DEV notebook uses button-based navigation through actual structured world 
  assert.ok(html.includes("function resumeDevGame(){if(cityLocked)enterCity();else showScreen(citizen?'picker':'character')}"));
  assert.ok(html.includes("showScreen('notes');\nloadDevNotes();"));
  assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
- assert.equal(data.domains.length,14);
+ assert.equal(data.domains.length,15);
+ assert.ok(data.domains.every(d=>d.scope.length===10));
  assert.equal(data.cities.length,3);
  assert.doesNotMatch(html,/id="dn-tab-status"|id="dn-tab-notes"/);
  // Scrolling remains active; scrollbar thumb is hidden on every major browser.
@@ -436,4 +437,22 @@ test('portal version history excludes unconfigured releases and combines coincid
  const noTest=visibleVersionHistory(releases,{live:{revision:A},dev:{revision:D}});
  assert.deepEqual(noTest.map(v=>v.servers),[['DEV'],['LIVE']]);
  assert.ok(noTest.every(v=>v.version!=='0.13.64'));
+});
+
+test('DEV mission script parses and uses 150 fields with isolated versioned saves',()=>{
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
+ new (require('node:vm').Script)(script,{filename:'myon-dev-missions.js'});
+ assert.ok(html.includes('<script src="myon-dev-missions.js"></script>'));
+ assert.match(script,/const CATEGORIES_REQUIRED=15/);
+ assert.match(script,/const DOMAINS_REQUIRED=150/);
+ assert.match(script,/MYON_DEV_MISSIONS_V1_/);
+ assert.match(script,/r<94\?'일반':r<99\?'극한':'리얼'/);
+ assert.match(script,/minutes\*100\+bonus/);
+ assert.match(script,/durationTicks:minutes\*60/);
+ assert.match(script,/next\.cash\+=m\.money/);
+ assert.match(script,/next\.active=active/);
+ assert.match(script,/mystery=\{field:randInt/);
+ assert.match(script,/addEventListener\('click',e=>\{e\.stopImmediatePropagation\(\);e\.preventDefault\(\);openGame\(\)\},true\)/);
+ assert.match(html,/\.mw-scroll\{[^}]*scrollbar-width:none/);
 });
