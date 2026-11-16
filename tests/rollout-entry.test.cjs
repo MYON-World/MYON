@@ -345,7 +345,7 @@ test('DEV portal and embedded page pass the verified version through to the matc
  assert.ok(app.includes("if(server==='dev')"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.77'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.78'"));
  assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
  assert.ok(html.includes("devSaveReady=prepareCitizenVersion()"));
  assert.ok(html.includes("citizen=devSaveReady?readCitizen():null"));

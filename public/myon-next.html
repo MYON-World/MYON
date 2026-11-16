@@ -442,7 +442,7 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 const devSaveParams=new URLSearchParams(location.search)
 const requestedDevVersion=devSaveParams.get('dev_version')
 const isVersionedDevSave=devSaveParams.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(devSaveParams.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'')
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion :'preview-0.13.78'
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.78'
 const DEV_VERSION_MARKER='MYON_DEV_ACTIVE_VERSION_V1'
 const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION
 let devSaveReady=false
