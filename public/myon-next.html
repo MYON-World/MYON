@@ -48,7 +48,7 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
 .mw-time,.mw-count{font-size:11px;color:#b8d6e7;font-variant-numeric:tabular-nums;white-space:nowrap}
 .mw-accept{min-width:85px;background:#b0e4f6;color:#082536;border-color:#b0e4f6}
 .mw-accept:hover{background:#d1f5ff}
-.mw-track{height:7px;flex:1;min-width:14px;background:#274458;border-radius:8px;overflow:hidden}
+.mw-track{height:7px;flex:1;min-width:14px;background:#274458;border-radius:8px;overflow:hidden;direction:ltr}
 .mw-expire-track{height:5px;background:#31404c}
 .mw-track .mw-expire-fill{background:#cf6670;transition:width .5s linear}
 .mw-cost{color:#f1c79f}
@@ -187,7 +187,7 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
 const params=new URLSearchParams(location.search);
 const requestedDevVersion=params.get('dev_version');
 const isVersionedDevSave=params.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(params.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'');
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.84';
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.85';
 const topClockFormat=new Intl.DateTimeFormat('en-US',{
  timeZone:'Asia/Seoul',hourCycle:'h23',hour:'2-digit',minute:'2-digit',
  month:'2-digit',day:'2-digit',weekday:'short'

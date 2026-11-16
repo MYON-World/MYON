@@ -252,7 +252,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.84'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.85'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -263,7 +263,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.84');
+ assert.equal(data.release,'0.13.85');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -399,7 +399,7 @@ test('DEV rendered card: four free offers, five fields, free start and paid foll
  assert.ok(paid&&paid.acceptCost===paid.minutes);
  assert.equal(ids.get('mw-offers').children.length,4);
 });
-test('DEV active bar and labels represent remaining percent and time',()=>{
+test('DEV active bar fills left-to-right while remaining percent and time decrease',()=>{
  const vm=require('node:vm');
  const js=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
@@ -434,16 +434,17 @@ test('DEV active bar and labels represent remaining percent and time',()=>{
  api.setWorld({active:[m],offers:[]});
  const card=api.renderMission(m,true);
  active.card=card;
- function verify(percent,time){
-  assert.equal(card.querySelector('.mw-fill').style.width,percent+'%');
-  assert.equal(card.querySelector('.mw-count').textContent,'남은 '+percent+'%');
+ function verify(elapsed,remaining,time){
+  assert.equal(card.querySelector('.mw-fill').style.width,elapsed+'%','filled width must represent completed time');
+  assert.equal(card.querySelector('.mw-count').textContent,'남은 '+remaining+'%');
   assert.equal(card.querySelector('.mw-time').textContent,time);
  }
- verify(100,'02:00:00');
- now+=1800000;api.updateProgress();verify(75,'01:30:00');
- now+=3600000;api.updateProgress();verify(25,'00:30:00');
- now+=1800000;api.updateProgress();verify(0,'00:00:00');
- assert.ok(html.includes('.mw-track .mw-expire-fill{background:#cf6670'));
+ verify(0,100,'02:00:00');
+ now+=1800000;api.updateProgress();verify(25,75,'01:30:00');
+ now+=3600000;api.updateProgress();verify(75,25,'00:30:00');
+ now+=1800000;api.updateProgress();verify(100,0,'00:00:00');
+ assert.ok(html.includes('.mw-track{height:7px;flex:1;min-width:14px;background:#274458;border-radius:8px;overflow:hidden;direction:ltr}'));
+ assert.ok(html.includes('.mw-track .mw-expire-fill{background:#cf6670'),'waiting offer red bar must remain unchanged');
  assert.ok(html.includes('.mw-card-bottom .mw-time{font-size:10px'));
 });
 
@@ -512,9 +513,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.84');
- assert.equal(lock.version,'0.13.84');
- assert.equal(lock.packages[''].version,'0.13.84');
+ assert.equal(pkg.version,'0.13.85');
+ assert.equal(lock.version,'0.13.85');
+ assert.equal(lock.packages[''].version,'0.13.85');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));

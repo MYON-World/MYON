@@ -24,7 +24,7 @@ function remainingStatus(m,now=Date.now()){
  const h=String(Math.floor(seconds/3600)).padStart(2,'0');
  const min=String(Math.floor(seconds%3600/60)).padStart(2,'0');
  const sec=String(seconds%60).padStart(2,'0');
- return {percent,time:h+':'+min+':'+sec};
+ return {percent,completedPercent:100-percent,time:h+':'+min+':'+sec};
 }
 const choose=list=>list[randInt(0,list.length-1)];
 const fieldTitle=id=>catalog[id]?.name||'알 수 없음';
@@ -209,7 +209,7 @@ function renderMission(m,active){
  const foot=add(item,'div','mw-card-bottom');
  const track=add(foot,'div','mw-track'+(active?'':' mw-expire-track'));
  const remaining=active?remainingStatus(m):null;
- const progress=active?remaining.percent
+ const progress=active?remaining.completedPercent
   :Math.min(100,Math.max(0,((Date.now()-m.createdAt)/OFFER_LIFETIME_MS)*100));
  add(track,'div','mw-fill'+(active?'':' mw-expire-fill')).style.width=progress+'%';
  if(active){
@@ -235,7 +235,7 @@ function updateProgress(){
   if(!card)continue;
   const remaining=remainingStatus(m);
   const fill=card.querySelector('.mw-fill'),count=card.querySelector('.mw-count'),clock=card.querySelector('.mw-time');
-  if(fill)fill.style.width=remaining.percent+'%';
+  if(fill)fill.style.width=remaining.completedPercent+'%';
   if(count)count.textContent='남은 '+remaining.percent+'%';
   if(clock)clock.textContent=remaining.time;
  }
