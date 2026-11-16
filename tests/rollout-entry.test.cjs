@@ -456,3 +456,26 @@ test('DEV mission script parses and uses 150 fields with isolated versioned save
  assert.match(script,/addEventListener\('click',e=>\{e\.stopImmediatePropagation\(\);e\.preventDefault\(\);openGame\(\)\},true\)/);
  assert.match(html,/\.mw-scroll\{[^}]*scrollbar-width:none/);
 });
+
+test('DEV compact mission layout still shows money, contribution, plus, minus and hidden variable',()=>{
+ const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ new (require('node:vm').Script)(script,{filename:'myon-dev-missions.js'});
+ for(const field of ["'금전'","'기여'","'+ · '","'− · '","'? · 미지'"])assert.ok(script.includes('statCell(grid,'+field));
+ assert.match(script,/function updateProgress\(\)/);
+ assert.match(script,/function tick\(\)\{[\s\S]*?settleDue\(\);\s*updateProgress\(\);/);
+ assert.match(html,/\.mw-rewards\{grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+});
+test('city information uses a separate scrollable modal and 15 category buttons',()=>{
+ const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ assert.ok(script.includes("const modal=add(parent,'div','mw-stats-modal')"));
+ assert.ok(script.includes("setAttribute('role','dialog')"));
+ assert.ok(script.includes("for(let i=0;i<CATEGORIES_REQUIRED;i++)"));
+ assert.ok(script.includes("button.setAttribute('aria-pressed'"));
+ assert.ok(script.includes("function closeStats()"));
+ assert.ok(script.includes("if(event.key==='Escape'&&showStats)"));
+ assert.match(html,/\.mw-stat-zone\{[^}]*overflow-y:auto/);
+ assert.match(html,/\.mw-stat-zone\{[^}]*scrollbar-width:none/);
+ assert.match(html,/\.mw-stat-zone::-webkit-scrollbar\{display:none;width:0;height:0\}/);
+});

@@ -341,6 +341,71 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 @media(max-width:740px){.mw-root{padding:11px 12px}.mw-head{align-items:start;flex-direction:column;gap:10px}.mw-header-actions{width:100%;justify-content:flex-start}.mw-cash-box{margin-right:auto;text-align:left}.mw-cards{grid-template-columns:1fr}.mw-card{padding:13px}.mw-name{font-size:18px}.mw-rewards{gap:6px}.mw-value{padding:8px}.mw-value strong{font-size:13px}.mw-history-row{align-items:start;flex-direction:column;gap:4px}.mw-history-reward{text-align:left}}
 @media(max-height:530px){.mw-head h1{font-size:20px}.mw-root{gap:6px}.mw-head{padding-bottom:7px}}
 
+
+/* Compact mission cards, city information as separate button-menu dialog. */
+.mw-root{gap:8px;padding-top:12px}
+.mw-head{gap:10px;padding-bottom:9px}
+.mw-head h1{font-size:clamp(21px,2.5vw,27px);margin:3px 0}
+.mw-cash-box strong{font-size:18px}
+.mw-section{padding-top:4px;padding-bottom:12px}
+.mw-section-head{margin-bottom:7px}
+.mw-cards{gap:8px}
+.mw-card{padding:10px 12px;gap:9px;border-radius:9px}
+.mw-card-top{gap:6px;align-items:center}
+.mw-card-identity{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.mw-tag{font-size:9px;padding:3px 6px;white-space:nowrap}
+.mw-name{font-size:15px;line-height:1.3;overflow-wrap:anywhere;margin:0}
+.mw-card-controls{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.mw-tier{font-size:10px}
+.mw-special{color:#efcf9c}
+.mw-stage{font-size:10px;color:#7e9db2;white-space:nowrap}
+.mw-time{font-size:11px;white-space:nowrap}
+.mw-accept{min-width:50px;padding:6px 10px;font-size:11px;border-radius:6px}
+.mw-rewards{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.mw-value{padding:6px 7px;gap:3px;border:1px solid #28465b;background:#11283a}
+.mw-value .mw-label{font-size:9px;line-height:1.25;overflow-wrap:anywhere}
+.mw-value strong{font-size:12px;line-height:1.2}
+.mw-card-bottom{border:0;padding:0;gap:7px;min-height:0}
+.mw-track{height:5px}
+.mw-count{font-size:10px}
+.mw-stats-modal{position:fixed;inset:0;z-index:40;background:#03101dd6;display:flex;align-items:center;justify-content:center;padding:clamp(9px,2vw,20px);backdrop-filter:blur(5px)}
+.mw-stats-panel{display:flex;flex-direction:column;width:min(830px,100%);max-height:min(680px,calc(100dvh - 26px));background:#0c2235;border:1px solid #587b92;box-shadow:0 25px 80px #0009;border-radius:13px;overflow:hidden}
+.mw-modal-head{flex:none;display:flex;justify-content:space-between;align-items:center;padding:12px 15px;border-bottom:1px solid #2b506b}
+.mw-modal-head h2{font-size:16px}
+.mw-stat-zone{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;-ms-overflow-style:none;padding:12px}
+.mw-stat-zone::-webkit-scrollbar{display:none;width:0;height:0}
+.mw-info-grid{display:grid;grid-template-columns:minmax(280px,1fr) minmax(230px,.86fr);gap:13px;align-items:start}
+.mw-categories{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.mw-category{min-height:38px;background:#132f43;color:#b2cbdc;border:1px solid #37576e;border-radius:7px;padding:6px 5px;font:inherit;font-size:11px;font-weight:650;line-height:1.2}
+.mw-category:hover,.mw-category:focus-visible{border-color:#a1d6ef;color:#eaf8ff}
+.mw-category.active{background:#24516b;color:#f0fbff;border-color:#91d8f5}
+.mw-fields{background:#112a3f;border:1px solid #32536b;border-radius:8px;padding:9px 12px}
+.mw-fields-title{font-size:12px;color:#c8e8f6;margin:1px 0 6px}
+.mw-stat-row{padding:8px 2px}
+.mw-stat-row strong{font-size:12px}
+@media(max-width:740px){
+ .mw-root{gap:6px;padding:8px 10px}
+ .mw-head{gap:7px;padding-bottom:7px}
+ .mw-head h1{font-size:19px}
+ .mw-header-actions{gap:5px}
+ .mw-button{padding:8px 9px}
+ .mw-card{padding:9px;gap:7px}
+ .mw-card-top{flex-wrap:wrap}
+ .mw-card-identity{flex-basis:100%}
+ .mw-name{font-size:15px}
+ .mw-card-controls{flex:1;justify-content:flex-end}
+ .mw-rewards{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+ .mw-value{padding:6px}
+ .mw-value strong{font-size:12px}
+ .mw-info-grid{grid-template-columns:1fr;gap:10px}
+ .mw-categories{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+ .mw-category{min-height:32px;font-size:10px;padding:4px 3px}
+ .mw-stat-zone{padding:10px}
+ .mw-stats-panel{max-height:calc(100dvh - 20px)}
+ .mw-stat-row{padding:7px 2px}
+}
+@media(max-width:360px){.mw-rewards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 </style></head>
 <body>
 <div class="shell">

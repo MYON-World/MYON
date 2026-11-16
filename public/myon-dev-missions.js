@@ -138,7 +138,7 @@ function restart(){
   const before=localStorage.getItem(STORE);if(before)localStorage.setItem(STORE+'.backup',before);
  }catch(error){console.warn('MYON DEV city backup',error)}
  if(!write(fresh)){notice='저장할 수 없어 도시를 변경하지 않았습니다.';render();return}
- world=fresh;notice='새 도시에서 시작했습니다.';showStats=false;render();
+ world=fresh;notice='새 도시에서 시작했습니다.';closeStats();render();
 }
 function elem(tag,cl,text){
  const e=document.createElement(tag);if(cl)e.className=cl;
@@ -146,33 +146,39 @@ function elem(tag,cl,text){
 }
 function add(parent,tag,cl,text){const e=elem(tag,cl,text);parent.append(e);return e}
 function statCell(parent,label,value,cl){
- const p=add(parent,'div','mw-value');
- add(p,'span','mw-label',label);add(p,'strong',cl||'',value);
+ const cell=add(parent,'div','mw-value');
+ add(cell,'span','mw-label',label);add(cell,'strong',cl||'',value);
 }
 function renderMission(m,active){
  const item=elem('article','mw-card');
- const heading=add(item,'div','mw-card-top');
- add(heading,'span','mw-tag',catalog[m.field].category);
- add(heading,'span','mw-tier',(m.grade==='일반'?'':m.grade+' · '+(m.grade==='극한'?'5% · ':'1% · '))+'임무 '+m.stage+'단계');
- add(item,'h3','mw-name',fieldTitle(m.field));
- const grid=add(item,'div','mw-rewards');
- statCell(grid,'금전 보상',fmt(m.money));
- statCell(grid,'분야 기여',signed(m.direct),'mw-positive');
- statCell(grid,'변수 + · '+fieldTitle(m.plus.field),signed(m.plus.amount),'mw-positive');
- statCell(grid,'변수 − · '+fieldTitle(m.minus.field),signed(m.minus.amount),'mw-negative');
- statCell(grid,'변수 ?','???','');
- const foot=add(item,'div','mw-card-bottom');
+ item.dataset.missionId=m.id;
+ const top=add(item,'div','mw-card-top');
+ const identity=add(top,'div','mw-card-identity');
+ add(identity,'span','mw-tag',catalog[m.field].category);
+ add(identity,'h3','mw-name',fieldTitle(m.field));
+ const controls=add(top,'div','mw-card-controls');
+ if(m.grade!=='일반')add(controls,'span','mw-tier mw-special',m.grade);
+ add(controls,'span','mw-stage',m.stage+'단계');
  if(active){
   const remaining=Math.max(0,Math.ceil((m.endsAt-Date.now())/1000));
-  const progress=Math.min(100,Math.max(0,(1-remaining/m.durationTicks)*100));
-  add(foot,'span','mw-time','남은 시간 '+hourClock(remaining));
-  const track=add(foot,'div','mw-track');
-  const bar=add(track,'div','mw-fill');bar.style.width=progress+'%';
-  const mark=add(foot,'span','mw-count',Math.floor(progress)+'%');
+  add(controls,'span','mw-time',hourClock(remaining)+' 남음');
  }else{
-  add(foot,'span','mw-time','수행 '+hourClock(m.durationTicks));
-  const button=add(foot,'button','mw-button mw-accept','수락');
+  add(controls,'span','mw-time',hourClock(m.durationTicks));
+  const button=add(controls,'button','mw-button mw-accept','수락');
   button.type='button';button.addEventListener('click',()=>begin(m.id));
+ }
+ const grid=add(item,'div','mw-rewards');
+ statCell(grid,'금전',fmt(m.money));
+ statCell(grid,'기여',signed(m.direct),'mw-positive');
+ statCell(grid,'+ · '+fieldTitle(m.plus.field),signed(m.plus.amount),'mw-positive');
+ statCell(grid,'− · '+fieldTitle(m.minus.field),signed(m.minus.amount),'mw-negative');
+ statCell(grid,'? · 미지','?');
+ if(active){
+  const foot=add(item,'div','mw-card-bottom');
+  const track=add(foot,'div','mw-track');
+  const progress=Math.min(100,Math.max(0,((Date.now()-m.startedAt)/(m.durationTicks*1000))*100));
+  add(track,'div','mw-fill').style.width=progress+'%';
+  add(foot,'span','mw-count',Math.floor(progress)+'%');
  }
  return item;
 }
@@ -187,20 +193,57 @@ function renderHistory(parent){
  }
 }
 function renderStats(parent){
- const details=add(parent,'section','mw-stats');
- const top=add(details,'div','mw-stats-top');
- add(top,'h2','mw-section-title','MYON 정보창 · 도시 분야 수치');
- const select=add(top,'select','mw-select');
- select.setAttribute('aria-label','분야 대분류 선택');
+ const contents=add(parent,'div','mw-info-grid');
+ const categories=add(contents,'nav','mw-categories');
+ categories.setAttribute('aria-label','대분류 선택');
  for(let i=0;i<CATEGORIES_REQUIRED;i++){
-  const opt=add(select,'option','',catalog[i*10].category);
-  opt.value=String(i);opt.selected=i===viewCategory;
+  const button=add(categories,'button','mw-category'+(viewCategory===i?' active':''),catalog[i*10].category);
+  button.type='button';button.setAttribute('aria-pressed',String(viewCategory===i));
+  button.addEventListener('click',()=>{
+   viewCategory=i;
+   const body=$m('mw-stat-zone');
+   body.replaceChildren();renderStats(body);
+   const buttons=body.querySelectorAll('.mw-category');
+   if(buttons[i])buttons[i].focus({preventScroll:true});
+  });
  }
- select.addEventListener('change',()=>{viewCategory=Number(select.value);render()});
+ const fields=add(contents,'section','mw-fields');
+ add(fields,'h3','mw-fields-title',catalog[viewCategory*10].category+' · 10개 분야');
  for(const field of catalog.filter(x=>x.categoryIndex===viewCategory)){
-  const row=add(details,'div','mw-stat-row');
+  const row=add(fields,'div','mw-stat-row');
   add(row,'span','',field.name);
   add(row,'strong','',two(world.stats[field.id]));
+ }
+}
+function closeStats(){
+ showStats=false;
+ const modal=$m('mw-stats-modal');
+ if(modal)modal.hidden=true;
+ const toggle=$m('mw-stats-toggle');
+ if(toggle){toggle.setAttribute('aria-expanded','false');toggle.textContent='도시 정보창'}
+}
+function toggleStats(){
+ showStats=!showStats;
+ const modal=$m('mw-stats-modal'),toggle=$m('mw-stats-toggle');
+ modal.hidden=!showStats;
+ toggle.setAttribute('aria-expanded',String(showStats));
+ toggle.textContent=showStats?'정보창 닫기':'도시 정보창';
+ if(showStats){
+  const stats=$m('mw-stat-zone');stats.replaceChildren();renderStats(stats);
+  $m('mw-stats-close').focus({preventScroll:true});
+ }else toggle.focus({preventScroll:true});
+}
+function updateProgress(){
+ if(!world)return;
+ for(const m of world.active){
+  const card=$m('mw-active')?.querySelector('[data-mission-id="'+m.id+'"]');
+  if(!card)continue;
+  const remaining=Math.max(0,Math.ceil((m.endsAt-Date.now())/1000));
+  const progress=Math.min(100,Math.max(0,((Date.now()-m.startedAt)/(m.durationTicks*1000))*100));
+  const clock=card.querySelector('.mw-time'),fill=card.querySelector('.mw-fill'),count=card.querySelector('.mw-count');
+  if(clock)clock.textContent=hourClock(remaining)+' 남음';
+  if(fill)fill.style.width=progress+'%';
+  if(count)count.textContent=Math.floor(progress)+'%';
  }
 }
 function render(){
@@ -214,6 +257,7 @@ function render(){
  $m('mw-cash').textContent=fmt(world.cash);
  $m('mw-notice').textContent=notice;
  $m('mw-stats-toggle').textContent=showStats?'정보창 닫기':'도시 정보창';
+ $m('mw-stats-toggle').setAttribute('aria-expanded',String(showStats));
  $m('mw-offer-count').textContent=world.offers.length+'건';
  $m('mw-active-count').textContent=world.active.length+'건';
  const offers=$m('mw-offers');offers.replaceChildren();
@@ -223,14 +267,14 @@ function render(){
  if(world.active.length)for(const m of world.active)active.append(renderMission(m,true));
  else add(active,'p','mw-muted','진행 중인 임무가 없습니다.');
  const history=$m('mw-history');history.replaceChildren();renderHistory(history);
- const stats=$m('mw-stat-zone');stats.replaceChildren();
- if(showStats)renderStats(stats);
+ const stats=$m('mw-stat-zone');
+ if(showStats){stats.replaceChildren();renderStats(stats)}
  if(scroller)scroller.scrollTop=scrollY;
 }
 function tick(){
  if($m('mw-root')?.hidden)return;
  settleDue();
- if(world?.active.length)render();
+ updateProgress();
 }
 function openGame(){
  if(!world)return;
@@ -247,7 +291,7 @@ function openGame(){
  settleDue();render();
 }
 function openNotes(){
- $m('mw-root').hidden=true;
+ closeStats();$m('mw-root').hidden=true;
  showScreen('notes');devNotebookGo([]);loadDevNotes();
 }
 function setupUi(){
@@ -262,11 +306,11 @@ function setupUi(){
  const headerRight=add(head,'div','mw-header-actions');
  const cash=add(headerRight,'div','mw-cash-box');add(cash,'span','mw-label','보유 금전');add(cash,'strong','mw-cash','0').id='mw-cash';
  const toggle=add(headerRight,'button','mw-button','도시 정보창');toggle.type='button';toggle.id='mw-stats-toggle';
- toggle.addEventListener('click',()=>{showStats=!showStats;render()});
+ toggle.setAttribute('aria-haspopup','dialog');toggle.setAttribute('aria-expanded','false');
+ toggle.addEventListener('click',toggleStats);
  const restartButton=add(headerRight,'button','mw-button mw-restart','새 도시 시작');restartButton.type='button';restartButton.addEventListener('click',restart);
  const scroll=add(root,'div','mw-scroll');scroll.id='mw-scroll';
  add(scroll,'p','mw-notice','').id='mw-notice';
- const statZone=add(scroll,'div','');statZone.id='mw-stat-zone';
  const section1=add(scroll,'section','mw-section');
  const h1=add(section1,'div','mw-section-head');add(h1,'h2','mw-section-title','이용 가능한 임무');add(h1,'span','mw-small','').id='mw-offer-count';
  add(section1,'div','mw-cards','').id='mw-offers';
@@ -274,6 +318,15 @@ function setupUi(){
  const h2=add(section2,'div','mw-section-head');add(h2,'h2','mw-section-title','진행 중');add(h2,'span','mw-small','').id='mw-active-count';
  add(section2,'div','mw-cards','').id='mw-active';
  add(scroll,'section','mw-section','').id='mw-history';
+ const modal=add(parent,'div','mw-stats-modal');modal.id='mw-stats-modal';modal.hidden=true;
+ const panel=add(modal,'div','mw-stats-panel');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','mw-stats-title');
+ const panelHead=add(panel,'div','mw-modal-head');
+ const title=add(panelHead,'h2','mw-section-title','도시 정보창');title.id='mw-stats-title';
+ const close=add(panelHead,'button','mw-button','닫기');close.id='mw-stats-close';close.type='button';
+ close.addEventListener('click',()=>{closeStats();$m('mw-stats-toggle').focus({preventScroll:true})});
+ add(panel,'div','mw-stat-zone').id='mw-stat-zone';
+ modal.addEventListener('click',event=>{if(event.target===modal){closeStats();$m('mw-stats-toggle').focus({preventScroll:true})}});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&showStats){event.stopImmediatePropagation();closeStats();$m('mw-stats-toggle').focus({preventScroll:true})}},true);
  parent.insertBefore(root,$m('character'));
  $m('dn-start-test').addEventListener('click',e=>{e.stopImmediatePropagation();e.preventDefault();openGame()},true);
  $m('dev-notes-open').addEventListener('click',()=>{root.hidden=true},true);
