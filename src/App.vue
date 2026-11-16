@@ -517,10 +517,10 @@ footer{margin-top:20px;display:flex;justify-content:space-between;gap:12px;font-
 .game-controls button{background:#213c35eF;color:#dbf9e8;border:1px solid #64a68a;border-radius:100px;padding:9px 13px;font-size:11px;cursor:pointer;box-shadow:0 4px 16px #0008}
 
 /* The citizen-world DEV keeps the portal-owned verified exit at the top, above the iframe. */
-.game-controls.dev-controls{bottom:auto;top:8px;left:clamp(16px,4vw,54px)}
+.game-controls.dev-controls{bottom:auto;top:83px;left:clamp(14px,3.6vw,38px)}
 .game-controls.dev-controls button{background:#10283bdc;color:#c3e1f0;border-color:#456c83;border-radius:8px;padding:8px 11px;box-shadow:none}
-@media(max-width:740px){.game-controls.dev-controls{top:7px;left:13px}.game-controls.dev-controls button{font-size:11px;padding:7px 10px}}
-@media(max-height:520px){.game-controls.dev-controls{top:4px}.game-controls.dev-controls button{padding:4px 9px}}
+@media(max-width:740px){.game-controls.dev-controls{top:72px;left:13px}.game-controls.dev-controls button{font-size:11px;padding:7px 10px}}
+@media(max-height:520px){.game-controls.dev-controls{top:61px}.game-controls.dev-controls button{padding:4px 9px}}
 
 .game-controls button:disabled{opacity:.5}.game-message{background:#3b2524;color:#ffe5d7;border-radius:8px;padding:8px;font-size:11px}
 @media(max-width:590px){

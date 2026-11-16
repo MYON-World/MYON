@@ -405,6 +405,24 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
  .mw-money-value{font-size:22px}
 }
 
+
+/* Update panel stays collapsed and slides out from behind the money strip. */
+.top{position:relative;z-index:4}
+.mw-money-strip{position:relative;z-index:3;box-shadow:0 5px 12px #020e1a65}
+.mw-update-reveal{display:grid;grid-template-rows:0fr;overflow:hidden;flex:none;position:relative;z-index:2;transition:grid-template-rows .55s cubic-bezier(.16,1,.3,1)}
+.mw-update-reveal.is-revealed{grid-template-rows:1fr}
+.mw-update-panel{min-height:0;overflow:hidden;position:relative;transform:translateY(-100%);opacity:0;background:linear-gradient(105deg,#132f43 0%,#10293c 48%,#0c2537 100%);border-bottom:1px solid #44748a;transition:transform .55s cubic-bezier(.16,1,.3,1),opacity .38s ease}
+.mw-update-reveal.is-revealed .mw-update-panel{transform:translateY(0);opacity:1}
+.mw-update-accent{position:absolute;top:0;bottom:0;left:0;width:3px;background:linear-gradient(180deg,#86dbef,#448eae);box-shadow:0 0 13px #55c8f39c}
+.mw-update-inner{height:36px;display:flex;align-items:center;justify-content:center;gap:9px;padding:0 7px}
+.mw-update-symbol{flex:none;width:15px;height:15px;display:grid;place-items:center;border:1px solid #6aadc3;border-radius:50%;background:#1b5165}
+.mw-update-symbol span{width:5px;height:5px;border-radius:50%;background:#b4edee;box-shadow:0 0 8px #6adcdc}
+.mw-update-copy{font-size:11px;font-weight:600;letter-spacing:-.1px;color:#d6effb;white-space:nowrap}
+.mw-update-separator{color:#679bb2;margin:0 4px}
+.mw-update-restart{color:#9bd9c4}
+@media(max-width:390px){.mw-update-inner{height:34px;gap:6px}.mw-update-copy{font-size:10px}.mw-update-separator{margin:0 2px}.mw-update-symbol{width:13px;height:13px}}
+@media(prefers-reduced-motion:reduce){.mw-update-reveal,.mw-update-panel{transition:none}}
+
 </style></head>
 <body>
 <div class="shell">
@@ -412,13 +430,17 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
  <header class="top" aria-label="MYON 개발서버 상단 메뉴">
   <button class="back" type="button" id="back" hidden aria-label="시작화면 돌아가기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m14 5-7 7 7 7M7 12h14"/></svg><span>시작화면</span></button>
   <div class="top-identity"><span class="top-emblem" role="img" aria-label="MYON 엠블럼">M</span><span class="top-server">개발서버</span></div>
-  <div class="top-clock" aria-label="한국 표준시간"><strong class="top-time" id="top-clock-time">--:--:--</strong><span class="top-date" id="top-clock-date">--.-- --- · KST</span></div>
+  <div class="top-clock" aria-label="한국 표준시간"><strong class="top-time" id="top-clock-time">--:--:--</strong><span class="top-date" id="top-clock-date">--.-- ---</span></div>
  </header>
  <div id="mw-money-strip" class="mw-money-strip" hidden aria-label="현재 보유 자금">
   <div class="mw-money-inner"><strong id="mw-cash" class="mw-money-value">0</strong><span class="mw-money-unit">M</span></div>
  </div>
-
-
+ <div id="mw-update-reveal" class="mw-update-reveal" hidden role="status" aria-live="polite">
+  <div class="mw-update-panel">
+   <span class="mw-update-accent" aria-hidden="true"></span>
+   <div class="mw-update-inner"><span class="mw-update-symbol" aria-hidden="true"><span></span></span><span class="mw-update-copy">신규 업데이트 적용 가능 <span class="mw-update-separator">·</span> <span class="mw-update-restart">재시작 요망</span></span></div>
+  </div>
+ </div>
 
  <main id="character" class="character" hidden aria-label="캐릭터 만들기">
   <div class="ch-head">
@@ -493,7 +515,7 @@ html.myon-embedded .top .back{visibility:hidden;pointer-events:none}
 const devSaveParams=new URLSearchParams(location.search)
 const requestedDevVersion=devSaveParams.get('dev_version')
 const isVersionedDevSave=devSaveParams.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(devSaveParams.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'')
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.78'
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.79'
 const DEV_VERSION_MARKER='MYON_DEV_ACTIVE_VERSION_V1'
 const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION
 let devSaveReady=false
@@ -535,13 +557,13 @@ const $=id=>document.getElementById(id);
 
 // MYON standard-time clock; always render in KST regardless of device timezone.
 const topClockFormat=new Intl.DateTimeFormat('en-US',{
- timeZone:'Asia/Seoul',hourCycle:'h23',hour:'2-digit',minute:'2-digit',second:'2-digit',
+ timeZone:'Asia/Seoul',hourCycle:'h23',hour:'2-digit',minute:'2-digit',
  month:'2-digit',day:'2-digit',weekday:'short'
 });
 function updateTopClock(){
  const parts=Object.fromEntries(topClockFormat.formatToParts(new Date()).map(part=>[part.type,part.value]));
- $('top-clock-time').textContent=parts.hour+':'+parts.minute+':'+parts.second;
- $('top-clock-date').textContent=parts.month+'.'+parts.day+' '+parts.weekday.toUpperCase()+' · KST';
+ $('top-clock-time').textContent=parts.hour+':'+parts.minute;
+ $('top-clock-date').textContent=parts.month+'.'+parts.day+' '+parts.weekday.toUpperCase();
 }
 updateTopClock();
 window.setInterval(updateTopClock,1000);
@@ -665,4 +687,4 @@ showScreen('welcome');
 
 // Initial ambient city background matches the default highlighted selection.
 if(!cityLocked)selectCity(selectedCity);
-</script><script src="myon-dev-missions.js"></script></body></html>
+</script><script src="myon-dev-missions.js"></script><script src="myon-dev-update.js"></script></body></html>

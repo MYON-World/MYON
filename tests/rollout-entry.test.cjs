@@ -192,7 +192,7 @@ test('DEV city selection remains isolated from pinned LIVE and stored progress',
  assert.ok(next.includes('window.self===window.top'));
  assert.ok(next.includes('html.myon-embedded .top .back{visibility:hidden;pointer-events:none}'));
  assert.ok(app.includes("'dev-controls':currentServer==='dev'"));
- assert.ok(app.includes('.game-controls.dev-controls{bottom:auto;top:8px;'));
+ assert.ok(app.includes('.game-controls.dev-controls{bottom:auto;top:83px;'));
  assert.doesNotMatch(next,/myon-v013\.js|indexedDB\.open\(/); 
  assert.ok(next.includes("MYON_DEV_CITIZEN_V2_")); 
  assert.doesNotMatch(next,/localStorage\.clear\(|indexedDB\.deleteDatabase\(/);
@@ -345,7 +345,7 @@ test('DEV portal and embedded page pass the verified version through to the matc
  assert.ok(app.includes("if(server==='dev')"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.78'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.79'"));
  assert.ok(html.includes("const CITIZEN_KEY='MYON_DEV_CITIZEN_V2_'+DEV_SAVE_VERSION"));
  assert.ok(html.includes("devSaveReady=prepareCitizenVersion()"));
  assert.ok(html.includes("citizen=devSaveReady?readCitizen():null"));
@@ -369,7 +369,7 @@ test('DEV launches mission page without developer notebook',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.78');
+ assert.equal(data.release,'0.13.79');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -459,7 +459,7 @@ test('city information uses a separate scrollable modal and 15 category buttons'
  assert.match(html,/\.mw-stat-zone::-webkit-scrollbar\{display:none;width:0;height:0\}/);
 });
 
-test('DEV top bar reuses portal M emblem and displays KST plus M cash',()=>{
+test('DEV top bar uses minute clock and M cash with a separate notification below',()=>{
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
@@ -480,4 +480,71 @@ test('DEV top bar reuses portal M emblem and displays KST plus M cash',()=>{
  assert.ok(!game.includes("add(left,'h1','mw-city'"));
  assert.ok(game.includes('world.cityName||city?.name||world.city'));
  new (require('node:vm').Script)(game);
+});
+
+test('DEV release watcher reveals one slim alert only for a newer deployed version, never navigates',async()=>{
+ const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-update.js'),'utf8');
+ new (require('node:vm').Script)(script);
+ const installed='a'.repeat(40),newRevision='b'.repeat(40);
+ const timers=[],timeouts=[],requests=[];
+ const classes=new Set(),panel={hidden:true,offsetHeight:0,classList:{add:value=>classes.add(value)}};
+ let releases=[{revision:installed,version:'0.13.79'}];
+ const href='https://example.github.io/MYON/releases/'+installed+'/myon-next.html?build='+installed+'&server=dev&dev_version=0.13.79';
+ const context={
+  location:{href,search:new URL(href).search},
+  URL,URLSearchParams,Date,
+  console:{warn(){}},
+  document:{getElementById:id=>id==='mw-update-reveal'?panel:null},
+  fetch:async(url,options)=>{
+   requests.push({url,options});
+   return {ok:true,json:async()=>({schema:1,releases})};
+  },
+  window:{setTimeout:(fn,ms)=>{timeouts.push({fn,ms})},setInterval:(fn,ms)=>{timers.push({fn,ms})}}
+ };
+ require('node:vm').runInNewContext(script,context,{timeout:2000});
+ assert.equal(timers.length,1);
+ assert.equal(timers[0].ms,60000);
+ assert.equal(timeouts[0].ms,1200);
+ await timeouts[0].fn();
+ assert.equal(panel.hidden,true,'same release cannot announce an update');
+ releases=[{revision:installed,version:'0.13.79'},{revision:newRevision,version:'0.13.80'}];
+ await timers[0].fn();
+ assert.equal(panel.hidden,false,'new approved DEV version reveals notice');
+ assert.ok(classes.has('is-revealed'));
+ assert.ok(requests.every(r=>r.url.startsWith('https://example.github.io/MYON/myon-rollouts.json?at=')));
+ assert.ok(requests.every(r=>r.options.cache==='no-store'));
+ const calls=requests.length;
+ await timers[0].fn();
+ assert.equal(requests.length,calls,'stop polling after alert is visible');
+ assert.doesNotMatch(script,/location\.(?:replace|reload|assign)\(|frameUrl|postMessage\(|\.src\s*=/);
+});
+test('update notice preserves read-only monitoring and requires verified portal exit to upgrade',()=>{
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
+ const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
+ const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
+ assert.equal(pkg.version,'0.13.79');
+ assert.equal(lock.version,'0.13.79');
+ assert.equal(lock.packages[''].version,'0.13.79');
+ assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
+ assert.ok(html.includes('신규 업데이트 적용 가능'));
+ assert.ok(html.includes('재시작 요망'));
+ assert.ok(html.includes('class="mw-update-restart"'));
+ assert.ok(html.includes('src="myon-dev-update.js"'));
+ assert.match(html,/\.mw-update-reveal\{display:grid;grid-template-rows:0fr/);
+ assert.match(html,/\.mw-update-reveal\.is-revealed\{grid-template-rows:1fr\}/);
+ assert.match(html,/\.mw-update-panel\{[^}]*transform:translateY\(-100%\)/);
+ assert.ok(html.includes('prefers-reduced-motion:reduce'));
+ assert.ok(html.includes("parts.hour+':'+parts.minute;"));
+ assert.ok(!html.includes("parts.hour+':'+parts.minute+':'+parts.second"));
+ assert.ok(!html.includes("parts.day+' '+parts.weekday.toUpperCase()+' · KST'"));
+ assert.match(app,/\.game-controls\.dev-controls\{bottom:auto;top:83px;/);
+ assert.match(app,/async function leaveServer\(\)/);
+ assert.ok(app.includes("if(typeof checkpoint==='function'&&!await checkpoint())"));
+ assert.ok(app.includes("frameUrl.value='';playing.value=false"));
+ assert.ok(app.includes("frameUrl.value=gameUrl+"));
+ assert.match(mission,/window\.MYON_SAFE_UPDATE_CHECKPOINT=async function\(\)/);
+ assert.ok(mission.includes("if(!write(world))return false"));
+ assert.ok(mission.includes("saved===JSON.stringify(world)&&validWorld(JSON.parse(saved))"));
 });

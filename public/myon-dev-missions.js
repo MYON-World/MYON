@@ -91,6 +91,14 @@ function transact(transform){
  if(!write(next)){notice='저장할 수 없어 변경을 취소했습니다. 저장 공간을 확인하세요.';render();return false}
  world=next;return true;
 }
+window.MYON_SAFE_UPDATE_CHECKPOINT=async function(){
+ if(!world)return true; // No numeric world exists yet.
+ if(!write(world))return false;
+ try{
+  const saved=localStorage.getItem(STORE);
+  return saved===JSON.stringify(world)&&validWorld(JSON.parse(saved));
+ }catch(error){console.warn('MYON DEV exit checkpoint',error);return false}
+};
 function load(){
  for(const key of [STORE,STORE+'.backup']){
   try{const raw=localStorage.getItem(key);if(!raw)continue;const v=JSON.parse(raw);if(validWorld(v))return v;}
