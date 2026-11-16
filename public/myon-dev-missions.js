@@ -213,7 +213,7 @@ function renderMission(m,active){
   :Math.min(100,Math.max(0,((Date.now()-m.createdAt)/OFFER_LIFETIME_MS)*100));
  add(track,'div','mw-fill'+(active?'':' mw-expire-fill')).style.width=progress+'%';
  if(active){
-  add(foot,'span','mw-count','남은 '+remaining.percent+'%');
+  add(foot,'span','mw-count',remaining.percent+'%');
   add(foot,'span','mw-time',remaining.time);
  }
  return item;
@@ -236,7 +236,7 @@ function updateProgress(){
   const remaining=remainingStatus(m);
   const fill=card.querySelector('.mw-fill'),count=card.querySelector('.mw-count'),clock=card.querySelector('.mw-time');
   if(fill)fill.style.width=remaining.completedPercent+'%';
-  if(count)count.textContent='남은 '+remaining.percent+'%';
+  if(count)count.textContent=remaining.percent+'%';
   if(clock)clock.textContent=remaining.time;
  }
  for(const m of world.offers){
