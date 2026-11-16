@@ -192,10 +192,13 @@ function statCell(parent,label,value,cl,unit){
 }
 function renderMission(m,active){
  const item=elem('article','mw-card');item.dataset.missionId=m.id;
+ const remaining=active?remainingStatus(m):null;
  const top=add(item,'div','mw-card-top'),identity=add(top,'div','mw-card-identity');
  add(identity,'span','mw-tag',catalog[m.field].category);
  add(identity,'h3','mw-name',fieldTitle(m.field));
- if(!active){
+ if(active){
+  add(top,'span','mw-time mw-title-time',remaining.time);
+ }else{
   const controls=add(top,'div','mw-card-controls');
   const button=add(controls,'button','mw-button mw-accept','수락');
   button.type='button';button.addEventListener('click',()=>begin(m.id));
@@ -208,13 +211,11 @@ function renderMission(m,active){
  statCell(grid,'−변수',signed(m.minus.amount),'mw-negative');
  const foot=add(item,'div','mw-card-bottom');
  const track=add(foot,'div','mw-track'+(active?'':' mw-expire-track'));
- const remaining=active?remainingStatus(m):null;
  const progress=active?remaining.completedPercent
   :Math.min(100,Math.max(0,((Date.now()-m.createdAt)/OFFER_LIFETIME_MS)*100));
  add(track,'div','mw-fill'+(active?'':' mw-expire-fill')).style.width=progress+'%';
  if(active){
   add(foot,'span','mw-count',remaining.percent+'%');
-  add(foot,'span','mw-time',remaining.time);
  }
  return item;
 }

@@ -252,7 +252,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.86'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.87'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -263,7 +263,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.86');
+ assert.equal(data.release,'0.13.87');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -434,6 +434,11 @@ test('DEV active bar fills left-to-right while remaining percent and time decrea
  api.setWorld({active:[m],offers:[]});
  const card=api.renderMission(m,true);
  active.card=card;
+ const titleRow=card.querySelector('.mw-card-top');
+ assert.equal(titleRow.children.at(-1),card.querySelector('.mw-time'),'active clock must follow mission name at right end of title row');
+ assert.equal(card.querySelector('.mw-card-bottom').querySelector('.mw-time'),null,'progress footer must not contain a clock');
+ const waiting=api.renderMission({...m,createdAt:now},false);
+ assert.equal(waiting.querySelector('.mw-time'),null,'waiting offers must not show active countdown');
  function verify(elapsed,remaining,time){
   assert.equal(card.querySelector('.mw-fill').style.width,elapsed+'%','filled width must represent completed time');
   assert.equal(card.querySelector('.mw-count').textContent,remaining+'%');
@@ -445,7 +450,7 @@ test('DEV active bar fills left-to-right while remaining percent and time decrea
  now+=1800000;api.updateProgress();verify(100,0,'00:00:00');
  assert.ok(html.includes('.mw-track{height:7px;flex:1;min-width:14px;background:#274458;border-radius:8px;overflow:hidden;direction:ltr}'));
  assert.ok(html.includes('.mw-track .mw-expire-fill{background:#cf6670'),'waiting offer red bar must remain unchanged');
- assert.ok(html.includes('.mw-card-bottom .mw-time{font-size:10px'));
+ assert.ok(html.includes('.mw-card-top .mw-title-time{flex:none;margin-left:auto;'),'active countdown must align to right of mission title');
 });
 
 test('DEV top bar uses minute clock and M cash with a separate notification below',()=>{
@@ -513,9 +518,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.86');
- assert.equal(lock.version,'0.13.86');
- assert.equal(lock.packages[''].version,'0.13.86');
+ assert.equal(pkg.version,'0.13.87');
+ assert.equal(lock.version,'0.13.87');
+ assert.equal(lock.packages[''].version,'0.13.87');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));
