@@ -218,13 +218,11 @@ test('DEV city selection offers interactive no-scroll arrival on mobile',()=>{
  assert.ok(html.includes('overflow:hidden;overscroll-behavior:none'));
  assert.ok(html.includes('height:100dvh'));
  assert.doesNotMatch(html,/scrollIntoView|window\.scrollTo/);
- // The DEV reference desk scrolls its own content while gameplay stays fixed.
- assert.match(html,/\.dnb-scroll\{flex:1;min-height:0;overflow:hidden/);
- assert.match(html,/#dn-view\{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden/);
- assert.match(html,/function devNotebookPager\(view,totalPages\)/);
- assert.match(html,/function devNotebookDetailChunks\(panel,paragraph,fullText,availableHeight\)/);
- assert.match(html,/devNotebookPager\(view,totalPages\)/);
- assert.match(html,/devNotebookPager\(view,pages.length\)/);
+ // Only the DEV notebook scrolls; its scrollbar is visually hidden.
+ assert.match(html,/\.dnb-scroll\{flex:1;min-height:0;overflow-y:auto/);
+ assert.match(html,/\.dnb-scroll::-webkit-scrollbar\{display:none;width:0;height:0\}/);
+ assert.doesNotMatch(html,/function devNotebookPager\(/);
+ assert.doesNotMatch(html,/function devNotebookDetailChunks\(/);
  assert.ok(html.includes("function selectCity(id)"));
  assert.ok(html.includes("function openModal()"));
  assert.ok(html.includes("function enterCity()"));
