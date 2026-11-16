@@ -93,6 +93,9 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
 .mw-card-bottom{border:0;padding:0;gap:7px;min-height:0}
 .mw-track{height:5px}
 .mw-count{font-size:10px}
+.mw-card-bottom .mw-time{font-size:10px;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+.mw-card-bottom .mw-count{color:#c5e9f7;font-weight:700}
+@media(max-width:360px){.mw-card-bottom{gap:5px}.mw-card-bottom .mw-count,.mw-card-bottom .mw-time{font-size:9px}}
 
 @media(max-width:740px){
 .mw-root{padding:8px 10px;gap:6px}
@@ -184,7 +187,7 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
 const params=new URLSearchParams(location.search);
 const requestedDevVersion=params.get('dev_version');
 const isVersionedDevSave=params.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(params.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'');
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.83';
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.84';
 const topClockFormat=new Intl.DateTimeFormat('en-US',{
  timeZone:'Asia/Seoul',hourCycle:'h23',hour:'2-digit',minute:'2-digit',
  month:'2-digit',day:'2-digit',weekday:'short'

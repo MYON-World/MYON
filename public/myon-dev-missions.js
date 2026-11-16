@@ -17,6 +17,15 @@ const round2=n=>Math.round((n+Number.EPSILON)*100)/100;
 const fmt=n=>Number(n).toLocaleString('ko-KR');
 const two=n=>Number(n).toFixed(2);
 const signed=n=>(n>=0?'+':'−')+two(Math.abs(n));
+function remainingStatus(m,now=Date.now()){
+ const remainingMs=Math.max(0,m.endsAt-now);
+ const seconds=Math.ceil(remainingMs/1000);
+ const percent=Math.min(100,Math.max(0,Math.ceil(remainingMs/(m.durationTicks*1000)*100)));
+ const h=String(Math.floor(seconds/3600)).padStart(2,'0');
+ const min=String(Math.floor(seconds%3600/60)).padStart(2,'0');
+ const sec=String(seconds%60).padStart(2,'0');
+ return {percent,time:h+':'+min+':'+sec};
+}
 const choose=list=>list[randInt(0,list.length-1)];
 const fieldTitle=id=>catalog[id]?.name||'알 수 없음';
 function bandValue(){
@@ -199,11 +208,14 @@ function renderMission(m,active){
  statCell(grid,'−변수',signed(m.minus.amount),'mw-negative');
  const foot=add(item,'div','mw-card-bottom');
  const track=add(foot,'div','mw-track'+(active?'':' mw-expire-track'));
- const progress=active
-  ?Math.min(100,Math.max(0,((Date.now()-m.startedAt)/(m.durationTicks*1000))*100))
+ const remaining=active?remainingStatus(m):null;
+ const progress=active?remaining.percent
   :Math.min(100,Math.max(0,((Date.now()-m.createdAt)/OFFER_LIFETIME_MS)*100));
  add(track,'div','mw-fill'+(active?'':' mw-expire-fill')).style.width=progress+'%';
- if(active)add(foot,'span','mw-count',Math.floor(progress)+'%');
+ if(active){
+  add(foot,'span','mw-count','남은 '+remaining.percent+'%');
+  add(foot,'span','mw-time',remaining.time);
+ }
  return item;
 }
 function renderHistory(parent){
@@ -221,10 +233,11 @@ function updateProgress(){
  for(const m of world.active){
   const card=$m('mw-active')?.querySelector('[data-mission-id="'+m.id+'"]');
   if(!card)continue;
-  const progress=Math.min(100,Math.max(0,((Date.now()-m.startedAt)/(m.durationTicks*1000))*100));
-  const fill=card.querySelector('.mw-fill'),count=card.querySelector('.mw-count');
-  if(fill)fill.style.width=progress+'%';
-  if(count)count.textContent=Math.floor(progress)+'%';
+  const remaining=remainingStatus(m);
+  const fill=card.querySelector('.mw-fill'),count=card.querySelector('.mw-count'),clock=card.querySelector('.mw-time');
+  if(fill)fill.style.width=remaining.percent+'%';
+  if(count)count.textContent='남은 '+remaining.percent+'%';
+  if(clock)clock.textContent=remaining.time;
  }
  for(const m of world.offers){
   const card=$m('mw-offers')?.querySelector('[data-mission-id="'+m.id+'"]');
