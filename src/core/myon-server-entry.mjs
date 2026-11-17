@@ -4,12 +4,12 @@ import {validReleases,validRevision} from './myon-release-state.mjs'
 
 // The same immutable approved gameplay build powers both servers; only their runtime clocks and stores differ.
 export const LIVE_RELEASE=Object.freeze({
- revision:'44d6cf82c0ef9095aa3ac79c9fdf97da6c1f4e23',
- version:'0.13.92'
+ revision:'a3c93e3b4931af3488a6bc5fb15022b17513f451',
+ version:'0.13.94'
 })
 export const TEST_RELEASE=Object.freeze({
- revision:'44d6cf82c0ef9095aa3ac79c9fdf97da6c1f4e23',
- version:'0.13.92'
+ revision:'a3c93e3b4931af3488a6bc5fb15022b17513f451',
+ version:'0.13.94'
 })
 export const GAME_DB=Object.freeze({
  live:'myon-v00804-progress',

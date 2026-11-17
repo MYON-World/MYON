@@ -68,8 +68,8 @@ test('new portal opens DEV at the latest checked SHA and freezes LIVE approval',
  assert.equal(targetForServer('dev',releases).revision,D);
  assert.equal(targetForServer('test',releases).revision,TEST_RELEASE.revision);
  assert.equal(LIVE_RELEASE.revision,TEST_RELEASE.revision,'official and accelerated worlds must use exactly the same frozen game build');
- assert.equal(LIVE_RELEASE.version,'0.13.92');
- assert.equal(LIVE_RELEASE.revision,'44d6cf82c0ef9095aa3ac79c9fdf97da6c1f4e23');
+ assert.equal(LIVE_RELEASE.version,'0.13.94');
+ assert.equal(LIVE_RELEASE.revision,'a3c93e3b4931af3488a6bc5fb15022b17513f451');
  assert.notEqual(dbForServer('dev'),dbForServer('live'));
  assert.notEqual(dbForServer('test'),dbForServer('live'));
  assert.notEqual(dbForServer('test'),dbForServer('dev'));
@@ -258,7 +258,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.94'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.95'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -269,7 +269,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.94');
+ assert.equal(data.release,'0.13.95');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -606,9 +606,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.94');
- assert.equal(lock.version,'0.13.94');
- assert.equal(lock.packages[''].version,'0.13.94');
+ assert.equal(pkg.version,'0.13.95');
+ assert.equal(lock.version,'0.13.95');
+ assert.equal(lock.packages[''].version,'0.13.95');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));
@@ -633,4 +633,22 @@ test('update notice preserves read-only monitoring and requires verified portal 
  assert.match(mission,/window\.MYON_SAFE_UPDATE_CHECKPOINT=async function\(\)/);
  assert.ok(mission.includes("if(!write(world))return false"));
  assert.ok(mission.includes("saved===JSON.stringify(world)&&validWorld(JSON.parse(saved))"));
+});
+
+test('v0.13.94 promotion changes only LIVE/TEST frozen revision, preserving DEV layout and server saves',async()=>{
+ const {LIVE_RELEASE,TEST_RELEASE,dbForServer}=await import('../src/core/myon-server-entry.mjs');
+ const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
+ const missions=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
+ assert.equal(LIVE_RELEASE.revision,'a3c93e3b4931af3488a6bc5fb15022b17513f451');
+ assert.equal(TEST_RELEASE.revision,LIVE_RELEASE.revision);
+ assert.equal(LIVE_RELEASE.version,'0.13.94');
+ assert.equal(TEST_RELEASE.version,'0.13.94');
+ assert.ok(app.includes('class="game-controls dev-controls"'));
+ assert.ok(app.includes("@click=\"enterServer('dev')\""));
+ assert.ok(app.includes("@click=\"enterServer('test')\""));
+ assert.ok(app.includes("@click=\"enterServer('live')\""));
+ assert.notEqual(dbForServer('live'),dbForServer('test'));
+ assert.ok(missions.includes("MISSION_SERVER==='test'?30:1"));
+ assert.ok(missions.includes("MYON_LIVE_MISSIONS_V1"));
+ assert.ok(missions.includes("MYON_TEST_MISSIONS_V1"));
 });
