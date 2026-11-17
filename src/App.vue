@@ -84,12 +84,10 @@ async function enterServer(server){
   entryIndex.value=1
   entryStep.value='게임 파일 확인 중'
   const url=await verifyArchive({base:BASE,server,revision:target.revision})
-  // The rebuilt MYON citizen world opens only on DEV; pinned LIVE still uses its original archive.
-  const gameUrl=server==='dev'?url.replace('/myon.html?','/myon-next.html?'):url
-  if(server==='dev'){
-   const nextFile=await fetch(gameUrl,{method:'HEAD',cache:'no-store'})
-   if(!nextFile.ok)throw Error('신규 MYON 게임 화면을 확인할 수 없습니다. 기존 세이브는 유지됩니다.')
-  }
+  // LIVE, accelerated TEST and DEV share the approved mission game; the pinned archive never changes mid-session.
+  const gameUrl=url.replace('/myon.html?','/myon-next.html?')
+  const nextFile=await fetch(gameUrl,{method:'HEAD',cache:'no-store'})
+  if(!nextFile.ok)throw Error('MYON 게임 화면을 확인할 수 없습니다. 기존 세이브는 유지됩니다.')
   await showVerifiedStep(1)
   entryIndex.value=2
   entryStep.value='세이브 읽기 및 백업 검증 중'
@@ -210,13 +208,13 @@ onMounted(async()=>{
     </div>
     <div class="servers">
      <button type="button" class="server-row live" :disabled="entering" @click="enterServer('live')">
-      <span class="server-main"><span class="server-icon">L</span><span class="server-copy"><strong>LIVE <small>정식 세계</small></strong><span>안정된 세계에서 이어가는 나의 이야기</span></span></span>
+      <span class="server-main"><span class="server-icon">L</span><span class="server-copy"><strong>LIVE <small>정식버전</small></strong><span>표준 시간 · 1초 = 1틱</span></span></span>
       <span class="server-side"><span class="server-ver">{{ liveVersion }}</span><span class="entry-text" aria-hidden="true">↗</span></span>
      </button>
-     <div class="server-row unavailable" aria-disabled="true">
-      <span class="server-main"><span class="server-icon">T</span><span class="server-copy"><strong>TEST <small>시험 세계</small></strong><span>승인된 버전이 준비되면 개방됩니다</span></span></span>
-      <span class="server-side"><span class="server-ver">{{ testVersion }}</span><span class="locked">잠김</span></span>
-     </div>
+     <button type="button" class="server-row test" :disabled="entering" @click="enterServer('test')">
+      <span class="server-main"><span class="server-icon">T</span><span class="server-copy"><strong>TEST <small>정식 가속버전</small></strong><span>정식과 동일한 게임 · 진행 중 임무만 1초 = 30틱</span></span></span>
+      <span class="server-side"><span class="server-ver">{{ testVersion }}</span><span class="entry-text" aria-hidden="true">↗</span></span>
+     </button>
      <button type="button" class="server-row dev" :disabled="entering" @click="enterServer('dev')">
       <span class="server-main"><span class="server-icon">D</span><span class="server-copy"><strong>DEV <small>개발 세계</small></strong><span>새로운 이야기와 기능을 먼저 만나는 곳</span></span></span>
       <span class="server-side"><span class="server-ver">{{ latestVersion }}</span><span class="entry-text" aria-hidden="true">↗</span></span>
@@ -277,7 +275,7 @@ onMounted(async()=>{
      <p class="entry-subtitle">플레이어의 기록을 보호하고 안전하게 세계를 준비하고 있습니다.</p>
     </div>
     <div class="entry-version-pair">
-     <span>접속 대상 <strong>{{ serverTitle(entryServer) }} · {{ entryServer==='live'?'정식 세계':'개발 세계' }}</strong></span>
+     <span>접속 대상 <strong>{{ serverTitle(entryServer) }} · {{ entryServer==='live'?'정식버전':entryServer==='test'?'정식 가속버전':'개발 세계' }}</strong></span>
      <span>월드 버전 <strong>{{ entryVersion }}</strong></span>
      <span v-if="entryRevision">커밋 <code>{{ entryRevision }}</code></span>
     </div>

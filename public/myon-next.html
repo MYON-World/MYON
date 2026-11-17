@@ -190,7 +190,7 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
 const params=new URLSearchParams(location.search);
 const requestedDevVersion=params.get('dev_version');
 const isVersionedDevSave=params.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(params.get('build')||'')&&/^\d+\.\d+\.\d+$/.test(requestedDevVersion||'');
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.92';
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.93';
 const MYON_MISSION_SERVER=['live','test'].includes(params.get('server'))?params.get('server'):'dev';
 const missionHeader=document.querySelector('.top-server');
 if(MYON_MISSION_SERVER==='live')missionHeader.textContent='정식버전';

@@ -63,10 +63,13 @@ test('production builder redirects direct root and archived top-level visits to 
  assert.match(src,/window\.self===window\.top/);
 });
 test('new portal opens DEV at the latest checked SHA and freezes LIVE approval',async()=>{
- const {targetForServer,dbForServer,archiveUrl,LIVE_RELEASE}=await import('../src/core/myon-server-entry.mjs');
+ const {targetForServer,dbForServer,archiveUrl,LIVE_RELEASE,TEST_RELEASE}=await import('../src/core/myon-server-entry.mjs');
  assert.equal(targetForServer('live',releases).revision,LIVE_RELEASE.revision);
  assert.equal(targetForServer('dev',releases).revision,D);
- assert.equal(targetForServer('test',releases),null);
+ assert.equal(targetForServer('test',releases).revision,TEST_RELEASE.revision);
+ assert.equal(LIVE_RELEASE.revision,TEST_RELEASE.revision,'official and accelerated worlds must use exactly the same frozen game build');
+ assert.equal(LIVE_RELEASE.version,'0.13.92');
+ assert.equal(LIVE_RELEASE.revision,'44d6cf82c0ef9095aa3ac79c9fdf97da6c1f4e23');
  assert.notEqual(dbForServer('dev'),dbForServer('live'));
  assert.notEqual(dbForServer('test'),dbForServer('live'));
  assert.notEqual(dbForServer('test'),dbForServer('dev'));
@@ -185,7 +188,10 @@ test('DEV numeric missions are the only runtime page (no city-picker or characte
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
- assert.ok(app.includes("const gameUrl=server==='dev'?url.replace('/myon.html?','/myon-next.html?'):url"));
+ assert.ok(app.includes("const gameUrl=url.replace('/myon.html?','/myon-next.html?')"));
+ assert.match(app,/<button type="button" class="server-row test"/);
+ assert.match(app,/TEST <small>정식 가속버전<\/small>/);
+ assert.match(app,/진행 중 임무만 1초 = 30틱/);
  assert.ok(app.includes("await fetch(gameUrl,{method:'HEAD',cache:'no-store'})"));
  assert.ok(app.indexOf('await createEntryCheckpoint')<app.indexOf('frameUrl.value=gameUrl'));
  for(const forbidden of ['도시 선택','캐릭터 만들기','showScreen(', 'selectedCity','data-city','data-gender','class="main"','id="welcome"','id="arrival"','id="modal"','id="character"'])
@@ -252,7 +258,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.92'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.93'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -263,7 +269,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.92');
+ assert.equal(data.release,'0.13.93');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -600,9 +606,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.92');
- assert.equal(lock.version,'0.13.92');
- assert.equal(lock.packages[''].version,'0.13.92');
+ assert.equal(pkg.version,'0.13.93');
+ assert.equal(lock.version,'0.13.93');
+ assert.equal(lock.packages[''].version,'0.13.93');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));

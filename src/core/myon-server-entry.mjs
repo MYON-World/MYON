@@ -2,12 +2,15 @@
 // Nothing here writes to a player's game database.
 import {validReleases,validRevision} from './myon-release-state.mjs'
 
+// The same immutable approved gameplay build powers both servers; only their runtime clocks and stores differ.
 export const LIVE_RELEASE=Object.freeze({
- revision:'b320853655acbdf91a1567e9a9449aaade465c55',
- version:'0.13.63'
+ revision:'44d6cf82c0ef9095aa3ac79c9fdf97da6c1f4e23',
+ version:'0.13.92'
 })
-// TEST is intentionally closed until a separately approved, isolation-aware build is selected.
-export const TEST_RELEASE=null
+export const TEST_RELEASE=Object.freeze({
+ revision:'44d6cf82c0ef9095aa3ac79c9fdf97da6c1f4e23',
+ version:'0.13.92'
+})
 export const GAME_DB=Object.freeze({
  live:'myon-v00804-progress',
  test:'myon-v00804-progress-test',
