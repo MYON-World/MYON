@@ -187,8 +187,9 @@ function add(parent,tag,cl,text){const e=elem(tag,cl,text);parent.append(e);retu
 function statCell(parent,label,value,cl,unit){
  const cell=add(parent,'div','mw-value');
  add(cell,'span','mw-label',label);
- add(cell,'strong',cl||'',value);
- if(unit)add(cell,'small','mw-unit',unit);
+ const amount=add(cell,'div','mw-amount');
+ add(amount,'strong',cl||'',value);
+ if(unit)add(amount,'small','mw-unit',unit);
 }
 function renderMission(m,active){
  const item=elem('article','mw-card');item.dataset.missionId=m.id;
@@ -207,8 +208,6 @@ function renderMission(m,active){
  statCell(grid,'수락',fmt(m.acceptCost),'mw-cost','M');
  statCell(grid,'보상',fmt(m.money),'','M');
  statCell(grid,'기여',signed(m.direct),'mw-positive');
- statCell(grid,'+변수',signed(m.plus.amount),'mw-positive');
- statCell(grid,'−변수',signed(m.minus.amount),'mw-negative');
  const foot=add(item,'div','mw-card-bottom');
  const track=add(foot,'div','mw-track'+(active?'':' mw-expire-track'));
  const progress=active?remaining.completedPercent

@@ -252,7 +252,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.87'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.88'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -263,7 +263,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.87');
+ assert.equal(data.release,'0.13.88');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -330,11 +330,14 @@ test('DEV mission script parses and uses 150 fields with isolated versioned save
  assert.match(html,/\.mw-scroll\{[^}]*scrollbar-width:none/);
 });
 
-test('DEV 5-field card and timed mission supply',()=>{
+test('DEV 3-field card and timed mission supply',()=>{
  const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  new (require('node:vm').Script)(script);
- for(const field of ["'수락'","'보상'","'기여'","'+변수'","'−변수'"])assert.ok(script.includes('statCell(grid,'+field));
+ for(const field of ["'수락'","'보상'","'기여'"])assert.ok(script.includes('statCell(grid,'+field));
+ assert.doesNotMatch(script,/statCell\(grid,'[+−]변수'/);
+ assert.match(script,/applyDelta\(next.stats,m.plus.field,m.plus.amount\)/);
+ assert.match(script,/applyDelta\(next.stats,m.minus.field,m.minus.amount\)/);
  assert.match(script,/MAX_WAITING_OFFERS=10/);
  assert.match(script,/OFFER_INTERVAL_MS=600000/);
  assert.match(script,/OFFER_LIFETIME_MS=3600000/);
@@ -342,20 +345,22 @@ test('DEV 5-field card and timed mission supply',()=>{
  assert.ok(!script.includes("const toggle=add(headerRight,'button'"));
  assert.ok(!script.includes("const restartButton=add(headerRight,'button'"));
  assert.match(html,/\.mw-track \.mw-expire-fill\{background:#cf6670/);
- assert.match(html,/\.mw-rewards\{grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+ assert.match(html,/\.mw-rewards\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
  assert.match(script,/function tick\(\)\{[\s\S]*?settleDue\(\);\s*refreshOffers\(\);\s*updateProgress\(\);/);
 });
-test('DEV mobile shows all five fields, no city modal, scrollbar hidden',()=>{
+test('DEV mobile shows three fields and inline money units, no city modal, scrollbar hidden',()=>{
  const js=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  assert.doesNotMatch(js,/mw-stats-modal|mw-stats-toggle|mw-stat-zone|새 도시 시작/);
  assert.match(html,/\.mw-value \.mw-unit\{font-size:9px/);
- assert.ok(html.includes(' .mw-rewards{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}'));
- assert.ok(!html.includes(' .mw-rewards{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}'));
+ assert.ok(html.includes(' .mw-rewards{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}'));
+ assert.ok(!html.includes(' .mw-rewards{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}'));
+ assert.match(html,/\.mw-amount\{[^}]*display:inline-flex;[^}]*white-space:nowrap;[^}]*flex-wrap:nowrap/);
+ assert.ok(html.includes('.mw-amount .mw-unit{flex:none}'));
  assert.ok(!html.includes('@media(max-width:360px){.mw-rewards{grid-template-columns:repeat(2,'));
  assert.match(html,/\.mw-scroll\{[^}]*scrollbar-width:none/);
 });
-test('DEV rendered card: four free offers, five fields, free start and paid follow-up',()=>{
+test('DEV rendered card: four free offers, three fields with inline M, free start and paid follow-up',()=>{
  const vm=require('node:vm'),script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const instr=script.replace(/bootstrap\(\);\s*\}\)\(\);\s*$/, "window.__probe={setData:(fields,cityList)=>{catalog=fields;cities=cityList;},newWorld,setupUi,openGame,begin,refreshOffers,setWorld:w=>world=w,getWorld:()=>world};\n})();");
  assert.notEqual(script,instr);
@@ -384,14 +389,19 @@ test('DEV rendered card: four free offers, five fields, free start and paid foll
  api.setData(Array.from({length:150},(_,id)=>({id,name:'분야'+id,category:'분야',categoryIndex:Math.floor(id/10)})),[{id:'lien',name:'리엔시'}]);
  api.setWorld(api.newWorld());api.setupUi();api.openGame();
  const cards=ids.get('mw-offers').children;assert.equal(cards.length,4);
- const grid=cards[0].find(c=>c.className==='mw-rewards');assert.ok(grid);assert.equal(grid.children.length,5);
- assert.deepEqual(grid.children.map(c=>c.children[0].textContent),['수락','보상','기여','+변수','−변수']);
- assert.equal(grid.children[0].children[1].textContent,'0');
- assert.equal(grid.children[0].children[2].textContent,'M');
- assert.equal(grid.children[1].children[2].textContent,'M');
+ const grid=cards[0].find(c=>c.className==='mw-rewards');assert.ok(grid);assert.equal(grid.children.length,3);
+ assert.deepEqual(grid.children.map(c=>c.children[0].textContent),['수락','보상','기여']);
+ assert.equal(grid.children[0].children[1].className,'mw-amount');
+ assert.equal(grid.children[0].children[1].children[0].textContent,'0');
+ assert.equal(grid.children[0].children[1].children[1].textContent,'M');
+ assert.equal(grid.children[1].children[1].children[1].textContent,'M');
+ assert.equal(grid.children[2].children[1].children.length,1);
  assert.ok(cards[0].find(c=>c.className.includes('mw-expire-fill')));
  const id=api.getWorld().offers[0].id;api.begin(id);
  assert.equal(api.getWorld().cash,0);assert.equal(api.getWorld().active.length,1);
+ const activeGrid=ids.get('mw-active').children[0].find(c=>c.className==='mw-rewards');
+ assert.deepEqual(activeGrid.children.map(c=>c.children[0].textContent),['수락','보상','기여']);
+ assert.equal(activeGrid.children[0].children[1].children[1].textContent,'M');
  assert.equal(ids.get('mw-offers').children.length,3);
  now+=600000;api.refreshOffers();
  assert.equal(api.getWorld().offers.length,4);
@@ -518,9 +528,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.87');
- assert.equal(lock.version,'0.13.87');
- assert.equal(lock.packages[''].version,'0.13.87');
+ assert.equal(pkg.version,'0.13.88');
+ assert.equal(lock.version,'0.13.88');
+ assert.equal(lock.packages[''].version,'0.13.88');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));
