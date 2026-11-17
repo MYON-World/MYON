@@ -252,7 +252,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.88'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.89'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -263,7 +263,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.88');
+ assert.equal(data.release,'0.13.89');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -408,6 +408,20 @@ test('DEV rendered card: four free offers, three fields with inline M, free star
  const paid=api.getWorld().offers.find(m=>m.acceptCost>0);
  assert.ok(paid&&paid.acceptCost===paid.minutes);
  assert.equal(ids.get('mw-offers').children.length,4);
+ // Insufficient funds show a non-interactive label instead of an accept button.
+ const paidCard=ids.get('mw-offers').children.find(c=>c.dataset.missionId===paid.id);
+ assert.equal(paidCard.find(c=>c.className==='mw-insufficient')?.textContent,'금액 부족');
+ assert.equal(paidCard.find(c=>c.tagName==='button'),null);
+ // All remaining zero-cost starter missions stay selectable.
+ const freeCards=ids.get('mw-offers').children.filter(c=>c.dataset.missionId!==paid.id);
+ assert.ok(freeCards.length>0);
+ assert.ok(freeCards.every(c=>c.find(e=>e.className.split(' ').includes('mw-accept'))));
+ // As soon as available funds cover the exact cost, restore the accept button.
+ api.setWorld({...api.getWorld(),cash:paid.acceptCost});
+ api.openGame();
+ const affordableCard=ids.get('mw-offers').children.find(c=>c.dataset.missionId===paid.id);
+ assert.equal(affordableCard.find(c=>c.className==='mw-insufficient'),null);
+ assert.equal(affordableCard.find(c=>c.className.split(' ').includes('mw-accept'))?.textContent,'수락');
 });
 test('DEV active bar fills left-to-right while remaining percent and time decrease',()=>{
  const vm=require('node:vm');
@@ -528,9 +542,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.88');
- assert.equal(lock.version,'0.13.88');
- assert.equal(lock.packages[''].version,'0.13.88');
+ assert.equal(pkg.version,'0.13.89');
+ assert.equal(lock.version,'0.13.89');
+ assert.equal(lock.packages[''].version,'0.13.89');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));

@@ -201,8 +201,12 @@ function renderMission(m,active){
   add(top,'span','mw-time mw-title-time',remaining.time);
  }else{
   const controls=add(top,'div','mw-card-controls');
-  const button=add(controls,'button','mw-button mw-accept','수락');
-  button.type='button';button.addEventListener('click',()=>begin(m.id));
+  if(m.acceptCost>world.cash){
+   add(controls,'span','mw-insufficient','금액 부족');
+  }else{
+   const button=add(controls,'button','mw-button mw-accept','수락');
+   button.type='button';button.addEventListener('click',()=>begin(m.id));
+  }
  }
  const grid=add(item,'div','mw-rewards');
  statCell(grid,'수락',fmt(m.acceptCost),'mw-cost','M');
