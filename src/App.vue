@@ -4,7 +4,7 @@ import {validReleases} from './core/myon-release-state.mjs'
 import {prepareDevVersion} from './core/myon-dev-version.mjs'
 import {visibleVersionHistory} from './core/myon-version-history.mjs'
 import {LIVE_RELEASE,TEST_RELEASE,dbForServer,targetForServer,
- archiveUrl,verifyArchive,createEntryCheckpoint,readGameRecords} from './core/myon-server-entry.mjs'
+ archiveUrl,verifyArchive,createEntryCheckpoint,readGameRecords,readMissionRecords} from './core/myon-server-entry.mjs'
 
 const BASE=String(import.meta.env.BASE_URL)
 const frameUrl=ref(''),gameFrame=ref(null),playing=ref(false),currentServer=ref('')
@@ -142,7 +142,7 @@ async function leaveServer(){
 function backupServerName(){return playing.value?currentServer.value:'live'}
 async function buildBackup(){
  const server=backupServerName()
- const records=await readGameRecords(globalThis.indexedDB,server)
+ const records=[...await readGameRecords(globalThis.indexedDB,server),...readMissionRecords(globalThis.localStorage,server)]
  if(!records.length)throw Error('보관할 '+serverTitle(server)+' 기록이 없습니다.')
  return JSON.stringify({schema:1,server,database:dbForServer(server),exportedAt:new Date().toISOString(),records},null,2)
 }

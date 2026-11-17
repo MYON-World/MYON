@@ -3,7 +3,11 @@
 'use strict';
 const CATEGORIES_REQUIRED=15;
 const DOMAINS_REQUIRED=150;
-const STORE='MYON_DEV_MISSIONS_V1_'+DEV_SAVE_VERSION;
+// Approved gameplay with isolated server saves and accelerated active TEST missions.
+const MISSION_SERVER=typeof MYON_MISSION_SERVER==='string'&&['live','test','dev'].includes(MYON_MISSION_SERVER)?MYON_MISSION_SERVER:'dev';
+const TICKS_PER_SECOND=MISSION_SERVER==='test'?30:1;
+const STORE=MISSION_SERVER==='live'?'MYON_LIVE_MISSIONS_V1':MISSION_SERVER==='test'?'MYON_TEST_MISSIONS_V1':'MYON_DEV_MISSIONS_V1_'+DEV_SAVE_VERSION;
+const missionDurationMs=m=>m.durationTicks*1000/TICKS_PER_SECOND;
 const CITY_TYPES={
  lien:{terrain:'도심·평야',favored:[5,6,7,8,10,11,13,14],hard:[0,1,2]},
  haren:{terrain:'산악·내륙',favored:[0,1,2,9,12],hard:[6,7,8]},
@@ -19,8 +23,8 @@ const two=n=>Number(n).toFixed(2);
 const signed=n=>(n>=0?'+':'−')+two(Math.abs(n));
 function remainingStatus(m,now=Date.now()){
  const remainingMs=Math.max(0,m.endsAt-now);
- const seconds=Math.ceil(remainingMs/1000);
- const percent=Math.min(100,Math.max(0,Math.ceil(remainingMs/(m.durationTicks*1000)*100)));
+ const seconds=Math.ceil(remainingMs*TICKS_PER_SECOND/1000);
+ const percent=Math.min(100,Math.max(0,Math.ceil(remainingMs/missionDurationMs(m)*100)));
  const h=String(Math.floor(seconds/3600)).padStart(2,'0');
  const min=String(Math.floor(seconds%3600/60)).padStart(2,'0');
  const sec=String(seconds%60).padStart(2,'0');
@@ -107,7 +111,7 @@ function validWorld(v){
     &&Number.isSafeInteger(m.field)&&m.field>=0&&m.field<DOMAINS_REQUIRED&&Number.isSafeInteger(m.money)
      &&Number.isSafeInteger(m.acceptCost)&&m.acceptCost>=0)
    &&v.offers.every(m=>Number.isSafeInteger(m.createdAt)&&m.expiresAt===m.createdAt+OFFER_LIFETIME_MS)
-   &&v.active.every(m=>Number.isSafeInteger(m.startedAt)&&m.endsAt===m.startedAt+m.durationTicks*1000));
+   &&v.active.every(m=>Number.isSafeInteger(m.startedAt)&&m.endsAt===m.startedAt+missionDurationMs(m)));
 }
 function write(next){
  if(!validWorld(next))return false;
@@ -175,7 +179,7 @@ function begin(id){
   const index=next.offers.findIndex(x=>x.id===id);if(index<0)return;
   const task=next.offers.splice(index,1)[0];
   next.cash-=task.acceptCost;
-  task.startedAt=Date.now();task.endsAt=task.startedAt+task.durationTicks*1000;
+  task.startedAt=Date.now();task.endsAt=task.startedAt+missionDurationMs(task);
   next.active.push(task);
  })) {notice='임무 수락 · '+fmt(m.acceptCost)+' M 차감';render()}
 }
@@ -317,7 +321,7 @@ async function bootstrap(){
      throw Error('도시 이름 자료 형식 오류');
   cityNameData=names;
   world=load()||newWorld();
-  if(!write(world))throw Error('DEV 저장소를 사용할 수 없습니다.');
+  if(!write(world))throw Error('현재 서버의 저장소를 사용할 수 없습니다.');
   setupUi();
   openGame();
   window.setInterval(tick,1000);

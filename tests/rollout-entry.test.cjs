@@ -252,7 +252,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.91'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.92'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -263,7 +263,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.91');
+ assert.equal(data.release,'0.13.92');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -433,6 +433,54 @@ test('DEV rendered card: four free offers, three fields with inline M, free star
  assert.deepEqual(api.getWorld().active.map(m=>m.id),
   ['late','early','middle'],'display ordering must not mutate saved missions');
 });
+test('approved LIVE and accelerated TEST isolate saves and differ only in active mission time',()=>{
+ const vm=require('node:vm'),script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
+ const instrumented=script.replace(/bootstrap\(\);\s*\}\)\(\);\s*$/,
+  "window.__probe={begin,remainingStatus,settleDue,setWorld:w=>world=w,getWorld:()=>world,setCatalog:c=>catalog=c,store:STORE,rate:TICKS_PER_SECOND};\n})();");
+ assert.notEqual(script,instrumented);
+ const at=1800000000000,results=[];
+ for(const server of ['live','test','dev']){
+  let time=at;
+  const data=new Map(),localStorage={setItem:(k,v)=>data.set(k,v),getItem:k=>data.get(k)||null};
+  const window={};
+  vm.runInNewContext(instrumented,{window,localStorage,DEV_SAVE_VERSION:'unit',MYON_MISSION_SERVER:server,
+   Date:{now:()=>time},Math,console,document:{getElementById:()=>null}},{timeout:2000});
+  const api=window.__probe;api.setCatalog([{name:'임무',category:'교통'}]);
+  const mission={id:'task',field:0,stage:3,grade:'일반',minutes:60,durationTicks:3600,money:6000,
+   acceptCost:60,direct:.1,plus:{field:1,amount:.1},minus:{field:2,amount:-.1},createdAt:at,expiresAt:at+3600000};
+  api.setWorld({schema:1,city:'lien',cityName:'리엔시',createdAt:at,cash:100,
+   stats:Array(150).fill(50),offers:[mission],active:[],history:[],nextOfferAt:at+600000});
+  api.begin('task');
+  const task=api.getWorld().active[0];
+  assert.ok(task,'mission accepted');
+  assert.equal(task.endsAt-task.startedAt,3600000/api.rate);
+  assert.equal(api.remainingStatus(task,at).time,'01:00:00');
+  assert.ok(data.has(api.store),'saved to its own server');
+  time+=1000;
+  assert.equal(api.remainingStatus(task,time).time,server==='test'?'00:59:30':'00:59:59');
+  time=task.endsAt;api.settleDue();
+  assert.equal(api.getWorld().active.length,0);
+  assert.equal(api.getWorld().cash,6040);
+  results.push({server,store:api.store,rate:api.rate});
+ }
+ assert.deepEqual(results.map(x=>x.store),['MYON_LIVE_MISSIONS_V1','MYON_TEST_MISSIONS_V1','MYON_DEV_MISSIONS_V1_unit']);
+ assert.deepEqual(results.map(x=>x.rate),[1,30,1]);
+});
+test('new mission-game saves are backed up alongside preserved legacy records',async()=>{
+ const {readMissionRecords,createEntryCheckpoint}=await import('../src/core/myon-server-entry.mjs');
+ const storage={getItem:k=>k==='MYON_LIVE_MISSIONS_V1'?JSON.stringify({schema:1,cash:50,active:[],offers:[]}):null};
+ assert.equal(readMissionRecords(storage,'live').length,1);
+ assert.equal(readMissionRecords(storage,'test').length,0);
+ assert.equal(readMissionRecords(storage,'dev').length,0);
+ const old={key:'legacy',value:{funds:99}},saved=[];
+ const result=await createEntryCheckpoint({idb:{},storage,server:'live',revision:'a'.repeat(40),
+  read:async()=>[old],write:async(_idb,payload)=>{saved.push(...payload.records);return 'stored'},
+  verify:async()=>true});
+ assert.equal(result.records,2);
+ assert.equal(saved[0],old);
+ assert.equal(saved[1].key,'MYON_LIVE_MISSIONS_V1');
+ assert.equal(saved[1].value.cash,50);
+});
 test('DEV active bar fills left-to-right while remaining percent and time decrease',()=>{
  const vm=require('node:vm');
  const js=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
@@ -552,9 +600,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.91');
- assert.equal(lock.version,'0.13.91');
- assert.equal(lock.packages[''].version,'0.13.91');
+ assert.equal(pkg.version,'0.13.92');
+ assert.equal(lock.version,'0.13.92');
+ assert.equal(lock.packages[''].version,'0.13.92');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));

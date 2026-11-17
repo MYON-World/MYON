@@ -13,6 +13,7 @@ export const GAME_DB=Object.freeze({
  test:'myon-v00804-progress-test',
  dev:'myon-v00804-progress-dev'
 })
+export const MISSION_SAVE_KEYS=Object.freeze({live:'MYON_LIVE_MISSIONS_V1',test:'MYON_TEST_MISSIONS_V1'})
 export const BACKUP_DB='myon-entry-backups-v1'
 const STORE='game',BACKUP_STORE='snapshots'
 
@@ -74,6 +75,18 @@ export function readGameRecords(idb,server){
   }
  })
 }
+// Keep original IndexedDB records; separately capture new LIVE/TEST mission saves.
+export function readMissionRecords(storage,server){
+ const key=MISSION_SAVE_KEYS[server]
+ if(!key||!storage?.getItem)return []
+ const raw=storage.getItem(key)
+ if(raw===null||raw===undefined)return []
+ let value
+ try{value=JSON.parse(raw)}catch{throw Error('새 게임의 '+server+' 세이브를 읽지 못했습니다.')}
+ if(!value||value.schema!==1||!Array.isArray(value.active)||!Array.isArray(value.offers)||!Number.isSafeInteger(value.cash))
+  throw Error('새 게임의 '+server+' 세이브 형식이 올바르지 않습니다.')
+ return [{key,format:'localStorage',value}]
+}
 function openBackupStore(idb){
  return new Promise((resolve,reject)=>{
   if(!idb?.open){reject(Error('백업 저장소를 사용할 수 없습니다.'));return}
@@ -121,13 +134,14 @@ async function verifyBackup(idb,key,payload){
  }finally{db.close()}
 }
 export async function createEntryCheckpoint({
- idb=globalThis.indexedDB,server,revision,now=()=>Date.now(),
+ idb=globalThis.indexedDB,storage=globalThis.localStorage,server,revision,now=()=>Date.now(),
  read=readGameRecords,write=writeBackup,verify=verifyBackup
 }={}){
  dbForServer(server)
  if(!validRevision(revision))throw Error('대상 버전을 검증할 수 없습니다.')
- const records=await read(idb,server)
- if(!Array.isArray(records))throw Error('세이브 목록을 읽지 못했습니다.')
+ const oldRecords=await read(idb,server)
+ if(!Array.isArray(oldRecords))throw Error('세이브 목록을 읽지 못했습니다.')
+ const records=[...oldRecords,...readMissionRecords(storage,server)]
  // A new server begins empty; a stale LIVE save is never copied into DEV/TEST.
  if(!records.length)return {records:0,backup:false}
  const payload={schema:1,server,revision,at:now(),count:records.length,records}
