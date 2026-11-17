@@ -252,7 +252,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.90'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.91'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -263,7 +263,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.90');
+ assert.equal(data.release,'0.13.91');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -422,6 +422,16 @@ test('DEV rendered card: four free offers, three fields with inline M, free star
  const affordableCard=ids.get('mw-offers').children.find(c=>c.dataset.missionId===paid.id);
  assert.equal(affordableCard.find(c=>c.className==='mw-insufficient'),null);
  assert.equal(affordableCard.find(c=>c.className.split(' ').includes('mw-accept'))?.textContent,'수락');
+ // Active missions are sorted for display, without mutating their saved order.
+ const sample=api.getWorld().active[0];
+ const mk=(id,seconds)=>({...sample,id,startedAt:now,durationTicks:seconds,endsAt:now+seconds*1000});
+ const unsorted=[mk('late',5400),mk('early',1800),mk('middle',3600)];
+ api.setWorld({...api.getWorld(),active:unsorted});
+ api.openGame();
+ assert.deepEqual(ids.get('mw-active').children.map(c=>c.dataset.missionId),
+  ['early','middle','late'],'earliest finishing active mission appears first');
+ assert.deepEqual(api.getWorld().active.map(m=>m.id),
+  ['late','early','middle'],'display ordering must not mutate saved missions');
 });
 test('DEV active bar fills left-to-right while remaining percent and time decrease',()=>{
  const vm=require('node:vm');
@@ -542,9 +552,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.90');
- assert.equal(lock.version,'0.13.90');
- assert.equal(lock.packages[''].version,'0.13.90');
+ assert.equal(pkg.version,'0.13.91');
+ assert.equal(lock.version,'0.13.91');
+ assert.equal(lock.packages[''].version,'0.13.91');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));

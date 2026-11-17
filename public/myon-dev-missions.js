@@ -263,7 +263,7 @@ function render(){
  if(world.offers.length)for(const m of world.offers)offers.append(renderMission(m,false));
  else add(offers,'p','mw-muted','다음 10분 주기에 새로운 임무가 등장합니다.');
  const active=$m('mw-active');active.replaceChildren();
- if(world.active.length)for(const m of world.active)active.append(renderMission(m,true));
+ if(world.active.length)for(const m of [...world.active].sort((a,b)=>a.endsAt-b.endsAt))active.append(renderMission(m,true));
  else add(active,'p','mw-muted','진행 중인 임무가 없습니다.');
  const history=$m('mw-history');history.replaceChildren();renderHistory(history);
  if(scroller)scroller.scrollTop=scrollY;
