@@ -310,7 +310,7 @@ onMounted(async()=>{
  </main>
  <section v-else class="live-session">
   <iframe v-if="frameUrl" ref="gameFrame" class="game-frame" :src="frameUrl" :title="'MYON '+serverTitle(currentServer)+' 게임'" @load="onGameLoad"></iframe>
-  <div class="game-controls" :class="{'dev-controls':currentServer==='dev'}"><button type="button" :disabled="leaving" @click="leaveServer">{{ leaving?'저장 확인 중':'← 시작화면' }}</button><span v-if="message" class="game-message" role="status">{{ message }}</span></div>
+  <div class="game-controls dev-controls"><button type="button" :disabled="leaving" @click="leaveServer">{{ leaving?'저장 확인 중':'← 시작화면' }}</button><span v-if="message" class="game-message" role="status">{{ message }}</span></div>
  </section>
 </template>
 
