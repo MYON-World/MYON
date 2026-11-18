@@ -258,10 +258,7 @@ function renderRionEncounter(){
  const controls=add(top,'div','mw-card-controls');
  const button=add(controls,'button','mw-button mw-accept','수락');
  button.type='button';button.addEventListener('click',acceptRion);
- const foot=add(item,'div','mw-card-bottom');
- const track=add(foot,'div','mw-track mw-expire-track');
- const fill=add(track,'div','mw-fill mw-expire-fill');
- fill.style.width=Math.min(100,Math.max(0,((Date.now()-p.createdAt)/RIONS.HOUR)*100))+'%';
+ // Unlike ordinary missions, the discovery offer has no expiry progress.
  return item;
 }
 function renderRionComplete(){
@@ -353,10 +350,6 @@ function updateProgress(){
   const fill=card?.querySelector('.mw-expire-fill');
   if(fill)fill.style.width=Math.min(100,Math.max(0,((Date.now()-m.createdAt)/OFFER_LIFETIME_MS)*100))+'%';
  }
- const encounter=$m('mw-offers')?.querySelector('.mw-rion-encounter .mw-expire-fill');
- const pending=world.rions?.pending;
- if(encounter&&pending)
-  encounter.style.width=Math.min(100,Math.max(0,((Date.now()-pending.createdAt)/RIONS.HOUR)*100))+'%';
 }
 function render(){
  if(!world)return;

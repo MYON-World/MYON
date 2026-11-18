@@ -20,20 +20,55 @@ test('159 discovery candidates are unique: four roles, five styles, 150 specific
  assert.ok(definitions.some(r=>r.id==='rion.role.ui'));
  assert.ok(definitions.some(r=>r.id==='rion.role.wiki'));
 });
-test('a random unknown Rion spawns within 24 hours, expires in 60 minutes, and never costs money',()=>{
+test('first Rion appears exactly one hour after creation and waits indefinitely until accepted',()=>{
  const R=engine();
- const initial=R.initialize(null,definitions,T,()=>.1);
- assert.ok(initial.nextAt>T&&initial.nextAt<=T+R.DAY);
- let step=R.advance(initial,definitions,initial.nextAt,()=>0);
- assert.equal(step.changed,true);
- assert.equal(step.state.pending.id,'rion.role.ui');
- assert.equal(step.state.pending.expiresAt-step.state.pending.createdAt,R.HOUR);
- assert.equal(step.state.discovered.length,0);
- const late=R.advance(step.state,definitions,step.state.pending.expiresAt,()=>.5);
- assert.equal(late.state.pending,null);
- assert.equal(late.state.discovered.length,0);
- assert.ok(late.state.nextAt>T);
- assert.equal(R.accept(step.state,definitions,step.state.pending.expiresAt),null);
+ const initial=R.initialize(null,definitions,T);
+ assert.equal(initial.schema,2);
+ assert.equal(initial.nextAt,T+R.HOUR);
+ assert.equal(R.advance(initial,definitions,T+R.HOUR-1).changed,false);
+ const spawned=R.advance(initial,definitions,T+R.HOUR,()=>0);
+ assert.equal(spawned.changed,true);
+ assert.equal(spawned.state.pending.id,'rion.role.ui');
+ assert.equal(spawned.state.nextAt,null);
+ assert.equal(spawned.state.pending.createdAt,T+R.HOUR);
+ assert.equal('expiresAt' in spawned.state.pending,false);
+ const muchLater=T+30*R.HOUR;
+ const late=R.advance(spawned.state,definitions,muchLater,()=>.99999);
+ assert.equal(late.changed,false);
+ assert.deepEqual(late.state,spawned.state);
+ assert.equal(R.accept(spawned.state,definitions,muchLater).id,'rion.role.ui');
+});
+test('an accepted Rion schedules the next distinct discovery exactly one hour after acceptance',()=>{
+ const R=engine();
+ const first=R.advance(R.initialize(null,definitions,T),definitions,T+R.HOUR,()=>0).state;
+ const acceptedAt=T+21*R.HOUR+12345;
+ const accepted=R.accept(first,definitions,acceptedAt);
+ assert.equal(accepted.state.nextAt,acceptedAt+R.HOUR);
+ assert.equal(R.advance(accepted.state,definitions,acceptedAt+R.HOUR-1).changed,false);
+ const next=R.advance(accepted.state,definitions,acceptedAt+R.HOUR,()=>0).state;
+ assert.notEqual(next.pending.id,'rion.role.ui');
+ assert.equal(next.pending.createdAt,acceptedAt+R.HOUR);
+ assert.equal(next.discovered.length,1);
+ const offline=R.advance(next,definitions,acceptedAt+R.HOUR*100,()=>.8);
+ assert.equal(offline.changed,false);
+ assert.deepEqual(offline.state,next);
+});
+test('old expired unaccepted Rion saves migrate without losing the pending discovery',()=>{
+ const R=engine();
+ const pending={id:'rion.role.encyclopedia',createdAt:T-R.HOUR*9,expiresAt:T-R.HOUR*8};
+ const legacy={schema:1,discovered:[],pending,nextAt:null,latest:null};
+ const restored=R.initialize(legacy,definitions,T);
+ assert.equal(restored.schema,2);
+ assert.equal(restored.pending.id,'rion.role.wiki');
+ assert.equal(restored.pending.createdAt,pending.createdAt);
+ assert.equal('expiresAt' in restored.pending,false);
+ assert.equal(restored.nextAt,null);
+ assert.equal(R.advance(restored,definitions,T+5*R.HOUR).changed,false);
+ const result=R.accept(restored,definitions,T+5*R.HOUR);
+ assert.equal(result.id,'rion.role.wiki');
+ assert.equal(result.state.nextAt,T+6*R.HOUR);
+ const oldNoPending={schema:1,discovered:[],pending:null,nextAt:T+24*R.HOUR,latest:null};
+ assert.equal(R.initialize(oldNoPending,definitions,T).nextAt,T+R.HOUR);
 });
 test('accept instantly discovers stage0, persists identity, and excludes already discovered Rions',()=>{
  const R=engine();
@@ -91,7 +126,7 @@ test('the last unknown Rion can still be found, but 159/159 discoveries end sche
  const found=R.accept(step.state,definitions,T+6);
  assert.equal(found.state.discovered.length,159);
  assert.equal(found.state.nextAt,null);
- assert.equal(R.advance(found.state,definitions,T+R.DAY).changed,false);
+ assert.equal(R.advance(found.state,definitions,T+24*R.HOUR).changed,false);
 });
 test('UI and Wiki menus use current MYON mission styles without showing private serial/stage',()=>{
  const mission=fs.readFileSync(path.join(root,'public/myon-dev-missions.js'),'utf8');
@@ -104,7 +139,7 @@ test('UI and Wiki menus use current MYON mission styles without showing private 
  assert.match(mission,/RIONS\.contributionId\(state\.rions,rionDefinitions\)/);
  assert.match(mission,/function renderRionEncounter\(\)/);
  assert.match(mission,/function renderRionComplete\(\)/);
- assert.match(mission,/mw-track mw-expire-track/);
+ assert.doesNotMatch(mission.slice(mission.indexOf('function renderRionEncounter()'),mission.indexOf('function renderRionComplete()')),/mw-expire-track|expiresAt/);
  assert.match(engineScript,/stage:0/);
  assert.ok(!html.includes('USR-000001'));
  assert.ok(!html.includes('WIK-000001'));
