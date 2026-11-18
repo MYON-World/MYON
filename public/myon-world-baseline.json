@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "release": "0.13.96",
+  "release": "0.13.97",
   "status": "DEV 임무 테스트",
-  "updated": "2026-11-17",
+  "updated": "2026-11-19",
   "stage": {
     "id": "mission-engine",
     "title": "02 · 무작위 도시와 임무 엔진 테스트",
