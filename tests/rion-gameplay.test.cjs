@@ -210,3 +210,49 @@ test('v0.13.95 to v0.13.96 preserves DEV progress, future DEV resets retain Rion
  assert.deepEqual(JSON.parse(values.get(DEV_RION_CONTINUITY_KEY)),rions);
  assert.equal(values.get(DEV_ACTIVE_VERSION_KEY),'0.13.97');
 });
+
+test('completed discovery card states the actual name without UI Rion and vanishes after one hour',()=>{
+ const game=fs.readFileSync(path.join(root,'public/myon-dev-missions.js'),'utf8');
+ const instrumented=game.replace(/bootstrap\(\);\s*\}\)\(\);\s*$/,
+  "window.__rionProbe={setWorld:value=>world=value,setDefinitions:value=>rionDefinitions=value,renderRionComplete,acceptRion,getNotice:()=>notice};\n})();");
+ assert.notEqual(instrumented,game);
+ let now=T;
+ const els=[];
+ const doc={createElement:tag=>{
+  const e={tagName:tag,className:'',textContent:'',children:[],style:{},append(...children){this.children.push(...children)}};
+  els.push(e);return e;
+ }};
+ const localStorage={getItem:()=>null,setItem(){}};
+ const win={};
+ vm.runInNewContext(engineScript,{window:win},{timeout:2000});
+ vm.runInNewContext(instrumented,{window:win,document:doc,localStorage,DEV_SAVE_VERSION:'unit',
+  Date:{now:()=>now},Math,console},{timeout:2000});
+ const api=win.__rionProbe;
+ const id='rion.field.mission-01.01';
+ api.setDefinitions(definitions);
+ api.setWorld({rions:{latest:{id,at:T},discovered:[{id,stage:0,discoveredAt:T}]}});
+ let card=api.renderRionComplete();
+ assert.ok(card);
+ assert.equal(card.children[0].children[0].children[0].textContent,'리온');
+ assert.equal(card.children[0].children[0].children[1].textContent,'곡물 리온을 발견했습니다');
+ assert.equal(card.children[0].children[1].textContent,'발견 완료');
+ now=T+win.MYON_RIONS.HOUR-1;
+ assert.ok(api.renderRionComplete(),'completion remains visible until the full hour');
+ now=T+win.MYON_RIONS.HOUR;
+ assert.equal(api.renderRionComplete(),null,'completion expires exactly one hour later');
+ assert.ok(api.getNotice()==='');
+ assert.equal(api.renderRionComplete(),null);
+});
+test('discovery notification and expiry are wired without changing the hourly Rion schedule',()=>{
+ const game=fs.readFileSync(path.join(root,'public/myon-dev-missions.js'),'utf8');
+ assert.match(game,/notice=\(rionById\(result\.id\)\?\.name\|\|'새로운 리온'\)\+'을 발견했습니다\.'/);
+ assert.match(game,/const completed=\$m\('mw-offers'\)\?\.querySelector\('\.mw-rion-complete'\)/);
+ assert.match(game,/Date\.now\(\)-last\.at>=RIONS\.HOUR/);
+ assert.match(game,/if\(completed\|\|showingNotice\)render\(\)/);
+ assert.doesNotMatch(game,/알 수 없는 리온을 발견했습니다/);
+ const R=engine();
+ const first=R.advance(R.initialize(null,definitions,T),definitions,T+R.HOUR,()=>0).state;
+ const accepted=R.accept(first,definitions,T+5*R.HOUR);
+ assert.equal(accepted.state.nextAt,T+6*R.HOUR);
+ assert.equal(accepted.state.discovered.length,1);
+});

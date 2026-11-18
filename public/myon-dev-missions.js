@@ -192,9 +192,7 @@ function acceptRion(){
  const result=RIONS.accept(world.rions,rionDefinitions,Date.now());
  if(!result){refreshRion();return}
  if(!transact(next=>{next.rions=result.state}))return;
- notice=hasRion('rion.role.ui')
-  ?(rionById(result.id)?.name||'새로운 리온')+' 발견 완료'
-  :'알 수 없는 리온을 발견했습니다.';
+ notice=(rionById(result.id)?.name||'새로운 리온')+'을 발견했습니다.';
  render();
  if(result.id==='rion.role.development'&&typeof window.MYON_RION_CHECK_UPDATE==='function')
   window.MYON_RION_CHECK_UPDATE();
@@ -266,8 +264,8 @@ function renderRionComplete(){
  if(!last||Date.now()-last.at>=RIONS.HOUR)return null;
  const item=elem('article','mw-card mw-rion-complete');
  const top=add(item,'div','mw-card-top'),identity=add(top,'div','mw-card-identity');
- add(identity,'span','mw-tag','??');
- add(identity,'h3','mw-name',hasRion('rion.role.ui')?(rionById(last.id)?.name||'리온'):'알 수 없는 리온');
+ add(identity,'span','mw-tag','리온');
+ add(identity,'h3','mw-name',(rionById(last.id)?.name||'새로운 리온')+'을 발견했습니다');
  add(top,'span','mw-rion-success','발견 완료');
  return item;
 }
@@ -388,6 +386,16 @@ function tick(){
  settleDue();
  refreshOffers();
  refreshRion();
+ // The completed discovery card is visual only; after one hour remove it and
+ // its matching notice, while keeping the permanent discovered Rion in the save.
+ const last=world?.rions?.latest;
+ if(last&&Date.now()-last.at>=RIONS.HOUR){
+  const completed=$m('mw-offers')?.querySelector('.mw-rion-complete');
+  const message=(rionById(last.id)?.name||'새로운 리온')+'을 발견했습니다.';
+  const showingNotice=notice===message;
+  if(showingNotice)notice='';
+  if(completed||showingNotice)render();
+ }
  updateProgress();
 }
 function openGame(){
