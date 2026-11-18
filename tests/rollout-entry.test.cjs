@@ -258,7 +258,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.98'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.99'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -269,7 +269,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.98');
+ assert.equal(data.release,'0.13.99');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -355,7 +355,7 @@ test('DEV 3-field card and timed mission supply',()=>{
  assert.ok(!script.includes("const restartButton=add(headerRight,'button'"));
  assert.match(html,/\.mw-track \.mw-expire-fill\{background:#cf6670/);
  assert.match(html,/\.mw-rewards\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
- assert.match(script,/function tick\(\)\{[\s\S]*?settleDue\(\);\s*refreshOffers\(\);\s*refreshRion\(\);\s*updateProgress\(\);/);
+ assert.match(script,/function tick\(\)\{[\s\S]*?settleDue\(\);\s*refreshOffers\(\);\s*refreshRion\(\);[\s\S]*?updateProgress\(\);/);
 });
 test('DEV mobile shows three fields and inline money units, no city modal, scrollbar hidden',()=>{
  const js=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
@@ -612,9 +612,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.98');
- assert.equal(lock.version,'0.13.98');
- assert.equal(lock.packages[''].version,'0.13.98');
+ assert.equal(pkg.version,'0.13.99');
+ assert.equal(lock.version,'0.13.99');
+ assert.equal(lock.packages[''].version,'0.13.99');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));
