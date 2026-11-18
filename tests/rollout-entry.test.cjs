@@ -340,7 +340,10 @@ test('DEV 3-field card and timed mission supply',()=>{
  const script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  new (require('node:vm').Script)(script);
- for(const field of ["'수락'","'보상'","'기여'"])assert.ok(script.includes('statCell(grid,'+field));
+ for(const field of ["'수락'","'보상'"])assert.ok(script.includes('statCell(grid,'+field));
+ // The third card cell retains its position while its label becomes a discovered field name.
+ assert.match(script,/statCell\(grid,label,signed\(m\.direct\),'mw-positive'\)/);
+ assert.match(script,/const label=hasRion\('rion\.role\.ui'\)/);
  assert.doesNotMatch(script,/statCell\(grid,'[+−]변수'/);
  assert.match(script,/applyDelta\(next.stats,m.plus.field,m.plus.amount\)/);
  assert.match(script,/applyDelta\(next.stats,m.minus.field,m.minus.amount\)/);
