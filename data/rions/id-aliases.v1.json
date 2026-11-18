@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "aliases": [
+    {
+      "oldId": "rion.role.user",
+      "oldNumber": "USR-000001",
+      "newId": "rion.role.ui",
+      "newNumber": "UIR-000001"
+    },
+    {
+      "oldId": "rion.role.encyclopedia",
+      "oldNumber": "ENC-000001",
+      "newId": "rion.role.wiki",
+      "newNumber": "WIK-000001"
+    }
+  ]
+}

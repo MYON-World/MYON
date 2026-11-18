@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "purpose": "immutable_id_number_pairs",
+  "purpose": "permanent_id_number_pairs_with_two_approved_migrations",
   "records": [
     {
-      "id": "rion.role.user",
-      "number": "USR-000001",
-      "namespace": "USR",
+      "id": "rion.role.ui",
+      "number": "UIR-000001",
+      "namespace": "UIR",
       "legacyFieldIndex": null
     },
     {
@@ -15,9 +15,9 @@
       "legacyFieldIndex": null
     },
     {
-      "id": "rion.role.encyclopedia",
-      "number": "ENC-000001",
-      "namespace": "ENC",
+      "id": "rion.role.wiki",
+      "number": "WIK-000001",
+      "namespace": "WIK",
       "legacyFieldIndex": null
     },
     {

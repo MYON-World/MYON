@@ -42,6 +42,19 @@ for(const sha of revisions){
   subject,entries:Array.isArray(note?.entries)?note.entries:[]});
 }
 fs.writeFileSync(path.join(dist,'myon-rollouts.json'),JSON.stringify({schema:1,releases})+'\n');
+// Generate official approvals directly from frozen server pins, not from the latest DEV revision.
+const entry=fs.readFileSync(path.join(root,'src/core/myon-server-entry.mjs'),'utf8');
+function approval(key){
+ const start=entry.indexOf('export const '+key+'=Object.freeze({');
+ if(start<0)throw Error('Missing approved release: '+key);
+ const block=entry.slice(start,start+250);
+ const revision=block.match(/revision:'([a-f0-9]{40})'/);
+ const version=block.match(/version:'(\d+\.\d+\.\d+)'/);
+ if(!revision||!version)throw Error('Invalid official approval: '+key);
+ return {revision:revision[1],version:version[1]};
+}
+fs.writeFileSync(path.join(dist,'myon-approved-releases.json'),
+ JSON.stringify({schema:1,live:approval('LIVE_RELEASE'),test:approval('TEST_RELEASE')})+'\n');
 // The legacy /MYON/myon.html shortcut previously served HEAD immediately,
 // bypassing the rollout queue. Publish ONLY a redirect at that URL.
 const redirect='<!doctype html><html lang="ko"><head><meta charset="utf-8">'+

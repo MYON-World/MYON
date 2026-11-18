@@ -1,13 +1,15 @@
-/* Read-only DEV release detection. The portal alone exits/re-enters archived game pages. */
+/* Read-only new-release notice: DEV tracks new DEV builds; official follows ONLY approved pins. */
 (function(){
 'use strict';
 const params=new URLSearchParams(location.search);
-const revision=(params.get('build')||'').toLowerCase();
-const version=params.get('dev_version')||'';
-if(params.get('server')!=='dev'||!/^[a-f0-9]{40}$/.test(revision)||!/^\d+\.\d+\.\d+$/.test(version))return;
+const server=params.get('server'),revision=(params.get('build')||'').toLowerCase();
+const devVersion=params.get('dev_version')||'';
+if(!['dev','live','test'].includes(server)||!/^[a-f0-9]{40}$/.test(revision))return;
+if(server==='dev'&&!/^\d+\.\d+\.\d+$/.test(devVersion))return;
 const panel=document.getElementById('mw-update-reveal');
 if(!panel)return;
-const manifestUrl=new URL('../../myon-rollouts.json',location.href);
+const rolloutUrl=new URL('../../myon-rollouts.json',location.href);
+const approvedUrl=new URL('../../myon-approved-releases.json',location.href);
 let ready=false,checking=false;
 function newerVersion(next,current){
  const nextParts=next.split('.').map(Number),oldParts=current.split('.').map(Number);
@@ -21,27 +23,42 @@ function reveal(){
  if(ready)return;
  ready=true;
  panel.hidden=false;
- void panel.offsetHeight; // Start collapsed so the panel can slide down.
+ void panel.offsetHeight;
  panel.classList.add('is-revealed');
+}
+async function fetchJson(url){
+ const next=new URL(url.href);
+ next.searchParams.set('at',String(Date.now()));
+ const response=await fetch(next.href,{cache:'no-store'});
+ return response.ok?response.json():null;
 }
 async function check(){
  if(ready||checking)return;
+ // Development Rion gates official notices; DEV notices are unconditional.
+ if(server!=='dev'&&window.MYON_RION_IS_DISCOVERED?.('rion.role.development')!==true)return;
  checking=true;
  try{
-  const url=new URL(manifestUrl.href);
-  url.searchParams.set('at',String(Date.now()));
-  const response=await fetch(url.href,{cache:'no-store'});
-  if(!response.ok)return;
-  const data=await response.json();
+  const data=await fetchJson(rolloutUrl);
   const releases=data?.releases;
   if(data?.schema!==1||!Array.isArray(releases)||!releases.length
    ||!releases.every(r=>r&&/^[a-f0-9]{40}$/.test(r.revision)&&/^\d+\.\d+\.\d+$/.test(r.version)))return;
-  const latest=releases[releases.length-1];
-  if(latest.revision!==revision&&newerVersion(latest.version,version))reveal();
- }catch(error){console.warn('MYON DEV update detection unavailable',error)}
+  if(server==='dev'){
+   const latest=releases[releases.length-1];
+   if(latest.revision!==revision&&newerVersion(latest.version,devVersion))reveal();
+   return;
+  }
+  // Latest development commits are never treated as official approvals.
+  const approved=await fetchJson(approvedUrl);
+  const pin=approved?.[server];
+  const current=releases.find(r=>r.revision===revision);
+  if(approved?.schema!==1||!pin||!current||!/^[a-f0-9]{40}$/.test(pin.revision)
+    ||!/^\d+\.\d+\.\d+$/.test(pin.version))return;
+  if(pin.revision!==revision&&releases.some(r=>r.revision===pin.revision&&r.version===pin.version)
+    &&newerVersion(pin.version,current.version))reveal();
+ }catch(error){console.warn('MYON update notice check unavailable',error)}
  finally{checking=false}
 }
-// Check periodically without replacing scripts, frames, or changing the current save epoch.
+window.MYON_RION_CHECK_UPDATE=check;
 window.setTimeout(check,1200);
 window.setInterval(check,60000);
 })();

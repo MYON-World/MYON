@@ -3,6 +3,7 @@
 import {GAME_DB,BACKUP_DB} from './myon-server-entry.mjs'
 
 export const DEV_ACTIVE_VERSION_KEY='MYON_DEV_ACTIVE_VERSION_V1'
+export const DEV_RION_CONTINUITY_KEY='MYON_RION_DISCOVERY_DEV_V1'
 export const DEV_STORAGE_PREFIX='MYON_DEV_'
 const DEV_BACKUP_STORE='snapshots'
 const VALID_VERSION=/^\d+\.\d+\.\d+$/
@@ -62,6 +63,22 @@ export function purgeDevBackupRecords(idb){
  })
 }
 
+// Persist discovered Rions before a DEV-only reset, outside the purged DEV prefix.
+function preserveRionDiscovery(storage,previous){
+ if(!previous)return;
+ const raw=storage.getItem('MYON_DEV_MISSIONS_V1_'+previous);
+ if(!raw)return;
+ let saved;
+ try{saved=JSON.parse(raw)}catch{throw Error('이전 DEV 기록을 확인할 수 없어 리온 보존을 중단했습니다.')}
+ if(!saved||saved.schema!==1||!Array.isArray(saved.offers)||!Array.isArray(saved.active))
+  throw Error('이전 DEV 기록을 확인할 수 없어 리온 보존을 중단했습니다.');
+ if(!saved.rions)return; // Pre-Rion versions have no discovery to preserve.
+ const json=JSON.stringify(saved.rions);
+ storage.setItem(DEV_RION_CONTINUITY_KEY,json);
+ if(storage.getItem(DEV_RION_CONTINUITY_KEY)!==json)
+  throw Error('리온 발견 기록 영구 저장을 확인하지 못했습니다.');
+}
+
 // "Version" is the release number, not the commit SHA. A test-only commit
 // under the same version must not erase a player who is still testing it.
 export async function prepareDevVersion({version,storage=globalThis.localStorage,idb=globalThis.indexedDB,
@@ -70,6 +87,13 @@ export async function prepareDevVersion({version,storage=globalThis.localStorage
  if(!storage||typeof storage.getItem!=='function')throw Error('DEV 저장 확인을 할 수 없습니다.')
  const previous=storage.getItem(DEV_ACTIVE_VERSION_KEY)
  if(previous===version)return {reset:false,version}
+ preserveRionDiscovery(storage,previous);
+ // One-time v0.13.95 -> v0.13.96 migration retains existing mission progress.
+ // Older keys remain untouched; the new game copies and validates the previous save.
+ if(previous==='0.13.95'&&version==='0.13.96'){
+  storage.setItem(DEV_ACTIVE_VERSION_KEY,version);
+  return {reset:false,migrated:true,previous,version,removed:0};
+ }
  // Do not mark an epoch complete until all DEV-only cleanup has succeeded.
  await deleteDatabase(idb)
  await purgeBackups(idb)

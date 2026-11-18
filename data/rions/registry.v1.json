@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "MYON_RION_IDENTITY_REGISTRY",
-  "status": "identity_only_no_gameplay_change",
+  "status": "v0.13.96_discovery_stage_zero",
   "sourceBaseline": "public/myon-world-baseline.json",
   "numbering": {
     "scope": "per_rion_type",
@@ -11,12 +11,12 @@
   },
   "records": [
     {
-      "id": "rion.role.user",
-      "number": "USR-000001",
-      "namespace": "USR",
+      "id": "rion.role.ui",
+      "number": "UIR-000001",
+      "namespace": "UIR",
       "serial": 1,
       "kind": "system",
-      "name": "유저 리온"
+      "name": "UI 리온"
     },
     {
       "id": "rion.role.development",
@@ -27,12 +27,12 @@
       "name": "개발 리온"
     },
     {
-      "id": "rion.role.encyclopedia",
-      "number": "ENC-000001",
-      "namespace": "ENC",
+      "id": "rion.role.wiki",
+      "number": "WIK-000001",
+      "namespace": "WIK",
       "serial": 1,
       "kind": "system",
-      "name": "백과 리온"
+      "name": "위키 리온"
     },
     {
       "id": "rion.role.narrative",

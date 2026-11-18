@@ -1,0 +1,1100 @@
+{
+  "schema": 1,
+  "records": [
+    {
+      "id": "rion.role.ui",
+      "kind": "system",
+      "name": "UI 리온"
+    },
+    {
+      "id": "rion.role.development",
+      "kind": "system",
+      "name": "개발 리온"
+    },
+    {
+      "id": "rion.role.wiki",
+      "kind": "system",
+      "name": "위키 리온"
+    },
+    {
+      "id": "rion.role.narrative",
+      "kind": "system",
+      "name": "스토리 리온"
+    },
+    {
+      "id": "rion.style.observation",
+      "kind": "style",
+      "name": "관전형"
+    },
+    {
+      "id": "rion.style.management",
+      "kind": "style",
+      "name": "경영형"
+    },
+    {
+      "id": "rion.style.creation",
+      "kind": "style",
+      "name": "창작형"
+    },
+    {
+      "id": "rion.style.exploration",
+      "kind": "style",
+      "name": "탐험형"
+    },
+    {
+      "id": "rion.style.story",
+      "kind": "style",
+      "name": "스토리형"
+    },
+    {
+      "id": "rion.field.mission-01.01",
+      "kind": "field",
+      "name": "곡물 리온",
+      "fieldName": "곡물",
+      "legacyFieldIndex": 0
+    },
+    {
+      "id": "rion.field.mission-01.02",
+      "kind": "field",
+      "name": "채소 리온",
+      "fieldName": "채소",
+      "legacyFieldIndex": 1
+    },
+    {
+      "id": "rion.field.mission-01.03",
+      "kind": "field",
+      "name": "과수 리온",
+      "fieldName": "과수",
+      "legacyFieldIndex": 2
+    },
+    {
+      "id": "rion.field.mission-01.04",
+      "kind": "field",
+      "name": "화훼 리온",
+      "fieldName": "화훼",
+      "legacyFieldIndex": 3
+    },
+    {
+      "id": "rion.field.mission-01.05",
+      "kind": "field",
+      "name": "특용작물 리온",
+      "fieldName": "특용작물",
+      "legacyFieldIndex": 4
+    },
+    {
+      "id": "rion.field.mission-01.06",
+      "kind": "field",
+      "name": "종자 리온",
+      "fieldName": "종자",
+      "legacyFieldIndex": 5
+    },
+    {
+      "id": "rion.field.mission-01.07",
+      "kind": "field",
+      "name": "온실재배 리온",
+      "fieldName": "온실재배",
+      "legacyFieldIndex": 6
+    },
+    {
+      "id": "rion.field.mission-01.08",
+      "kind": "field",
+      "name": "수경재배 리온",
+      "fieldName": "수경재배",
+      "legacyFieldIndex": 7
+    },
+    {
+      "id": "rion.field.mission-01.09",
+      "kind": "field",
+      "name": "농기계 리온",
+      "fieldName": "농기계",
+      "legacyFieldIndex": 8
+    },
+    {
+      "id": "rion.field.mission-01.10",
+      "kind": "field",
+      "name": "농업용수 리온",
+      "fieldName": "농업용수",
+      "legacyFieldIndex": 9
+    },
+    {
+      "id": "rion.field.mission-02.01",
+      "kind": "field",
+      "name": "육우 리온",
+      "fieldName": "육우",
+      "legacyFieldIndex": 10
+    },
+    {
+      "id": "rion.field.mission-02.02",
+      "kind": "field",
+      "name": "양돈 리온",
+      "fieldName": "양돈",
+      "legacyFieldIndex": 11
+    },
+    {
+      "id": "rion.field.mission-02.03",
+      "kind": "field",
+      "name": "양계 리온",
+      "fieldName": "양계",
+      "legacyFieldIndex": 12
+    },
+    {
+      "id": "rion.field.mission-02.04",
+      "kind": "field",
+      "name": "낙농 리온",
+      "fieldName": "낙농",
+      "legacyFieldIndex": 13
+    },
+    {
+      "id": "rion.field.mission-02.05",
+      "kind": "field",
+      "name": "양봉 리온",
+      "fieldName": "양봉",
+      "legacyFieldIndex": 14
+    },
+    {
+      "id": "rion.field.mission-02.06",
+      "kind": "field",
+      "name": "목축 리온",
+      "fieldName": "목축",
+      "legacyFieldIndex": 15
+    },
+    {
+      "id": "rion.field.mission-02.07",
+      "kind": "field",
+      "name": "조림 리온",
+      "fieldName": "조림",
+      "legacyFieldIndex": 16
+    },
+    {
+      "id": "rion.field.mission-02.08",
+      "kind": "field",
+      "name": "목재생산 리온",
+      "fieldName": "목재생산",
+      "legacyFieldIndex": 17
+    },
+    {
+      "id": "rion.field.mission-02.09",
+      "kind": "field",
+      "name": "연안어업 리온",
+      "fieldName": "연안어업",
+      "legacyFieldIndex": 18
+    },
+    {
+      "id": "rion.field.mission-02.10",
+      "kind": "field",
+      "name": "양식업 리온",
+      "fieldName": "양식업",
+      "legacyFieldIndex": 19
+    },
+    {
+      "id": "rion.field.mission-03.01",
+      "kind": "field",
+      "name": "철광 리온",
+      "fieldName": "철광",
+      "legacyFieldIndex": 20
+    },
+    {
+      "id": "rion.field.mission-03.02",
+      "kind": "field",
+      "name": "구리 리온",
+      "fieldName": "구리",
+      "legacyFieldIndex": 21
+    },
+    {
+      "id": "rion.field.mission-03.03",
+      "kind": "field",
+      "name": "알루미늄 원광 리온",
+      "fieldName": "알루미늄 원광",
+      "legacyFieldIndex": 22
+    },
+    {
+      "id": "rion.field.mission-03.04",
+      "kind": "field",
+      "name": "희토류 리온",
+      "fieldName": "희토류",
+      "legacyFieldIndex": 23
+    },
+    {
+      "id": "rion.field.mission-03.05",
+      "kind": "field",
+      "name": "석탄 리온",
+      "fieldName": "석탄",
+      "legacyFieldIndex": 24
+    },
+    {
+      "id": "rion.field.mission-03.06",
+      "kind": "field",
+      "name": "석유 리온",
+      "fieldName": "석유",
+      "legacyFieldIndex": 25
+    },
+    {
+      "id": "rion.field.mission-03.07",
+      "kind": "field",
+      "name": "천연가스 리온",
+      "fieldName": "천연가스",
+      "legacyFieldIndex": 26
+    },
+    {
+      "id": "rion.field.mission-03.08",
+      "kind": "field",
+      "name": "석재 리온",
+      "fieldName": "석재",
+      "legacyFieldIndex": 27
+    },
+    {
+      "id": "rion.field.mission-03.09",
+      "kind": "field",
+      "name": "골재 리온",
+      "fieldName": "골재",
+      "legacyFieldIndex": 28
+    },
+    {
+      "id": "rion.field.mission-03.10",
+      "kind": "field",
+      "name": "지하수 리온",
+      "fieldName": "지하수",
+      "legacyFieldIndex": 29
+    },
+    {
+      "id": "rion.field.mission-04.01",
+      "kind": "field",
+      "name": "식품가공 리온",
+      "fieldName": "식품가공",
+      "legacyFieldIndex": 30
+    },
+    {
+      "id": "rion.field.mission-04.02",
+      "kind": "field",
+      "name": "음료 리온",
+      "fieldName": "음료",
+      "legacyFieldIndex": 31
+    },
+    {
+      "id": "rion.field.mission-04.03",
+      "kind": "field",
+      "name": "의류 리온",
+      "fieldName": "의류",
+      "legacyFieldIndex": 32
+    },
+    {
+      "id": "rion.field.mission-04.04",
+      "kind": "field",
+      "name": "섬유 리온",
+      "fieldName": "섬유",
+      "legacyFieldIndex": 33
+    },
+    {
+      "id": "rion.field.mission-04.05",
+      "kind": "field",
+      "name": "제지 리온",
+      "fieldName": "제지",
+      "legacyFieldIndex": 34
+    },
+    {
+      "id": "rion.field.mission-04.06",
+      "kind": "field",
+      "name": "목재가공 리온",
+      "fieldName": "목재가공",
+      "legacyFieldIndex": 35
+    },
+    {
+      "id": "rion.field.mission-04.07",
+      "kind": "field",
+      "name": "금속가공 리온",
+      "fieldName": "금속가공",
+      "legacyFieldIndex": 36
+    },
+    {
+      "id": "rion.field.mission-04.08",
+      "kind": "field",
+      "name": "기계제작 리온",
+      "fieldName": "기계제작",
+      "legacyFieldIndex": 37
+    },
+    {
+      "id": "rion.field.mission-04.09",
+      "kind": "field",
+      "name": "전자제품 리온",
+      "fieldName": "전자제품",
+      "legacyFieldIndex": 38
+    },
+    {
+      "id": "rion.field.mission-04.10",
+      "kind": "field",
+      "name": "의약품 리온",
+      "fieldName": "의약품",
+      "legacyFieldIndex": 39
+    },
+    {
+      "id": "rion.field.mission-05.01",
+      "kind": "field",
+      "name": "화력발전 리온",
+      "fieldName": "화력발전",
+      "legacyFieldIndex": 40
+    },
+    {
+      "id": "rion.field.mission-05.02",
+      "kind": "field",
+      "name": "수력발전 리온",
+      "fieldName": "수력발전",
+      "legacyFieldIndex": 41
+    },
+    {
+      "id": "rion.field.mission-05.03",
+      "kind": "field",
+      "name": "풍력 리온",
+      "fieldName": "풍력",
+      "legacyFieldIndex": 42
+    },
+    {
+      "id": "rion.field.mission-05.04",
+      "kind": "field",
+      "name": "태양광 리온",
+      "fieldName": "태양광",
+      "legacyFieldIndex": 43
+    },
+    {
+      "id": "rion.field.mission-05.05",
+      "kind": "field",
+      "name": "지열 리온",
+      "fieldName": "지열",
+      "legacyFieldIndex": 44
+    },
+    {
+      "id": "rion.field.mission-05.06",
+      "kind": "field",
+      "name": "원자력 리온",
+      "fieldName": "원자력",
+      "legacyFieldIndex": 45
+    },
+    {
+      "id": "rion.field.mission-05.07",
+      "kind": "field",
+      "name": "수소 리온",
+      "fieldName": "수소",
+      "legacyFieldIndex": 46
+    },
+    {
+      "id": "rion.field.mission-05.08",
+      "kind": "field",
+      "name": "바이오연료 리온",
+      "fieldName": "바이오연료",
+      "legacyFieldIndex": 47
+    },
+    {
+      "id": "rion.field.mission-05.09",
+      "kind": "field",
+      "name": "송배전 리온",
+      "fieldName": "송배전",
+      "legacyFieldIndex": 48
+    },
+    {
+      "id": "rion.field.mission-05.10",
+      "kind": "field",
+      "name": "에너지저장 리온",
+      "fieldName": "에너지저장",
+      "legacyFieldIndex": 49
+    },
+    {
+      "id": "rion.field.mission-06.01",
+      "kind": "field",
+      "name": "주택건설 리온",
+      "fieldName": "주택건설",
+      "legacyFieldIndex": 50
+    },
+    {
+      "id": "rion.field.mission-06.02",
+      "kind": "field",
+      "name": "상업건축 리온",
+      "fieldName": "상업건축",
+      "legacyFieldIndex": 51
+    },
+    {
+      "id": "rion.field.mission-06.03",
+      "kind": "field",
+      "name": "공공건축 리온",
+      "fieldName": "공공건축",
+      "legacyFieldIndex": 52
+    },
+    {
+      "id": "rion.field.mission-06.04",
+      "kind": "field",
+      "name": "토목 리온",
+      "fieldName": "토목",
+      "legacyFieldIndex": 53
+    },
+    {
+      "id": "rion.field.mission-06.05",
+      "kind": "field",
+      "name": "도로건설 리온",
+      "fieldName": "도로건설",
+      "legacyFieldIndex": 54
+    },
+    {
+      "id": "rion.field.mission-06.06",
+      "kind": "field",
+      "name": "교량 리온",
+      "fieldName": "교량",
+      "legacyFieldIndex": 55
+    },
+    {
+      "id": "rion.field.mission-06.07",
+      "kind": "field",
+      "name": "터널 리온",
+      "fieldName": "터널",
+      "legacyFieldIndex": 56
+    },
+    {
+      "id": "rion.field.mission-06.08",
+      "kind": "field",
+      "name": "상수도 리온",
+      "fieldName": "상수도",
+      "legacyFieldIndex": 57
+    },
+    {
+      "id": "rion.field.mission-06.09",
+      "kind": "field",
+      "name": "하수도 리온",
+      "fieldName": "하수도",
+      "legacyFieldIndex": 58
+    },
+    {
+      "id": "rion.field.mission-06.10",
+      "kind": "field",
+      "name": "시설유지보수 리온",
+      "fieldName": "시설유지보수",
+      "legacyFieldIndex": 59
+    },
+    {
+      "id": "rion.field.mission-07.01",
+      "kind": "field",
+      "name": "시내버스 리온",
+      "fieldName": "시내버스",
+      "legacyFieldIndex": 60
+    },
+    {
+      "id": "rion.field.mission-07.02",
+      "kind": "field",
+      "name": "광역버스 리온",
+      "fieldName": "광역버스",
+      "legacyFieldIndex": 61
+    },
+    {
+      "id": "rion.field.mission-07.03",
+      "kind": "field",
+      "name": "택시 리온",
+      "fieldName": "택시",
+      "legacyFieldIndex": 62
+    },
+    {
+      "id": "rion.field.mission-07.04",
+      "kind": "field",
+      "name": "일반철도 리온",
+      "fieldName": "일반철도",
+      "legacyFieldIndex": 63
+    },
+    {
+      "id": "rion.field.mission-07.05",
+      "kind": "field",
+      "name": "지하철 리온",
+      "fieldName": "지하철",
+      "legacyFieldIndex": 64
+    },
+    {
+      "id": "rion.field.mission-07.06",
+      "kind": "field",
+      "name": "고속철도 리온",
+      "fieldName": "고속철도",
+      "legacyFieldIndex": 65
+    },
+    {
+      "id": "rion.field.mission-07.07",
+      "kind": "field",
+      "name": "항공 리온",
+      "fieldName": "항공",
+      "legacyFieldIndex": 66
+    },
+    {
+      "id": "rion.field.mission-07.08",
+      "kind": "field",
+      "name": "여객선 리온",
+      "fieldName": "여객선",
+      "legacyFieldIndex": 67
+    },
+    {
+      "id": "rion.field.mission-07.09",
+      "kind": "field",
+      "name": "내륙수운 리온",
+      "fieldName": "내륙수운",
+      "legacyFieldIndex": 68
+    },
+    {
+      "id": "rion.field.mission-07.10",
+      "kind": "field",
+      "name": "교통관제 리온",
+      "fieldName": "교통관제",
+      "legacyFieldIndex": 69
+    },
+    {
+      "id": "rion.field.mission-08.01",
+      "kind": "field",
+      "name": "화물운송 리온",
+      "fieldName": "화물운송",
+      "legacyFieldIndex": 70
+    },
+    {
+      "id": "rion.field.mission-08.02",
+      "kind": "field",
+      "name": "택배 리온",
+      "fieldName": "택배",
+      "legacyFieldIndex": 71
+    },
+    {
+      "id": "rion.field.mission-08.03",
+      "kind": "field",
+      "name": "창고 리온",
+      "fieldName": "창고",
+      "legacyFieldIndex": 72
+    },
+    {
+      "id": "rion.field.mission-08.04",
+      "kind": "field",
+      "name": "냉장물류 리온",
+      "fieldName": "냉장물류",
+      "legacyFieldIndex": 73
+    },
+    {
+      "id": "rion.field.mission-08.05",
+      "kind": "field",
+      "name": "항만하역 리온",
+      "fieldName": "항만하역",
+      "legacyFieldIndex": 74
+    },
+    {
+      "id": "rion.field.mission-08.06",
+      "kind": "field",
+      "name": "항공화물 리온",
+      "fieldName": "항공화물",
+      "legacyFieldIndex": 75
+    },
+    {
+      "id": "rion.field.mission-08.07",
+      "kind": "field",
+      "name": "철도화물 리온",
+      "fieldName": "철도화물",
+      "legacyFieldIndex": 76
+    },
+    {
+      "id": "rion.field.mission-08.08",
+      "kind": "field",
+      "name": "물류거점 리온",
+      "fieldName": "물류거점",
+      "legacyFieldIndex": 77
+    },
+    {
+      "id": "rion.field.mission-08.09",
+      "kind": "field",
+      "name": "배송망 리온",
+      "fieldName": "배송망",
+      "legacyFieldIndex": 78
+    },
+    {
+      "id": "rion.field.mission-08.10",
+      "kind": "field",
+      "name": "차량정비 리온",
+      "fieldName": "차량정비",
+      "legacyFieldIndex": 79
+    },
+    {
+      "id": "rion.field.mission-09.01",
+      "kind": "field",
+      "name": "도매 리온",
+      "fieldName": "도매",
+      "legacyFieldIndex": 80
+    },
+    {
+      "id": "rion.field.mission-09.02",
+      "kind": "field",
+      "name": "소매 리온",
+      "fieldName": "소매",
+      "legacyFieldIndex": 81
+    },
+    {
+      "id": "rion.field.mission-09.03",
+      "kind": "field",
+      "name": "전통시장 리온",
+      "fieldName": "전통시장",
+      "legacyFieldIndex": 82
+    },
+    {
+      "id": "rion.field.mission-09.04",
+      "kind": "field",
+      "name": "수출 리온",
+      "fieldName": "수출",
+      "legacyFieldIndex": 83
+    },
+    {
+      "id": "rion.field.mission-09.05",
+      "kind": "field",
+      "name": "수입 리온",
+      "fieldName": "수입",
+      "legacyFieldIndex": 84
+    },
+    {
+      "id": "rion.field.mission-09.06",
+      "kind": "field",
+      "name": "은행 리온",
+      "fieldName": "은행",
+      "legacyFieldIndex": 85
+    },
+    {
+      "id": "rion.field.mission-09.07",
+      "kind": "field",
+      "name": "대출 리온",
+      "fieldName": "대출",
+      "legacyFieldIndex": 86
+    },
+    {
+      "id": "rion.field.mission-09.08",
+      "kind": "field",
+      "name": "보험 리온",
+      "fieldName": "보험",
+      "legacyFieldIndex": 87
+    },
+    {
+      "id": "rion.field.mission-09.09",
+      "kind": "field",
+      "name": "투자 리온",
+      "fieldName": "투자",
+      "legacyFieldIndex": 88
+    },
+    {
+      "id": "rion.field.mission-09.10",
+      "kind": "field",
+      "name": "부동산 리온",
+      "fieldName": "부동산",
+      "legacyFieldIndex": 89
+    },
+    {
+      "id": "rion.field.mission-10.01",
+      "kind": "field",
+      "name": "숙박 리온",
+      "fieldName": "숙박",
+      "legacyFieldIndex": 90
+    },
+    {
+      "id": "rion.field.mission-10.02",
+      "kind": "field",
+      "name": "외식 리온",
+      "fieldName": "외식",
+      "legacyFieldIndex": 91
+    },
+    {
+      "id": "rion.field.mission-10.03",
+      "kind": "field",
+      "name": "관광 리온",
+      "fieldName": "관광",
+      "legacyFieldIndex": 92
+    },
+    {
+      "id": "rion.field.mission-10.04",
+      "kind": "field",
+      "name": "축제 리온",
+      "fieldName": "축제",
+      "legacyFieldIndex": 93
+    },
+    {
+      "id": "rion.field.mission-10.05",
+      "kind": "field",
+      "name": "공연 리온",
+      "fieldName": "공연",
+      "legacyFieldIndex": 94
+    },
+    {
+      "id": "rion.field.mission-10.06",
+      "kind": "field",
+      "name": "미술 리온",
+      "fieldName": "미술",
+      "legacyFieldIndex": 95
+    },
+    {
+      "id": "rion.field.mission-10.07",
+      "kind": "field",
+      "name": "출판 리온",
+      "fieldName": "출판",
+      "legacyFieldIndex": 96
+    },
+    {
+      "id": "rion.field.mission-10.08",
+      "kind": "field",
+      "name": "방송 리온",
+      "fieldName": "방송",
+      "legacyFieldIndex": 97
+    },
+    {
+      "id": "rion.field.mission-10.09",
+      "kind": "field",
+      "name": "영화 리온",
+      "fieldName": "영화",
+      "legacyFieldIndex": 98
+    },
+    {
+      "id": "rion.field.mission-10.10",
+      "kind": "field",
+      "name": "체육 리온",
+      "fieldName": "체육",
+      "legacyFieldIndex": 99
+    },
+    {
+      "id": "rion.field.mission-11.01",
+      "kind": "field",
+      "name": "유아교육 리온",
+      "fieldName": "유아교육",
+      "legacyFieldIndex": 100
+    },
+    {
+      "id": "rion.field.mission-11.02",
+      "kind": "field",
+      "name": "초등교육 리온",
+      "fieldName": "초등교육",
+      "legacyFieldIndex": 101
+    },
+    {
+      "id": "rion.field.mission-11.03",
+      "kind": "field",
+      "name": "중등교육 리온",
+      "fieldName": "중등교육",
+      "legacyFieldIndex": 102
+    },
+    {
+      "id": "rion.field.mission-11.04",
+      "kind": "field",
+      "name": "대학 리온",
+      "fieldName": "대학",
+      "legacyFieldIndex": 103
+    },
+    {
+      "id": "rion.field.mission-11.05",
+      "kind": "field",
+      "name": "직업교육 리온",
+      "fieldName": "직업교육",
+      "legacyFieldIndex": 104
+    },
+    {
+      "id": "rion.field.mission-11.06",
+      "kind": "field",
+      "name": "도서관 리온",
+      "fieldName": "도서관",
+      "legacyFieldIndex": 105
+    },
+    {
+      "id": "rion.field.mission-11.07",
+      "kind": "field",
+      "name": "기초과학 리온",
+      "fieldName": "기초과학",
+      "legacyFieldIndex": 106
+    },
+    {
+      "id": "rion.field.mission-11.08",
+      "kind": "field",
+      "name": "의료연구 리온",
+      "fieldName": "의료연구",
+      "legacyFieldIndex": 107
+    },
+    {
+      "id": "rion.field.mission-11.09",
+      "kind": "field",
+      "name": "산업기술 리온",
+      "fieldName": "산업기술",
+      "legacyFieldIndex": 108
+    },
+    {
+      "id": "rion.field.mission-11.10",
+      "kind": "field",
+      "name": "우주연구 리온",
+      "fieldName": "우주연구",
+      "legacyFieldIndex": 109
+    },
+    {
+      "id": "rion.field.mission-12.01",
+      "kind": "field",
+      "name": "일차의료 리온",
+      "fieldName": "일차의료",
+      "legacyFieldIndex": 110
+    },
+    {
+      "id": "rion.field.mission-12.02",
+      "kind": "field",
+      "name": "종합병원 리온",
+      "fieldName": "종합병원",
+      "legacyFieldIndex": 111
+    },
+    {
+      "id": "rion.field.mission-12.03",
+      "kind": "field",
+      "name": "응급의료 리온",
+      "fieldName": "응급의료",
+      "legacyFieldIndex": 112
+    },
+    {
+      "id": "rion.field.mission-12.04",
+      "kind": "field",
+      "name": "공중보건 리온",
+      "fieldName": "공중보건",
+      "legacyFieldIndex": 113
+    },
+    {
+      "id": "rion.field.mission-12.05",
+      "kind": "field",
+      "name": "감염병대응 리온",
+      "fieldName": "감염병대응",
+      "legacyFieldIndex": 114
+    },
+    {
+      "id": "rion.field.mission-12.06",
+      "kind": "field",
+      "name": "약국 리온",
+      "fieldName": "약국",
+      "legacyFieldIndex": 115
+    },
+    {
+      "id": "rion.field.mission-12.07",
+      "kind": "field",
+      "name": "노인복지 리온",
+      "fieldName": "노인복지",
+      "legacyFieldIndex": 116
+    },
+    {
+      "id": "rion.field.mission-12.08",
+      "kind": "field",
+      "name": "아동복지 리온",
+      "fieldName": "아동복지",
+      "legacyFieldIndex": 117
+    },
+    {
+      "id": "rion.field.mission-12.09",
+      "kind": "field",
+      "name": "장애인복지 리온",
+      "fieldName": "장애인복지",
+      "legacyFieldIndex": 118
+    },
+    {
+      "id": "rion.field.mission-12.10",
+      "kind": "field",
+      "name": "정신건강 리온",
+      "fieldName": "정신건강",
+      "legacyFieldIndex": 119
+    },
+    {
+      "id": "rion.field.mission-13.01",
+      "kind": "field",
+      "name": "대기환경 리온",
+      "fieldName": "대기환경",
+      "legacyFieldIndex": 120
+    },
+    {
+      "id": "rion.field.mission-13.02",
+      "kind": "field",
+      "name": "수질환경 리온",
+      "fieldName": "수질환경",
+      "legacyFieldIndex": 121
+    },
+    {
+      "id": "rion.field.mission-13.03",
+      "kind": "field",
+      "name": "토양환경 리온",
+      "fieldName": "토양환경",
+      "legacyFieldIndex": 122
+    },
+    {
+      "id": "rion.field.mission-13.04",
+      "kind": "field",
+      "name": "산림보호 리온",
+      "fieldName": "산림보호",
+      "legacyFieldIndex": 123
+    },
+    {
+      "id": "rion.field.mission-13.05",
+      "kind": "field",
+      "name": "습지보호 리온",
+      "fieldName": "습지보호",
+      "legacyFieldIndex": 124
+    },
+    {
+      "id": "rion.field.mission-13.06",
+      "kind": "field",
+      "name": "해양보호 리온",
+      "fieldName": "해양보호",
+      "legacyFieldIndex": 125
+    },
+    {
+      "id": "rion.field.mission-13.07",
+      "kind": "field",
+      "name": "폐기물수거 리온",
+      "fieldName": "폐기물수거",
+      "legacyFieldIndex": 126
+    },
+    {
+      "id": "rion.field.mission-13.08",
+      "kind": "field",
+      "name": "자원재활용 리온",
+      "fieldName": "자원재활용",
+      "legacyFieldIndex": 127
+    },
+    {
+      "id": "rion.field.mission-13.09",
+      "kind": "field",
+      "name": "기후대응 리온",
+      "fieldName": "기후대응",
+      "legacyFieldIndex": 128
+    },
+    {
+      "id": "rion.field.mission-13.10",
+      "kind": "field",
+      "name": "생태복원 리온",
+      "fieldName": "생태복원",
+      "legacyFieldIndex": 129
+    },
+    {
+      "id": "rion.field.mission-14.01",
+      "kind": "field",
+      "name": "행정 리온",
+      "fieldName": "행정",
+      "legacyFieldIndex": 130
+    },
+    {
+      "id": "rion.field.mission-14.02",
+      "kind": "field",
+      "name": "재정 리온",
+      "fieldName": "재정",
+      "legacyFieldIndex": 131
+    },
+    {
+      "id": "rion.field.mission-14.03",
+      "kind": "field",
+      "name": "세무 리온",
+      "fieldName": "세무",
+      "legacyFieldIndex": 132
+    },
+    {
+      "id": "rion.field.mission-14.04",
+      "kind": "field",
+      "name": "경찰 리온",
+      "fieldName": "경찰",
+      "legacyFieldIndex": 133
+    },
+    {
+      "id": "rion.field.mission-14.05",
+      "kind": "field",
+      "name": "소방 리온",
+      "fieldName": "소방",
+      "legacyFieldIndex": 134
+    },
+    {
+      "id": "rion.field.mission-14.06",
+      "kind": "field",
+      "name": "재난방재 리온",
+      "fieldName": "재난방재",
+      "legacyFieldIndex": 135
+    },
+    {
+      "id": "rion.field.mission-14.07",
+      "kind": "field",
+      "name": "사법 리온",
+      "fieldName": "사법",
+      "legacyFieldIndex": 136
+    },
+    {
+      "id": "rion.field.mission-14.08",
+      "kind": "field",
+      "name": "공공질서 리온",
+      "fieldName": "공공질서",
+      "legacyFieldIndex": 137
+    },
+    {
+      "id": "rion.field.mission-14.09",
+      "kind": "field",
+      "name": "외교 리온",
+      "fieldName": "외교",
+      "legacyFieldIndex": 138
+    },
+    {
+      "id": "rion.field.mission-14.10",
+      "kind": "field",
+      "name": "도시정책 리온",
+      "fieldName": "도시정책",
+      "legacyFieldIndex": 139
+    },
+    {
+      "id": "rion.field.mission-15.01",
+      "kind": "field",
+      "name": "통신망 리온",
+      "fieldName": "통신망",
+      "legacyFieldIndex": 140
+    },
+    {
+      "id": "rion.field.mission-15.02",
+      "kind": "field",
+      "name": "인터넷 리온",
+      "fieldName": "인터넷",
+      "legacyFieldIndex": 141
+    },
+    {
+      "id": "rion.field.mission-15.03",
+      "kind": "field",
+      "name": "데이터센터 리온",
+      "fieldName": "데이터센터",
+      "legacyFieldIndex": 142
+    },
+    {
+      "id": "rion.field.mission-15.04",
+      "kind": "field",
+      "name": "사이버보안 리온",
+      "fieldName": "사이버보안",
+      "legacyFieldIndex": 143
+    },
+    {
+      "id": "rion.field.mission-15.05",
+      "kind": "field",
+      "name": "소프트웨어 리온",
+      "fieldName": "소프트웨어",
+      "legacyFieldIndex": 144
+    },
+    {
+      "id": "rion.field.mission-15.06",
+      "kind": "field",
+      "name": "인공지능 리온",
+      "fieldName": "인공지능",
+      "legacyFieldIndex": 145
+    },
+    {
+      "id": "rion.field.mission-15.07",
+      "kind": "field",
+      "name": "자동화 리온",
+      "fieldName": "자동화",
+      "legacyFieldIndex": 146
+    },
+    {
+      "id": "rion.field.mission-15.08",
+      "kind": "field",
+      "name": "반도체 리온",
+      "fieldName": "반도체",
+      "legacyFieldIndex": 147
+    },
+    {
+      "id": "rion.field.mission-15.09",
+      "kind": "field",
+      "name": "로봇 리온",
+      "fieldName": "로봇",
+      "legacyFieldIndex": 148
+    },
+    {
+      "id": "rion.field.mission-15.10",
+      "kind": "field",
+      "name": "위성통신 리온",
+      "fieldName": "위성통신",
+      "legacyFieldIndex": 149
+    }
+  ]
+}
