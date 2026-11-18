@@ -130,7 +130,7 @@ test('build publishes per-commit descriptions while portal places history below 
  const builder=fs.readFileSync(path.resolve(__dirname,'../scripts/build-rollouts.cjs'),'utf8');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
  const notes=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-version-notes.json'),'utf8'));
- assert.match(builder,/versionNotes\[pkg.version\]/);
+ assert.match(builder,/versionNotes\[releaseVersion\]/);
  assert.match(builder,/subject,entries:/);
  assert.ok(app.indexOf('class="servers"')<app.indexOf('class="version-history"'));
  assert.ok(app.indexOf('class="version-history"')<app.indexOf('class="details"'));
@@ -258,7 +258,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.0'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.0.1'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -269,7 +269,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.14.0');
+ assert.equal(data.release,'0.14.0.1');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -612,9 +612,10 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.14.0');
- assert.equal(lock.version,'0.14.0');
- assert.equal(lock.packages[''].version,'0.14.0');
+ assert.equal(pkg.version,'0.14.0+hotfix.1');
+ assert.equal(pkg.myonVersion,'0.14.0.1');
+ assert.equal(lock.version,'0.14.0+hotfix.1');
+ assert.equal(lock.packages[''].version,'0.14.0+hotfix.1');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));
