@@ -103,18 +103,14 @@ function createCityName(city){
  if(!cityNameData)return cities.find(c=>c.id===city)?.name||city;
  return choose(cityNameData.prefixes)+choose(cityNameData.roots)+choose(cityNameData.endings[city]);
 }
-function existingRionDiscovery(){
- if(MISSION_SERVER!=='dev')return null;
- const raw=localStorage.getItem('MYON_RION_DISCOVERY_DEV_V1');
- if(!raw)return null;
- try{return JSON.parse(raw)}catch{throw Error('보존된 리온 기록을 읽지 못해 시작을 중단합니다.')}
-}
+// A new world never inherits discovered Rions. Only a valid loaded world
+// (load()) may restore Rions that the player previously accepted.
 function newWorld(){
  const city=choose(cities).id,cityName=createCityName(city);
  const createdAt=Date.now();
  const next={schema:1,city,cityName,createdAt,cash:0,stats:initialStats(city),offers:[],active:[],history:[],nextOfferAt:createdAt+OFFER_INTERVAL_MS,
-  rions:RIONS.initialize(existingRionDiscovery(),rionDefinitions,createdAt)};
- if(!next.rions)throw Error('보존된 리온 발견 기록이 손상되었습니다.');
+  rions:RIONS.initialize(null,rionDefinitions,createdAt)};
+ if(!next.rions)throw Error('신규 리온 기록 초기화에 실패했습니다.');
  for(let i=0;i<INITIAL_OFFERS;i++)next.offers.push(generateMission(next,createdAt,true));
  return next;
 }

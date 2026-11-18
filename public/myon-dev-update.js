@@ -5,7 +5,7 @@ const params=new URLSearchParams(location.search);
 const server=params.get('server'),revision=(params.get('build')||'').toLowerCase();
 const devVersion=params.get('dev_version')||'';
 if(!['dev','live','test'].includes(server)||!/^[a-f0-9]{40}$/.test(revision))return;
-if(server==='dev'&&!/^\d+\.\d+\.\d+$/.test(devVersion))return;
+if(server==='dev'&&!/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(devVersion))return;
 const panel=document.getElementById('mw-update-reveal');
 if(!panel)return;
 const rolloutUrl=new URL('../../myon-rollouts.json',location.href);
@@ -13,9 +13,9 @@ const approvedUrl=new URL('../../myon-approved-releases.json',location.href);
 let ready=false,checking=false;
 function newerVersion(next,current){
  const nextParts=next.split('.').map(Number),oldParts=current.split('.').map(Number);
- for(let i=0;i<3;i++){
-  if(nextParts[i]>oldParts[i])return true;
-  if(nextParts[i]<oldParts[i])return false;
+ for(let i=0;i<4;i++){
+  if((nextParts[i]||0)>(oldParts[i]||0))return true;
+  if((nextParts[i]||0)<(oldParts[i]||0))return false;
  }
  return false;
 }
@@ -41,7 +41,7 @@ async function check(){
   const data=await fetchJson(rolloutUrl);
   const releases=data?.releases;
   if(data?.schema!==1||!Array.isArray(releases)||!releases.length
-   ||!releases.every(r=>r&&/^[a-f0-9]{40}$/.test(r.revision)&&/^\d+\.\d+\.\d+$/.test(r.version)))return;
+   ||!releases.every(r=>r&&/^[a-f0-9]{40}$/.test(r.revision)&&/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(r.version)))return;
   if(server==='dev'){
    const latest=releases[releases.length-1];
    if(latest.revision!==revision&&newerVersion(latest.version,devVersion))reveal();
@@ -52,7 +52,7 @@ async function check(){
   const pin=approved?.[server];
   const current=releases.find(r=>r.revision===revision);
   if(approved?.schema!==1||!pin||!current||!/^[a-f0-9]{40}$/.test(pin.revision)
-    ||!/^\d+\.\d+\.\d+$/.test(pin.version))return;
+    ||!/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(pin.version))return;
   if(pin.revision!==revision&&releases.some(r=>r.revision===pin.revision&&r.version===pin.version)
     &&newerVersion(pin.version,current.version))reveal();
  }catch(error){console.warn('MYON update notice check unavailable',error)}

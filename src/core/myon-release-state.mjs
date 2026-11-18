@@ -5,7 +5,7 @@ const SHA=/^[a-f0-9]{40}$/i;
 export function validRevision(value){return typeof value==='string'&&SHA.test(value);}
 export function validReleases(releases){
  return Array.isArray(releases)&&releases.length>0&&
-  releases.every(v=>v&&validRevision(v.revision)&&/^\d+\.\d+\.\d+$/.test(v.version))&&
+  releases.every(v=>v&&validRevision(v.revision)&&/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(v.version))&&
   new Set(releases.map(v=>v.revision)).size===releases.length;
 }
 export function following(releases,sha){
@@ -39,7 +39,7 @@ export function migrateLegacy(raw,releases,now){
  if(!raw||typeof raw.from!=='string')return null;
  let installed=raw.from;
  if(!validRevision(installed)){
-  const match=/^version:(\d+\.\d+\.\d+)$/.exec(installed);
+  const match=/^version:(\d+\.\d+\.\d+(?:\.\d+)?)$/.exec(installed);
   installed=match?releases.find(v=>v.version===match[1])?.revision:null;
  }
  if(!installed||!releases.some(v=>v.revision===installed))return null;

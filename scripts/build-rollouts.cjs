@@ -15,6 +15,11 @@ const releases=[];
 for(const sha of revisions){
  if(!/^[a-f0-9]{40}$/.test(sha))throw Error('Malformed revision');
  const pkg=JSON.parse(cmd('show',sha+':package.json'));
+ // npm package versions must follow SemVer, but MYON may display a four-part
+ // correction revision, mapped from package.myonVersion.
+ const releaseVersion=pkg.myonVersion||pkg.version;
+ if(!/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(releaseVersion))
+  throw Error('Invalid MYON release version: '+releaseVersion);
  const out=path.join(dist,'releases',sha);
  fs.mkdirSync(out,{recursive:true});
  const files=cmd('ls-tree','-r','--name-only',sha,'--','public/').split('\n');
@@ -36,9 +41,9 @@ for(const sha of revisions){
  // Coordinator is infrastructure, not game logic: even old games use latest safe FIFO protocol.
  fs.writeFileSync(path.join(out,'myon-auto-update.js'),latestUpdater);
  const subject=cmd('show','-s','--format=%s',sha);
- const note=versionNotes[pkg.version];
- releases.push({revision:sha,version:pkg.version,
-  title:note?.title||subject.replace(/^v\d+\.\d+\.\d+:\s*/,''),
+ const note=versionNotes[releaseVersion];
+ releases.push({revision:sha,version:releaseVersion,
+  title:note?.title||subject.replace(/^v\d+\.\d+\.\d+(?:\.\d+)?:\s*/,''),
   subject,entries:Array.isArray(note?.entries)?note.entries:[]});
 }
 fs.writeFileSync(path.join(dist,'myon-rollouts.json'),JSON.stringify({schema:1,releases})+'\n');

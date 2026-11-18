@@ -58,7 +58,7 @@ async function check(){
   if(!response.ok)throw Error('Manifest unavailable');
   const doc=await response.json();
   if(!doc||doc.schema!==1||!Array.isArray(doc.releases)||!doc.releases.length||
-   !doc.releases.every(v=>v&&/^[a-f0-9]{40}$/i.test(v.revision)&&/^\d+\.\d+\.\d+$/.test(v.version)))
+   !doc.releases.every(v=>v&&/^[a-f0-9]{40}$/i.test(v.revision)&&/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(v.version)))
    throw Error('Invalid release manifest');
   releases=doc.releases;
   const s=read();

@@ -258,7 +258,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.13.99'"));
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.0'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -269,7 +269,7 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.13.99');
+ assert.equal(data.release,'0.14.0');
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -612,9 +612,9 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.13.99');
- assert.equal(lock.version,'0.13.99');
- assert.equal(lock.packages[''].version,'0.13.99');
+ assert.equal(pkg.version,'0.14.0');
+ assert.equal(lock.version,'0.14.0');
+ assert.equal(lock.packages[''].version,'0.14.0');
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));
@@ -657,4 +657,26 @@ test('v0.13.94 promotion changes only LIVE/TEST frozen revision, preserving DEV 
  assert.ok(missions.includes("MISSION_SERVER==='test'?30:1"));
  assert.ok(missions.includes("MYON_LIVE_MISSIONS_V1"));
  assert.ok(missions.includes("MYON_TEST_MISSIONS_V1"));
+});
+
+
+test('four-part correction versions remain valid for manifest, existing-state migration and DEV save',async()=>{
+ const {validReleases,migrateLegacy}=await import('../src/core/myon-release-state.mjs');
+ const SHA='f'.repeat(40),A='e'.repeat(40);
+ const releases=[{revision:A,version:'0.14.0'},{revision:SHA,version:'0.14.0.1'}];
+ assert.ok(validReleases(releases));
+ assert.equal(migrateLegacy({from:'version:0.14.0.1'},releases,1800000000000).installed,SHA);
+ const {prepareDevVersion}=await import('../src/core/myon-dev-version.mjs');
+ const memory=new Map([['MYON_DEV_ACTIVE_VERSION_V1','0.14.0.1']]);
+ const storage={getItem:k=>memory.get(k)||null};
+ const check=await prepareDevVersion({version:'0.14.0.1',storage});
+ assert.equal(check.reset,false);
+ const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
+ const watcher=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-update.js'),'utf8');
+ const coordinator=fs.readFileSync(path.resolve(__dirname,'../public/myon-auto-update.js'),'utf8');
+ assert.ok(html.includes('(?:\\.\\d+)?'));
+ assert.ok(watcher.includes('for(let i=0;i<4;i++)'));
+ assert.ok(coordinator.includes('(?:\\.\\d+)?'));
+ const builder=fs.readFileSync(path.resolve(__dirname,'../scripts/build-rollouts.cjs'),'utf8');
+ assert.match(builder,/pkg\.myonVersion\|\|pkg\.version/);
 });

@@ -6,7 +6,7 @@ export const DEV_ACTIVE_VERSION_KEY='MYON_DEV_ACTIVE_VERSION_V1'
 export const DEV_RION_CONTINUITY_KEY='MYON_RION_DISCOVERY_DEV_V1'
 export const DEV_STORAGE_PREFIX='MYON_DEV_'
 const DEV_BACKUP_STORE='snapshots'
-const VALID_VERSION=/^\d+\.\d+\.\d+$/
+const VALID_VERSION=/^\d+\.\d+\.\d+(?:\.\d+)?$/
 
 export function purgeDevLocalKeys(storage){
  const keys=[]
@@ -63,7 +63,8 @@ export function purgeDevBackupRecords(idb){
  })
 }
 
-// Persist discovered Rions before a DEV-only reset, outside the purged DEV prefix.
+// Archive actual discoveries outside the purged DEV prefix before a reset.
+// Never grant these archived discoveries to a freshly created world.
 function preserveRionDiscovery(storage,previous){
  if(!previous)return;
  const raw=storage.getItem('MYON_DEV_MISSIONS_V1_'+previous);

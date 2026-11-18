@@ -256,3 +256,44 @@ test('discovery notification and expiry are wired without changing the hourly Ri
  assert.equal(accepted.state.nextAt,T+6*R.HOUR);
  assert.equal(accepted.state.discovered.length,1);
 });
+
+
+test('fresh world starts with zero discovered Rions even if an older DEV archive contains discoveries',()=>{
+ const game=fs.readFileSync(path.join(root,'public/myon-dev-missions.js'),'utf8');
+ const instrumented=game.replace(/bootstrap\(\);\s*\}\)\(\);\s*$/,
+  "window.__freshProbe={setData:(fields,cityList,ids)=>{catalog=fields;cities=cityList;rionDefinitions=ids;},newWorld,load};\n})();");
+ assert.notEqual(instrumented,game);
+ const R=engine(),now=T,storage=new Map();
+ storage.set('MYON_RION_DISCOVERY_DEV_V1',JSON.stringify({
+  schema:2,discovered:[{id:'rion.role.ui',stage:0,discoveredAt:now-2*R.HOUR}],
+  pending:null,nextAt:now+R.HOUR,latest:null
+ }));
+ const window={MYON_RIONS:R};
+ const localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)};
+ vm.runInNewContext(instrumented,{window,localStorage,DEV_SAVE_VERSION:'testfresh',
+  MYON_MISSION_SERVER:'dev',Date:{now:()=>now},Math,console},{timeout:2000});
+ const fields=definitions.filter(r=>r.kind==='field').map((r,index)=>({id:index,name:r.fieldName,categoryIndex:Math.floor(index/10)}));
+ const api=window.__freshProbe;
+ api.setData(fields,[{id:'lien',name:'리엔시'}],definitions);
+ assert.equal(api.load(),null);
+ const world=api.newWorld();
+ assert.equal(world.rions.schema,2);
+ assert.equal(world.rions.discovered.length,0);
+ assert.equal(world.rions.pending,null);
+ assert.equal(world.rions.latest,null);
+ assert.equal(world.rions.nextAt,now+R.HOUR);
+ assert.equal(R.discovered(world.rions,'rion.role.ui'),false);
+ assert.equal(world.offers.length,4,'normal starter missions remain unchanged');
+ assert.ok(world.offers.every(m=>m.contributionRion===null));
+ // A saved player who really accepted a Rion can still continue with that discovery.
+ const offered=R.advance(world.rions,definitions,now+R.HOUR,()=>0).state;
+ const accepted=R.accept(offered,definitions,now+R.HOUR);
+ assert.equal(accepted.id,'rion.role.ui');
+ const continuing={...world,rions:accepted.state};
+ storage.set('MYON_DEV_MISSIONS_V1_testfresh',JSON.stringify(continuing));
+ const loaded=api.load();
+ assert.ok(loaded,'existing valid save loads');
+ assert.equal(loaded.rions.discovered.length,1);
+ assert.equal(loaded.rions.discovered[0].id,'rion.role.ui');
+ assert.equal(loaded.cash,0);
+});
