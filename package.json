@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/compensation.test.cjs tests/auto-update.test.cjs tests/rollout-entry.test.cjs tests/host-rollout.test.cjs tests/bus-world.test.cjs tests/recovery.test.cjs"
+    "test": "node --test tests/compensation.test.cjs tests/auto-update.test.cjs tests/rollout-entry.test.cjs tests/host-rollout.test.cjs tests/bus-world.test.cjs tests/recovery.test.cjs tests/rion-identity.test.cjs"
   },
   "dependencies": {
     "vue": "^3.5.42"
