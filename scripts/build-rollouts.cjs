@@ -38,6 +38,16 @@ for(const sha of revisions){
  const guard='<script>if(window.self===window.top){var u=new URL("../../",location.href);u.search=location.search;u.hash=location.hash;location.replace(u.href);}</script>';
  if(!archiveHtml.includes('<head>'))throw Error('Archived game lacks head element: '+sha);
  fs.writeFileSync(archivePath,archiveHtml.replace('<head>','<head>'+guard));
+ // Block archived TEST gameplay URLs after conversion to the two-server portal.
+ // Source backups are read by the portal; TEST never needs a live game iframe.
+ const nextPath=path.join(out,'myon-next.html');
+ if(fs.existsSync(nextPath)){
+  const nextHtml=fs.readFileSync(nextPath,'utf8');
+  const testGuard='<script>if(new URLSearchParams(location.search).get("server")==="test")'+
+   '{var u=new URL("../../",location.href);u.search="";u.hash="";location.replace(u.href);}</script>';
+  if(!nextHtml.includes('<head>'))throw Error('Archived mission page has no head');
+  fs.writeFileSync(nextPath,nextHtml.replace('<head>','<head>'+testGuard));
+ }
  // Coordinator is infrastructure, not game logic: even old games use latest safe FIFO protocol.
  fs.writeFileSync(path.join(out,'myon-auto-update.js'),latestUpdater);
  const subject=cmd('show','-s','--format=%s',sha);
@@ -47,6 +57,12 @@ for(const sha of revisions){
   subject,entries:Array.isArray(note?.entries)?note.entries:[]});
 }
 fs.writeFileSync(path.join(dist,'myon-rollouts.json'),JSON.stringify({schema:1,releases})+'\n');
+// The sunset deadline starts at this commit's Git timestamp, not at visit time.
+const sunsetCommit=cmd('log','-1','--format=%ct','--grep=MYON_TEST_SUNSET_START','HEAD');
+if(!/^[0-9]+$/.test(sunsetCommit))throw Error('TEST retirement start commit missing');
+const startedAt=Number(sunsetCommit)*1000;
+fs.writeFileSync(path.join(dist,'myon-test-sunset.json'),
+ JSON.stringify({schema:1,startedAt,endsAt:startedAt+7*24*60*60*1000})+'\n');
 // Generate official approvals directly from frozen server pins, not from the latest DEV revision.
 const entry=fs.readFileSync(path.join(root,'src/core/myon-server-entry.mjs'),'utf8');
 function approval(key){

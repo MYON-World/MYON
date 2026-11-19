@@ -1,8 +1,9 @@
 <script setup>
-import {onMounted,ref} from 'vue'
+import {onMounted,onUnmounted,computed,ref} from 'vue'
 import {validReleases} from './core/myon-release-state.mjs'
 import {prepareDevVersion} from './core/myon-dev-version.mjs'
 import {visibleVersionHistory} from './core/myon-version-history.mjs'
+import {validSunset,readTestRetirement,retireTestOnce} from './core/myon-test-retirement.mjs'
 import {LIVE_RELEASE,TEST_RELEASE,dbForServer,targetForServer,
  archiveUrl,verifyArchive,createEntryCheckpoint,readGameRecords,readMissionRecords} from './core/myon-server-entry.mjs'
 
@@ -49,6 +50,42 @@ const testVersion=ref(TEST_RELEASE?'v'+TEST_RELEASE.version:'미승인')
 const activeVersion=ref('—'),saveStatus=ref('기존 기록 확인은 입장 시 진행합니다.')
 const changes=ref([])
 let releases=null
+
+const testDeadline=ref(0),testClock=ref(Date.now()),testVerified=ref(false)
+const testReceipt=ref(null),testBusy=ref(false),testMessage=ref('')
+let testTimer=0
+const testRemaining=computed(()=>Math.max(0,testDeadline.value-testClock.value))
+const showTestSunset=computed(()=>testVerified.value&&testRemaining.value>0)
+const testCountdown=computed(()=>{
+ const n=Math.ceil(testRemaining.value/1000),f=x=>String(x).padStart(2,'0')
+ return Math.floor(n/86400)+'일 '+f(Math.floor(n%86400/3600))+':'+
+  f(Math.floor(n%3600/60))+':'+f(n%60)
+})
+const testClaimed=computed(()=>!!testReceipt.value)
+const testTransferLabel=computed(()=>testBusy.value?'확인 중':
+ testReceipt.value?.phase==='complete'?'이전 완료':
+ testReceipt.value?.phase==='pending'?'이전 복구':'마지막 1회 접속')
+async function loadTestSunset(){
+ const response=await fetch(BASE+'myon-test-sunset.json?at='+Date.now(),{cache:'no-store'})
+ if(!response.ok)throw Error('가속 서버 종료 시각을 확인할 수 없습니다.')
+ const data=await response.json()
+ if(!validSunset(data))throw Error('종료 시각 자료가 올바르지 않습니다.')
+ testDeadline.value=data.endsAt
+ testVerified.value=true
+}
+async function transferTestFunds(){
+ if(testBusy.value||!testVerified.value||(!showTestSunset.value&&!testReceipt.value))return
+ testBusy.value=true;testMessage.value=''
+ try{
+  const receipt=await retireTestOnce({deadline:testDeadline.value})
+  testReceipt.value=receipt
+  testMessage.value='자금 이전 완료 · 임무 '+receipt.missionCash.toLocaleString('ko-KR')+
+   ' M · 공용 '+(receipt.fundsUnits/10000).toLocaleString('ko-KR')+' M'
+ }catch(error){
+  testMessage.value=error?.message||'이전 오류 · 기존 저장 기록은 보존됩니다.'
+  try{testReceipt.value=readTestRetirement()}catch{}
+ }finally{testBusy.value=false}
+}
 
 const SERVER_LABELS={live:'LIVE',test:'TEST',dev:'DEV'}
 function serverTitle(server){return SERVER_LABELS[server]||server}
@@ -174,94 +211,59 @@ async function copySave(){
  finally{backupBusy.value=false}
 }
 onMounted(async()=>{
+ testTimer=setInterval(()=>{testClock.value=Date.now()},1000)
+ try{testReceipt.value=readTestRetirement()}catch(error){testMessage.value=error.message}
+ try{await loadTestSunset()}catch(error){testMessage.value=error.message}
+ if(testVerified.value&&testReceipt.value?.phase==='pending')await transferTestFunds()
  // Every visit always returns to the stable portal. Never start the old auto updater.
  window.MYON_ROLLOUT_HOST_ACTIVE=true
  document.title='MYON WORLD · 서버 선택'
  try{await refreshReleases()}
  catch(error){message.value='DEV 최신 목록 확인 실패: DEV 입장에서 재시도할 수 있습니다.';console.warn(error)}
 })
+onUnmounted(()=>{if(testTimer)clearInterval(testTimer)})
 </script>
 
 <template>
 
  <main v-if="!playing" class="portal">
-  <div class="planet-backdrop" aria-hidden="true" :style="{backgroundImage:'url(' + BASE + 'myon-planet-wallpaper.webp)'}"></div>
-  <div class="planet-shade" aria-hidden="true"></div>
   <div class="wrap">
    <header class="heading">
     <div class="micro-brand">
      <span class="brand-mark">M</span>
      <div class="brand-name"><strong>MYON</strong><small>WORLD · FIRST ERA</small></div>
     </div>
-    <div class="top-side"><span>THE PLANET MYON</span><span class="sep"></span><span><i class="dot"></i>월드 게이트</span></div>
+    <div class="top-side"><span><i class="dot"></i>월드 게이트</span></div>
    </header>
-   <section class="hero" aria-label="마이온 세계 소개">
-    <div class="hero-kicker">A WORLD WAITING TO BE RESTORED</div>
+   <section class="hero">
+    <div class="hero-kicker">THE WORLD OF MYON</div>
     <h1>MYON</h1><div class="hero-word">WORLD</div>
-    <h2 class="hero-subtitle">무너진 문명 위에서,<br>당신의 이야기가 시작된다.</h2>
-    <p class="hero-desc">인공지능과 함께 번영했던 행성 마이온.<br>수많은 도시가 각자의 시간을 살아가는 지금,<br>당신은 한 명의 시민으로 새로운 여정을 시작합니다.</p>
+    <p class="portal-subtitle">시작할 세계를 선택하세요</p>
    </section>
    <section class="gateway" aria-label="서버 선택">
-    <div class="section-head">
-     <div><span class="section-overline">WORLD ACCESS</span><h2>시작할 세계를 선택하세요</h2></div>
-     <span class="section-note">입장 시 버전 확인 · 세이브 보호</span>
-    </div>
     <div class="servers">
      <button type="button" class="server-row live" :disabled="entering" @click="enterServer('live')">
-      <span class="server-main"><span class="server-icon">L</span><span class="server-copy"><strong>LIVE <small>정식버전</small></strong><span>표준 시간 · 1초 = 1틱</span></span></span>
-      <span class="server-side"><span class="server-ver">{{ liveVersion }}</span><span class="entry-text" aria-hidden="true">↗</span></span>
-     </button>
-     <button type="button" class="server-row test" :disabled="entering" @click="enterServer('test')">
-      <span class="server-main"><span class="server-icon">T</span><span class="server-copy"><strong>TEST <small>정식 가속버전</small></strong><span>정식과 동일한 게임 · 진행 중 임무만 1초 = 30틱</span></span></span>
-      <span class="server-side"><span class="server-ver">{{ testVersion }}</span><span class="entry-text" aria-hidden="true">↗</span></span>
+      <span class="server-main"><span class="server-icon">L</span><span class="server-copy"><strong>LIVE <small>정식 서버</small></strong><span>{{ liveVersion }} · 표준 운행</span></span></span>
+      <span class="server-side"><span class="entry-text" aria-hidden="true">›</span></span>
      </button>
      <button type="button" class="server-row dev" :disabled="entering" @click="enterServer('dev')">
-      <span class="server-main"><span class="server-icon">D</span><span class="server-copy"><strong>DEV <small>개발 세계</small></strong><span>새로운 이야기와 기능을 먼저 만나는 곳</span></span></span>
-      <span class="server-side"><span class="server-ver">{{ latestVersion }}</span><span class="entry-text" aria-hidden="true">↗</span></span>
+      <span class="server-main"><span class="server-icon">D</span><span class="server-copy"><strong>DEV <small>개발 서버</small></strong><span>{{ latestVersion }} · 최신 개발</span></span></span>
+      <span class="server-side"><span class="entry-text" aria-hidden="true">›</span></span>
      </button>
     </div>
-    <details class="version-history">
-     <summary class="version-history-summary">
-      <span class="version-history-heading"><strong>버전 변경사항</strong><small>현재 서버에 설정된 버전만 표시</small></span>
-      <span class="version-history-expand">적용 버전 보기 <span aria-hidden="true">⌄</span></span>
-     </summary>
-     <div class="version-history-body">
-      <p v-if="!changes.length" class="version-history-empty">버전 변경기록을 확인할 수 없습니다. 잠시 후 새로고침해 주세요.</p>
-      <div v-for="change in changes" :key="change.version" class="version-history-item">
-       <div class="version-history-line">
-        <strong>v{{ change.version }}</strong>
-        <span v-for="server in change.servers" :key="server" class="version-history-badge" :class="'tag-'+server.toLowerCase()">{{ server }} 적용 중</span>
-       </div>
-       <div class="version-history-title">{{ change.title }}</div>
-       <ul v-if="change.entries.length" class="version-history-notes"><li v-for="(entry,j) in change.entries" :key="j">{{ entry }}</li></ul>
-       <p v-else class="version-history-empty">변경 상세: {{ change.commits.join(' · ')||'커밋 기록 참조' }}</p>
-      </div>
-      <p class="version-history-footnote">과거 버전 기록은 보관하며, 통합화면에는 LIVE·TEST·DEV의 실제 설정 버전만 표시합니다.</p>
+    <section v-if="showTestSunset" class="sunset" aria-label="정식 가속 서버 종료">
+     <div class="sunset-head"><strong>가속 서버 종료</strong><strong class="sunset-time">{{ testCountdown }}</strong></div>
+     <div class="sunset-bottom">
+      <span>{{ testClaimed?'1회 접속 사용 완료 · 재접속 차단':'보유 자금 이전 · 마지막 1회 접속' }}</span>
+      <button type="button" :disabled="testBusy||testReceipt?.phase==='complete'" @click="transferTestFunds">{{ testTransferLabel }}</button>
      </div>
-    </details>
-    <div class="details">
-     <section class="panel">
-      <div class="panel-head"><h2>안전한 월드 입장</h2><span class="tag">공통 규칙</span></div>
-      <div class="kv"><span>LIVE 승인 버전</span><strong>{{ liveVersion }}</strong></div>
-      <div class="kv"><span>DEV 최신 배포 버전</span><strong>{{ latestVersion }}</strong></div>
-      <p class="hint">{{ saveStatus }}</p>
-      <p class="hint">입장 시 버전·게임 파일·세이브를 확인하고 별도 백업본까지 재검증합니다. 플레이 중에는 버전이 바뀌지 않습니다.</p>
-     </section>
-     <section class="panel">
-      <div class="panel-head"><h2>세이브 자료 보관</h2><span class="tag">원본 읽기 전용</span></div>
-      <p class="hint">LIVE · TEST · DEV 저장소는 독립적입니다. 입장 전 백업은 브라우저의 별도 저장소에 보관되며, 기기 이동에는 JSON 다운로드가 필요합니다.</p>
-      <div class="backup-actions">
-       <button type="button" :disabled="backupBusy||entering" @click="downloadSave">LIVE 원본 JSON 다운로드</button>
-       <button type="button" :disabled="backupBusy||entering" @click="copySave">LIVE 원본 JSON 복사</button>
-       <a :href="BASE+'myon-recovery.html'" target="_blank" rel="noopener">LIVE 상세 진단</a>
-      </div>
-     </section>
-    </div>
-    <div v-if="message&&!entryFailed" class="notice" role="status">{{ message }}</div>
-    <div v-if="manualBackup" class="manual-area"><label for="manual-json">원본 JSON · 전체 선택 후 복사</label><textarea id="manual-json" :value="manualBackup" readonly rows="7"></textarea></div>
-    <footer>© MYON WORLD · THE FIRST ERA <span>공통 입장 절차 · 세이브 보호</span></footer>
+    </section>
+    <p v-if="testMessage" class="notice" role="status">{{ testMessage }}</p>
+    <p v-else-if="!testVerified" class="portal-info">가속 서버 종료 시각 확인 중 · 확인 실패 시 이전 불가</p>
+    <p v-else-if="!showTestSunset&&testReceipt?.phase==='pending'" class="notice">종료 후 이전 복구 확인 중</p>
+    <p v-if="message&&!entryFailed" class="notice" role="status">{{ message }}</p>
+    <footer>© MYON WORLD <span>LIVE · DEV</span></footer>
    </section>
-   <div class="planet-marker" aria-hidden="true"><span class="marker-line"></span><div><strong>PLANET MYON</strong><small>하나의 행성, 수많은 이야기</small></div></div>
   </div>
   <div v-if="entering||entryFailed" class="entry-overlay" role="dialog" aria-modal="true" aria-labelledby="world-entry-title">
    <section class="entry-panel">
@@ -530,4 +532,57 @@ footer{margin-top:20px;display:flex;justify-content:space-between;gap:12px;font-
  .server-ver{font-size:12px}.server-side{gap:7px}.entry-text{font-size:10px}
  .details{grid-template-columns:1fr}.panel{padding:17px}
 }
+
+/* Compact two-world portal: image-free, button-forward, faithful to existing MYON identity. */
+.portal{background:radial-gradient(ellipse 70% 55% at 50% 0%,rgba(34,73,120,.28),transparent 77%),linear-gradient(180deg,#091523,#050a12);color:#e8f5ff}
+.portal .wrap{max-width:1000px;padding:25px clamp(17px,5vw,40px) 35px}
+.portal .top-side>span:first-child{display:block}
+.portal .hero{text-align:center;width:100%;padding-top:clamp(48px,7vh,83px)}
+.portal .hero-kicker{justify-content:center;font-size:10px;letter-spacing:.32em;color:#84b1cb}
+.portal .hero-kicker:before{display:none}
+.portal .hero h1{font-size:clamp(75px,12vw,107px);margin-top:12px;letter-spacing:.07em}
+.portal .hero-word{margin:9px 0 0;padding-left:.65em;font-size:11px}
+.portal-subtitle{color:#bbcee0;font-size:13px;margin:28px 0 0}
+.portal .gateway{max-width:580px;margin:29px auto 0}
+.portal .servers{gap:12px}
+.portal .server-row{min-height:94px;border-radius:13px;padding:18px 18px 18px 15px;position:relative;overflow:hidden;box-shadow:inset 0 1px #ffffff0b,0 7px 28px #0004}
+.portal .server-row:before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:4px;background:#48e0ca;box-shadow:0 0 16px #48e0ca}
+.portal .server-row.live{border-color:#48e0ca84;background:linear-gradient(115deg,#11575d59,#0d1c2b 75%)}
+.portal .server-row.dev{border-color:#5daeff86;background:linear-gradient(115deg,#1e3d7961,#0d1c2b 75%)}
+.portal .server-row.dev:before{background:#5daeff;box-shadow:0 0 16px #5daeff}
+.portal button.server-row:hover:not(:disabled){transform:translateY(-2px)}
+.portal .server-icon{width:51px;height:51px;border-radius:10px;font-size:29px;border-color:#48e0ca;background:linear-gradient(150deg,#48e0ca2c,#04111de0);box-shadow:inset 0 0 16px #48e0ca25,0 0 16px #48e0ca25}
+.portal .server-row.dev .server-icon{border-color:#5daeff;background:linear-gradient(150deg,#5daeff32,#04111de0);box-shadow:inset 0 0 16px #5daeff20,0 0 16px #5daeff20}
+.portal .server-main{gap:16px}
+.portal .server-copy strong{font-size:23px;letter-spacing:.02em}
+.portal .server-copy small{font-size:11px;margin-left:9px}
+.portal .server-copy>span{font-size:11px;margin-top:2px}
+.portal .entry-text{width:37px;height:37px;display:grid;place-items:center;border-radius:50%;border:1px solid #48e0ca61;background:#48e0ca17;font-size:30px;color:#48e0ca}
+.portal .server-row.dev .entry-text{color:#5daeff;border-color:#5daeff61;background:#5daeff17}
+.portal .sunset{margin-top:17px;padding:15px 17px;background:linear-gradient(115deg,#3e301d9e,#19191c8c);border:1px solid #b5945b78;border-radius:12px}
+.portal .sunset-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.portal .sunset-head strong{font-size:12px;color:#f2d6aa}
+.portal .sunset-head .sunset-time{font-size:14px;font-variant-numeric:tabular-nums;color:#ffe2a2}
+.portal .sunset-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.portal .sunset-bottom span{font-size:11px;line-height:1.5;color:#c4b7a7}
+.portal .sunset-bottom button{font-size:11px;font-weight:750;color:#ffefd0;background:linear-gradient(180deg,#99784a,#594021);border:1px solid #e5c48a;border-radius:8px;padding:10px 14px;white-space:nowrap}
+.portal .sunset-bottom button:disabled{opacity:.57;cursor:not-allowed}
+.portal-info{font-size:10px;color:#a8b8c7;margin:13px 0}
+.portal footer{max-width:580px;margin:22px auto 0}
+.portal .notice{margin-top:12px}
+@media(max-width:700px){
+ .portal .wrap{padding:21px 14px 31px}
+ .portal .hero{padding-top:62px}
+ .portal .hero h1{font-size:74px}
+ .portal .gateway{margin-top:30px}
+ .portal .server-row{min-height:84px;padding:13px 12px}
+ .portal .server-main{gap:11px}
+ .portal .server-icon{width:45px;height:45px;font-size:25px;border-radius:10px}
+ .portal .server-copy strong{font-size:20px}
+ .portal .server-copy small{font-size:10px}
+ .portal .entry-text{width:32px;height:32px;font-size:25px}
+ .portal .sunset{padding:14px 12px}
+ .portal .sunset-time{font-size:12px}
+}
+
 </style>

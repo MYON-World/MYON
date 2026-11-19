@@ -148,7 +148,8 @@ test('portal never starts FIFO coordinator, and uses entry-time checkpoint befor
  assert.match(app,/await createEntryCheckpoint/);
  assert.ok(app.indexOf('await createEntryCheckpoint')<app.indexOf('playing.value=true'));
  assert.doesNotMatch(app,/createRolloutHost\(/);
- assert.doesNotMatch(app,/setInterval\(/);
+ assert.match(app,/testTimer=setInterval\(/);
+ assert.doesNotMatch(app,/createRolloutHost\(/);
  assert.match(helper,/const tx=db.transaction\(STORE,'readonly'\)/);
  assert.doesNotMatch(app,/localStorage\.setItem\(ROLLOUT_KEY/);
 });

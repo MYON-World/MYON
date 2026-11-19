@@ -1,13 +1,13 @@
 {
   "name": "myon",
   "private": true,
-  "version": "0.14.0+hotfix.1",
+  "version": "0.14.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/compensation.test.cjs tests/auto-update.test.cjs tests/rollout-entry.test.cjs tests/host-rollout.test.cjs tests/bus-world.test.cjs tests/recovery.test.cjs tests/rion-identity.test.cjs tests/rion-gameplay.test.cjs tests/version-bump.test.cjs"
+    "test": "node --test tests/compensation.test.cjs tests/auto-update.test.cjs tests/rollout-entry.test.cjs tests/host-rollout.test.cjs tests/bus-world.test.cjs tests/recovery.test.cjs tests/rion-identity.test.cjs tests/rion-gameplay.test.cjs tests/version-bump.test.cjs tests/test-retirement.test.cjs"
   },
   "dependencies": {
     "vue": "^3.5.42"
@@ -15,6 +15,5 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",
     "vite": "^8.3.0"
-  },
-  "myonVersion": "0.14.0.1"
+  }
 }

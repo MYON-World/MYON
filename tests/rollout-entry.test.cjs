@@ -126,16 +126,16 @@ test('version history shows only pinned LIVE TEST DEV revisions grouped per conf
  assert.deepEqual(visible[0].entries,['한국어 변경 설명']);
  assert.deepEqual(visibleVersionHistory(history,{live:{revision:'0'.repeat(40)},dev:{revision:F}}),[]);
 });
-test('build publishes per-commit descriptions while portal places history below server selection',()=>{
+test('build keeps per-commit descriptions while the simplified portal omits history panels',()=>{
  const builder=fs.readFileSync(path.resolve(__dirname,'../scripts/build-rollouts.cjs'),'utf8');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
  const notes=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-version-notes.json'),'utf8'));
  assert.match(builder,/versionNotes\[releaseVersion\]/);
  assert.match(builder,/subject,entries:/);
- assert.ok(app.indexOf('class="servers"')<app.indexOf('class="version-history"'));
- assert.ok(app.indexOf('class="version-history"')<app.indexOf('class="details"'));
+ assert.match(app,/class="servers"/);
+ assert.match(app,/class="sunset"/);
+ assert.doesNotMatch(app,/class="version-history"/);
  assert.match(app,/visibleVersionHistory\(releases,\{live:LIVE_RELEASE,test:TEST_RELEASE,dev:current\}\)/);
- assert.match(app,/v-for="server in change.servers"/);
  assert.ok(notes['0.13.66'].entries.length>=2);
 });
 
@@ -146,20 +146,19 @@ test('unified launcher hides scrollbars but keeps portal scrolling enabled',()=>
  assert.doesNotMatch(app,/\.portal\{[^}]*overflow-y:hidden/);
 });
 
-test('MYON portal uses the local text-free planet wallpaper without changing entry and save controls',()=>{
+test('MYON portal uses a compact image-free design with two worlds and retirement control',()=>{
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
  const img=fs.readFileSync(path.resolve(__dirname,'../public/myon-planet-wallpaper.webp'));
  assert.ok(img.length>100000,'Planet wallpaper must contain real image data');
  assert.equal(img.toString('ascii',0,4),'RIFF');
  assert.equal(img.toString('ascii',8,12),'WEBP');
- assert.ok(app.includes("BASE + 'myon-planet-wallpaper.webp)'"));
- assert.match(app,/class="planet-backdrop"/);
- assert.match(app,/class="planet-shade"/);
+ assert.doesNotMatch(app,/class="planet-backdrop"/);
+ assert.doesNotMatch(app,/class="planet-shade"/);
  assert.match(app,/class="hero"/);
  assert.match(app,/@click="enterServer\('live'\)"/);
  assert.match(app,/@click="enterServer\('dev'\)"/);
- assert.match(app,/@click="downloadSave"/);
- assert.match(app,/@click="copySave"/);
+ assert.match(app,/@click="transferTestFunds"/);
+ assert.doesNotMatch(app,/@click="enterServer\('test'\)"/);
  assert.match(app,/v-if="entering\|\|entryFailed"/);
 });
 
@@ -189,9 +188,9 @@ test('DEV numeric missions are the only runtime page (no city-picker or characte
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
  assert.ok(app.includes("const gameUrl=url.replace('/myon.html?','/myon-next.html?')"));
- assert.match(app,/<button type="button" class="server-row test"/);
- assert.match(app,/TEST <small>정식 가속버전<\/small>/);
- assert.match(app,/진행 중 임무만 1초 = 30틱/);
+ assert.doesNotMatch(app,/<button type="button" class="server-row test"/);
+ assert.match(app,/가속 서버 종료/);
+ assert.match(app,/testCountdown/);
  assert.ok(app.includes("await fetch(gameUrl,{method:'HEAD',cache:'no-store'})"));
  assert.ok(app.indexOf('await createEntryCheckpoint')<app.indexOf('frameUrl.value=gameUrl'));
  for(const forbidden of ['도시 선택','캐릭터 만들기','showScreen(', 'selectedCity','data-city','data-gender','class="main"','id="welcome"','id="arrival"','id="modal"','id="character"'])
@@ -652,7 +651,8 @@ test('v0.13.94 promotion changes only LIVE/TEST frozen revision, preserving DEV 
  assert.equal(TEST_RELEASE.version,'0.13.94');
  assert.ok(app.includes('class="game-controls dev-controls"'));
  assert.ok(app.includes("@click=\"enterServer('dev')\""));
- assert.ok(app.includes("@click=\"enterServer('test')\""));
+ assert.ok(!app.includes("@click=\"enterServer('test')\""));
+ assert.ok(app.includes('@click="transferTestFunds"'));
  assert.ok(app.includes("@click=\"enterServer('live')\""));
  assert.notEqual(dbForServer('live'),dbForServer('test'));
  assert.ok(missions.includes("MISSION_SERVER==='test'?30:1"));
