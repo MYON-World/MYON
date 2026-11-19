@@ -257,7 +257,8 @@ test('DEV keeps versioned save through verified portal entry',()=>{
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  assert.ok(app.includes("'&dev_version='+encodeURIComponent(target.version)"));
  assert.ok(app.includes("await prepareDevVersion({version:target.version})"));
- assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.0.1'"));
+ const pkg=require('../package.json');
+ assert.ok(html.includes("const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-"+(pkg.myonVersion||pkg.version)+"'"));
  assert.ok(!html.includes('CITIZEN_KEY'));
  assert.ok(!html.includes('function selectCity('));
  assert.ok(!html.includes('showScreen('));
@@ -268,7 +269,8 @@ test('DEV keeps versioned save through verified portal entry',()=>{
 test('world baseline is DEV mission blueprint with 150 fields and 3 terrain cities',()=>{
  const data=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-world-baseline.json'),'utf8'));
  assert.equal(data.schema,1);
- assert.equal(data.release,'0.14.0.1');
+ const pkg=require('../package.json');
+ assert.equal(data.release,pkg.myonVersion||pkg.version);
  assert.equal(data.stage.status,'개발 테스트 중');
  assert.equal(data.domains.length,15);
  assert.ok(data.domains.every(d=>d.status==='DEV 테스트'&&d.scope.length===10));
@@ -611,10 +613,11 @@ test('update notice preserves read-only monitoring and requires verified portal 
  const mission=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const pkg=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package.json'),'utf8'));
  const lock=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../package-lock.json'),'utf8'));
- assert.equal(pkg.version,'0.14.0+hotfix.1');
- assert.equal(pkg.myonVersion,'0.14.0.1');
- assert.equal(lock.version,'0.14.0+hotfix.1');
- assert.equal(lock.packages[''].version,'0.14.0+hotfix.1');
+ const displayVersion=pkg.myonVersion||pkg.version;
+ assert.match(displayVersion,/^\d+\.\d+\.\d+(?:\.\d+)?$/);
+ assert.equal(lock.version,pkg.version);
+ assert.equal(lock.packages[''].version,pkg.version);
+ assert.ok(html.includes("'preview-"+displayVersion+"'"));
  assert.ok(html.includes('id="mw-update-reveal" class="mw-update-reveal" hidden'));
  assert.ok(html.includes('신규 업데이트 적용 가능'));
  assert.ok(html.includes('재시작 요망'));
