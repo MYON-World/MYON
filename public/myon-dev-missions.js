@@ -352,7 +352,7 @@ function updateProgress(){
 function render(){
  if(!world)return;
  const root=$m('mw-root');if(!root)return;
- root.classList.toggle('myon-folder-wide',MISSION_SERVER==='dev'&&rionPage);
+ root.classList?.toggle?.('myon-folder-wide',MISSION_SERVER==='dev'&&rionPage);
  const scroller=$m('mw-scroll');
  const scrollY=scroller?.scrollTop||0;
  $m('mw-cash').textContent=fmt(world.cash);
