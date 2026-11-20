@@ -268,6 +268,10 @@ function renderRionComplete(){
 function renderRionWiki(){
  const view=$m('mw-rion-view');
  if(!view)return;
+ if(MISSION_SERVER==='dev'&&window.MYON_DEV_FOLDER_UI){
+  window.MYON_DEV_FOLDER_UI.render(view,{definitions:rionDefinitions,catalog,isDiscovered:hasRion});
+  return;
+ }
  view.replaceChildren();
  const header=add(view,'div','mw-rion-view-head');
  add(header,'h2','mw-section-title','리온');
@@ -348,6 +352,7 @@ function updateProgress(){
 function render(){
  if(!world)return;
  const root=$m('mw-root');if(!root)return;
+ root.classList.toggle('myon-folder-wide',MISSION_SERVER==='dev'&&rionPage);
  const scroller=$m('mw-scroll');
  const scrollY=scroller?.scrollTop||0;
  $m('mw-cash').textContent=fmt(world.cash);
