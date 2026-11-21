@@ -11,12 +11,15 @@ function engine(){
  vm.runInNewContext(engineScript,{window},{timeout:2000});
  return window.MYON_RIONS;
 }
-test('159 discovery candidates are unique: four roles, five styles, 150 specific fields',()=>{
- assert.equal(definitions.length,159);
- assert.equal(new Set(definitions.map(r=>r.id)).size,159);
- assert.equal(definitions.filter(r=>r.kind==='system').length,4);
+test('161 discovery candidates are unique: five roles, five styles, 150 fields, one mineral',()=>{
+ assert.equal(definitions.length,161);
+ assert.equal(new Set(definitions.map(r=>r.id)).size,161);
+ assert.equal(definitions.filter(r=>r.kind==='system').length,5);
  assert.equal(definitions.filter(r=>r.kind==='style').length,5);
  assert.equal(definitions.filter(r=>r.kind==='field').length,150);
+ assert.equal(definitions.filter(r=>r.kind==='material').length,1);
+ assert.ok(definitions.some(r=>r.id==='rion.material.myonite'&&r.name==='마이오나이트 리온'));
+ assert.ok(definitions.some(r=>r.id==='rion.role.mission'&&r.name==='임무 리온'));
  assert.ok(definitions.some(r=>r.id==='rion.role.ui'));
  assert.ok(definitions.some(r=>r.id==='rion.role.wiki'));
 });
@@ -117,14 +120,14 @@ test('UI and Wiki legacy IDs convert without changing any field ID; malformed sa
  duplicate.discovered[1].id='rion.role.ui';
  assert.equal(R.initialize(duplicate,definitions,T),null);
 });
-test('the last unknown Rion can still be found, but 159/159 discoveries end scheduling',()=>{
+test('the last unknown Rion can still be found, but 161/161 discoveries end scheduling',()=>{
  const R=engine(),s=R.initialize(null,definitions,T,()=>0);
  s.discovered=definitions.slice(0,-1).map(r=>({id:r.id,stage:0,discoveredAt:T}));
  s.nextAt=T+5;
  const step=R.advance(s,definitions,T+5,()=>0);
  assert.equal(step.state.pending.id,definitions.at(-1).id);
  const found=R.accept(step.state,definitions,T+6);
- assert.equal(found.state.discovered.length,159);
+ assert.equal(found.state.discovered.length,161);
  assert.equal(found.state.nextAt,null);
  assert.equal(R.advance(found.state,definitions,T+24*R.HOUR).changed,false);
 });

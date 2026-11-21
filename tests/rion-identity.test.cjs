@@ -17,7 +17,7 @@ test('159 Rions have unique permanent IDs and namespace-specific numbers',()=>{
  assert.equal(lock.schemaVersion,1);
  const ids=new Set(),numbers=new Set();
  for(const r of registry.records){
-  assert.match(r.id,/^rion\.(?:role|style|field)\.[a-z0-9.-]+$/);
+  assert.match(r.id,/^rion\.(?:role|style|field|material)\.[a-z0-9.-]+$/);
   assert.match(r.number,/^[A-Z]{3}-\d{6}$/);
   assert.ok(Number.isSafeInteger(r.serial)&&r.serial>=1&&r.serial<=999999);
   assert.equal(r.number,r.namespace+'-'+String(r.serial).padStart(6,'0'));

@@ -448,8 +448,8 @@ async function bootstrap(){
   const rionResponse=await fetch('./myon-rion-registry.json',{cache:'no-store'});
   if(!rionResponse.ok)throw Error('리온 등록부 로딩 실패');
   const definitions=await rionResponse.json();
-  if(definitions.schema!==1||!Array.isArray(definitions.records)||definitions.records.length!==159
-   ||new Set(definitions.records.map(r=>r.id)).size!==159
+  if(definitions.schema!==1||!Array.isArray(definitions.records)||definitions.records.length!==161
+   ||new Set(definitions.records.map(r=>r.id)).size!==161
    ||definitions.records.filter(r=>r.kind==='field').length!==150)
    throw Error('리온 등록부 구조 오류');
   rionDefinitions=definitions.records;

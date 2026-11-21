@@ -955,6 +955,18 @@
       "number": "TEC-000010",
       "namespace": "TEC",
       "legacyFieldIndex": 149
+    },
+    {
+      "id": "rion.material.myonite",
+      "number": "MIN-000001",
+      "namespace": "MIN",
+      "legacyFieldIndex": null
+    },
+    {
+      "id": "rion.role.mission",
+      "number": "MSN-000001",
+      "namespace": "MSN",
+      "legacyFieldIndex": null
     }
   ]
 }

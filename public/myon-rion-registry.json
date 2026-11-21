@@ -1095,6 +1095,16 @@
       "name": "위성통신 리온",
       "fieldName": "위성통신",
       "legacyFieldIndex": 149
+    },
+    {
+      "id": "rion.material.myonite",
+      "kind": "material",
+      "name": "마이오나이트 리온"
+    },
+    {
+      "id": "rion.role.mission",
+      "kind": "system",
+      "name": "임무 리온"
     }
   ]
 }

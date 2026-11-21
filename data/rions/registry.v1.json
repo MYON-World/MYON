@@ -2031,6 +2031,22 @@
       "fieldName": "위성통신",
       "legacyFieldIndex": 149,
       "sourceOrdinal": 10
+    },
+    {
+      "id": "rion.material.myonite",
+      "number": "MIN-000001",
+      "namespace": "MIN",
+      "serial": 1,
+      "kind": "material",
+      "name": "마이오나이트 리온"
+    },
+    {
+      "id": "rion.role.mission",
+      "number": "MSN-000001",
+      "namespace": "MSN",
+      "serial": 1,
+      "kind": "system",
+      "name": "임무 리온"
     }
   ]
 }
