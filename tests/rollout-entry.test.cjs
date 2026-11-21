@@ -356,7 +356,7 @@ test('DEV 3-field card and timed mission supply',()=>{
  assert.ok(!script.includes("const restartButton=add(headerRight,'button'"));
  assert.match(html,/\.mw-track \.mw-expire-fill\{background:#cf6670/);
  assert.match(html,/\.mw-rewards\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
- assert.match(script,/function tick\(\)\{[\s\S]*?settleDue\(\);\s*refreshOffers\(\);\s*refreshRion\(\);[\s\S]*?updateProgress\(\);/);
+ assert.match(script,/function tick\(\)\{[\s\S]*?settleDue\(\);\s*settleMining\(\);\s*refreshOffers\(\);\s*refreshRion\(\);[\s\S]*?updateProgress\(\);/);
 });
 test('DEV mobile shows three fields and inline money units, no city modal, scrollbar hidden',()=>{
  const js=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
@@ -372,7 +372,7 @@ test('DEV mobile shows three fields and inline money units, no city modal, scrol
 });
 test('DEV rendered card: four free offers, three fields with inline M, free start and paid follow-up',()=>{
  const vm=require('node:vm'),script=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
- const instr=script.replace(/bootstrap\(\);\s*\}\)\(\);\s*$/, "window.__probe={setData:(fields,cityList)=>{catalog=fields;cities=cityList;},newWorld,setupUi,openGame,begin,refreshOffers,setWorld:w=>world=w,getWorld:()=>world};\n})();");
+ const instr=script.replace(/bootstrap\(\);\s*\}\)\(\);\s*$/, "window.__probe={setData:(fields,cityList,defs)=>{catalog=fields;cities=cityList;rionDefinitions=defs;},newWorld,setupUi,openGame,begin,refreshOffers,setWorld:w=>world=w,getWorld:()=>world};\n})();");
  assert.notEqual(script,instr);
  let now=1800000000000;
  const ids=new Map(),storage=new Map();
@@ -394,12 +394,15 @@ test('DEV rendered card: four free offers, three fields with inline M, free star
  const doc={getElementById:id=>ids.get(id)||null,createElement:t=>new E(t),querySelector:q=>q==='.shell'?shell:q==='.main'?main:null};
  const window={};
  vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../public/myon-rions.js'),'utf8'),{window},{timeout:2000});
+ vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-rion-mining.js'),'utf8'),{window},{timeout:2000});
  vm.runInNewContext(instr,{window,document:doc,localStorage:{setItem:(k,v)=>storage.set(k,v),getItem:k=>storage.get(k)||null},
   DEV_SAVE_VERSION:'unit',Date:{now:()=>now},Math,console,currentScreen:'welcome'},{timeout:2000});
  const api=window.__probe;
- api.setData(Array.from({length:150},(_,id)=>({id,name:'분야'+id,category:'분야',categoryIndex:Math.floor(id/10)})),[{id:'lien',name:'리엔시'}]);
+ const definitions=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/myon-rion-registry.json'),'utf8')).records;
+ api.setData(Array.from({length:150},(_,id)=>({id,name:'분야'+id,category:'분야',categoryIndex:Math.floor(id/10)})),[{id:'lien',name:'리엔시'}],definitions);
  api.setWorld(api.newWorld());api.setupUi();api.openGame();
- const cards=ids.get('mw-offers').children;assert.equal(cards.length,4);
+ assert.equal(ids.get('mw-offers').children[0].className,'mw-card mw-rion-encounter');
+ const cards=ids.get('mw-offers').children.filter(c=>c.dataset.missionId);assert.equal(cards.length,4);
  const grid=cards[0].find(c=>c.className==='mw-rewards');assert.ok(grid);assert.equal(grid.children.length,3);
  assert.deepEqual(grid.children.map(c=>c.children[0].textContent),['수락','보상','기여']);
  assert.equal(grid.children[0].children[1].className,'mw-amount');
@@ -413,18 +416,18 @@ test('DEV rendered card: four free offers, three fields with inline M, free star
  const activeGrid=ids.get('mw-active').children[0].find(c=>c.className==='mw-rewards');
  assert.deepEqual(activeGrid.children.map(c=>c.children[0].textContent),['수락','보상','기여']);
  assert.equal(activeGrid.children[0].children[1].children[1].textContent,'M');
- assert.equal(ids.get('mw-offers').children.length,3);
+ assert.equal(ids.get('mw-offers').children.filter(c=>c.dataset.missionId).length,3);
  now+=600000;api.refreshOffers();
  assert.equal(api.getWorld().offers.length,4);
  const paid=api.getWorld().offers.find(m=>m.acceptCost>0);
  assert.ok(paid&&paid.acceptCost===paid.minutes);
- assert.equal(ids.get('mw-offers').children.length,4);
+ assert.equal(ids.get('mw-offers').children.filter(c=>c.dataset.missionId).length,4);
  // Insufficient funds show a non-interactive label instead of an accept button.
  const paidCard=ids.get('mw-offers').children.find(c=>c.dataset.missionId===paid.id);
  assert.equal(paidCard.find(c=>c.className==='mw-insufficient')?.textContent,'금액 부족');
  assert.equal(paidCard.find(c=>c.tagName==='button'),null);
  // All remaining zero-cost starter missions stay selectable.
- const freeCards=ids.get('mw-offers').children.filter(c=>c.dataset.missionId!==paid.id);
+ const freeCards=ids.get('mw-offers').children.filter(c=>c.dataset.missionId&&c.dataset.missionId!==paid.id);
  assert.ok(freeCards.length>0);
  assert.ok(freeCards.every(c=>c.find(e=>e.className.split(' ').includes('mw-accept'))));
  // As soon as available funds cover the exact cost, restore the accept button.
