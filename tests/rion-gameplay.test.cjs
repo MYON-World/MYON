@@ -11,15 +11,16 @@ function engine(){
  vm.runInNewContext(engineScript,{window},{timeout:2000});
  return window.MYON_RIONS;
 }
-test('161 discovery candidates are unique: five roles, five styles, 150 fields, one mineral',()=>{
- assert.equal(definitions.length,161);
- assert.equal(new Set(definitions.map(r=>r.id)).size,161);
- assert.equal(definitions.filter(r=>r.kind==='system').length,5);
+test('162 discovery candidates include mining, mission and Myonite',()=>{
+ assert.equal(definitions.length,162);
+ assert.equal(new Set(definitions.map(r=>r.id)).size,162);
+ assert.equal(definitions.filter(r=>r.kind==='system').length,6);
  assert.equal(definitions.filter(r=>r.kind==='style').length,5);
  assert.equal(definitions.filter(r=>r.kind==='field').length,150);
  assert.equal(definitions.filter(r=>r.kind==='material').length,1);
  assert.ok(definitions.some(r=>r.id==='rion.material.myonite'&&r.name==='마이오나이트 리온'));
  assert.ok(definitions.some(r=>r.id==='rion.role.mission'&&r.name==='임무 리온'));
+ assert.ok(definitions.some(r=>r.id==='rion.role.mining'&&r.name==='채광 리온'));
  assert.ok(definitions.some(r=>r.id==='rion.role.ui'));
  assert.ok(definitions.some(r=>r.id==='rion.role.wiki'));
 });
@@ -120,14 +121,14 @@ test('UI and Wiki legacy IDs convert without changing any field ID; malformed sa
  duplicate.discovered[1].id='rion.role.ui';
  assert.equal(R.initialize(duplicate,definitions,T),null);
 });
-test('the last unknown Rion can still be found, but 161/161 discoveries end scheduling',()=>{
+test('the last unknown Rion can still be found, but 162/162 discoveries end scheduling',()=>{
  const R=engine(),s=R.initialize(null,definitions,T,()=>0);
  s.discovered=definitions.slice(0,-1).map(r=>({id:r.id,stage:0,discoveredAt:T}));
  s.nextAt=T+5;
  const step=R.advance(s,definitions,T+5,()=>0);
  assert.equal(step.state.pending.id,definitions.at(-1).id);
  const found=R.accept(step.state,definitions,T+6);
- assert.equal(found.state.discovered.length,161);
+ assert.equal(found.state.discovered.length,162);
  assert.equal(found.state.nextAt,null);
  assert.equal(R.advance(found.state,definitions,T+24*R.HOUR).changed,false);
 });
@@ -272,6 +273,7 @@ test('fresh world starts with zero discovered Rions even if an older DEV archive
   pending:null,nextAt:now+R.HOUR,latest:null
  }));
  const window={MYON_RIONS:R};
+ vm.runInNewContext(fs.readFileSync(path.join(root,'public/myon-dev-rion-mining.js'),'utf8'),{window},{timeout:2000});
  const localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)};
  vm.runInNewContext(instrumented,{window,localStorage,DEV_SAVE_VERSION:'testfresh',
   MYON_MISSION_SERVER:'dev',Date:{now:()=>now},Math,console},{timeout:2000});
@@ -282,21 +284,22 @@ test('fresh world starts with zero discovered Rions even if an older DEV archive
  const world=api.newWorld();
  assert.equal(world.rions.schema,2);
  assert.equal(world.rions.discovered.length,0);
- assert.equal(world.rions.pending,null);
+ assert.equal(world.rions.pending.id,'rion.role.mission');
  assert.equal(world.rions.latest,null);
- assert.equal(world.rions.nextAt,now+R.HOUR);
+ assert.equal(world.rions.nextAt,null);
+ assert.equal(world.myonite.storedTons,0);
+ assert.equal(world.myonite.awaitingChoiceTons,0);
  assert.equal(R.discovered(world.rions,'rion.role.ui'),false);
  assert.equal(world.offers.length,4,'normal starter missions remain unchanged');
  assert.ok(world.offers.every(m=>m.contributionRion===null));
  // A saved player who really accepted a Rion can still continue with that discovery.
- const offered=R.advance(world.rions,definitions,now+R.HOUR,()=>0).state;
- const accepted=R.accept(offered,definitions,now+R.HOUR);
+ const accepted=R.accept(world.rions,definitions,now);
  assert.equal(accepted.id,'rion.role.ui');
  const continuing={...world,rions:accepted.state};
  storage.set('MYON_DEV_MISSIONS_V1_testfresh',JSON.stringify(continuing));
  const loaded=api.load();
  assert.ok(loaded,'existing valid save loads');
  assert.equal(loaded.rions.discovered.length,1);
- assert.equal(loaded.rions.discovered[0].id,'rion.role.ui');
+ assert.equal(loaded.rions.discovered[0].id,'rion.role.mission');
  assert.equal(loaded.cash,0);
 });

@@ -1105,6 +1105,11 @@
       "id": "rion.role.mission",
       "kind": "system",
       "name": "임무 리온"
+    },
+    {
+      "id": "rion.role.mining",
+      "kind": "system",
+      "name": "채광 리온"
     }
   ]
 }

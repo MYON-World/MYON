@@ -967,6 +967,12 @@
       "number": "MSN-000001",
       "namespace": "MSN",
       "legacyFieldIndex": null
+    },
+    {
+      "id": "rion.role.mining",
+      "number": "MNG-000001",
+      "namespace": "MNG",
+      "legacyFieldIndex": null
     }
   ]
 }

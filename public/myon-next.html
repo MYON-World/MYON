@@ -179,6 +179,10 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
 .mw-rion-wiki-name{font-size:13px;font-weight:700;color:#e5f5ff}
 .mw-rion-success{font-size:11px;color:#8cddba;font-weight:700}
 .mw-rion-complete{gap:0}
+.mw-mining-ledger:not(:empty){display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:1px solid #294f62;background:#10283a;border-radius:8px;padding:9px 12px;margin-bottom:8px}
+.mw-mining-card .mw-card-bottom button{flex:1;min-width:0}
+.mw-mining-card .mw-card-bottom .mw-small{font-size:10px}
+@media(max-width:740px){.mw-mining-ledger:not(:empty){padding:7px 9px}.mw-mining-ledger .mw-button{font-size:10px;padding:6px 9px}}
 </style></head>
 <body>
 <div class="shell">
@@ -201,7 +205,7 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
 const params=new URLSearchParams(location.search);
 const requestedDevVersion=params.get('dev_version');
 const isVersionedDevSave=params.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(params.get('build')||'')&&/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(requestedDevVersion||'');
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.4';
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.5';
 const MYON_MISSION_SERVER=['live','test'].includes(params.get('server'))?params.get('server'):'dev';
 const missionHeader=document.querySelector('.top-server');
 if(MYON_MISSION_SERVER==='live')missionHeader.textContent='정식버전';
@@ -220,6 +224,7 @@ window.setInterval(updateTopClock,1000);
 </script>
 <script src="myon-rions.js"></script>
 <script src="myon-dev-mining-ui.js"></script>
+<script src="myon-dev-rion-mining.js"></script>
 <script src="myon-dev-missions.js"></script>
 <script src="myon-dev-update.js"></script>
 </body></html>

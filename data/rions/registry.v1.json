@@ -2047,6 +2047,14 @@
       "serial": 1,
       "kind": "system",
       "name": "임무 리온"
+    },
+    {
+      "id": "rion.role.mining",
+      "number": "MNG-000001",
+      "namespace": "MNG",
+      "serial": 1,
+      "kind": "system",
+      "name": "채광 리온"
     }
   ]
 }

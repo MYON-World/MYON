@@ -17,6 +17,7 @@ const INITIAL_OFFERS=4,MAX_WAITING_OFFERS=10,OFFER_INTERVAL_MS=600000,OFFER_LIFE
 const $m=id=>document.getElementById(id);
 let catalog=[],cities=[],world=null,cityNameData=null,notice='',rionDefinitions=[],rionPage=false;
 const RIONS=window.MYON_RIONS;
+const MINE=window.MYON_DEV_RION_MINING;
 if(!RIONS)throw Error('리온 시스템을 불러오지 못했습니다.');
 const rionById=id=>rionDefinitions.find(r=>r.id===id);
 const hasRion=id=>!!world?.rions&&RIONS.discovered(world.rions,id);
@@ -111,6 +112,11 @@ function newWorld(){
  const next={schema:1,city,cityName,createdAt,cash:0,stats:initialStats(city),offers:[],active:[],history:[],nextOfferAt:createdAt+OFFER_INTERVAL_MS,
   rions:RIONS.initialize(null,rionDefinitions,createdAt)};
  if(!next.rions)throw Error('신규 리온 기록 초기화에 실패했습니다.');
+ if(MISSION_SERVER==='dev'){
+  if(!MINE)throw Error('DEV 채광 시스템 로딩 실패');
+  next.rions=MINE.prepareDiscovery(next.rions,createdAt).state;
+  next.myonite=MINE.initialState();
+ }
  for(let i=0;i<INITIAL_OFFERS;i++)next.offers.push(generateMission(next,createdAt,true));
  return next;
 }
@@ -118,6 +124,7 @@ function validWorld(v){
  return !!(v&&v.schema===1&&CITY_TYPES[v.city]&&(v.cityName===undefined||(typeof v.cityName==='string'&&v.cityName.length>=2&&v.cityName.length<=24))&&Array.isArray(v.stats)&&v.stats.length===DOMAINS_REQUIRED&&v.stats.every(n=>Number.isFinite(n)&&n>=0&&n<=100)
   &&Number.isSafeInteger(v.cash)&&v.cash>=0&&Array.isArray(v.offers)&&Array.isArray(v.active)&&Array.isArray(v.history)
   &&(v.rions===undefined||(v.rions&&RIONS.valid(RIONS.initialize(v.rions,rionDefinitions),rionDefinitions)))
+  &&(v.myonite===undefined||(MINE&&MINE.valid(v.myonite)))
   &&v.offers.length<=MAX_WAITING_OFFERS&&Number.isSafeInteger(v.nextOfferAt)&&v.nextOfferAt>0&&[...v.offers,...v.active].every(m=>m&&Number.isSafeInteger(m.durationTicks)&&m.durationTicks>=1800
     &&Number.isSafeInteger(m.field)&&m.field>=0&&m.field<DOMAINS_REQUIRED&&Number.isSafeInteger(m.money)
      &&Number.isSafeInteger(m.acceptCost)&&m.acceptCost>=0
@@ -177,7 +184,9 @@ function applyDelta(stats,field,amount){
 }
 function refreshRion(){
  if(!world?.rions)return false;
- const step=RIONS.advance(world.rions,rionDefinitions,Date.now());
+ const step=MISSION_SERVER==='dev'&&MINE
+  ?MINE.prepareDiscovery(world.rions,Date.now())
+  :RIONS.advance(world.rions,rionDefinitions,Date.now());
  if(!step.changed)return false;
  const ok=transact(next=>{next.rions=step.state});
  if(ok)render();
@@ -187,11 +196,45 @@ function acceptRion(){
  if(!world?.rions?.pending)return;
  const result=RIONS.accept(world.rions,rionDefinitions,Date.now());
  if(!result){refreshRion();return}
- if(!transact(next=>{next.rions=result.state}))return;
+ if(!transact(next=>{next.rions=MISSION_SERVER==='dev'&&MINE
+  ?MINE.prepareDiscovery(result.state,Date.now()).state:result.state}))return;
  notice=(rionById(result.id)?.name||'새로운 리온')+'을 발견했습니다.';
  render();
  if(result.id==='rion.role.development'&&typeof window.MYON_RION_CHECK_UPDATE==='function')
   window.MYON_RION_CHECK_UPDATE();
+}
+function settleMining(){
+ if(MISSION_SERVER!=='dev'||!MINE||!world?.myonite?.active)return;
+ const result=MINE.finish(world.myonite,Date.now());
+ if(!result)return;
+ if(transact(next=>{next.myonite=result})){
+  notice='마이오나이트 1톤 채굴 완료 · 판매 또는 보관을 선택하세요.';
+  render();
+ }
+}
+function beginMining(){
+ if(MISSION_SERVER!=='dev'||!MINE||!MINE.canMine(world?.rions))return;
+ const result=MINE.start(world.myonite,world.rions,Date.now());
+ if(!result)return;
+ if(transact(next=>{next.myonite=result})){notice='마이오나이트 채광 시작 · 60초';render()}
+}
+function resolveMining(action){
+ if(MISSION_SERVER!=='dev'||!MINE||!MINE.canMine(world?.rions))return;
+ const item=action==='store'?MINE.storeNew(world.myonite):MINE.sellNew(world.myonite);
+ if(!item){notice='보관 한도 10톤 · 판매를 선택하세요.';render();return}
+ const state=action==='store'?item:item.state;
+ if(transact(next=>{next.myonite=state;if(action==='sell')next.cash+=item.earnedM})){
+  notice=action==='store'?'마이오나이트 1톤 보관 완료':'마이오나이트 판매 완료 · +'+fmt(item.earnedM)+' M';
+  render();
+ }
+}
+function sellStoredMining(){
+ if(MISSION_SERVER!=='dev'||!MINE||!MINE.canMine(world?.rions))return;
+ const result=MINE.sellStored(world.myonite,1);
+ if(!result)return;
+ if(transact(next=>{next.myonite=result.state;next.cash+=result.earnedM})){
+  notice='보관 원석 1톤 판매 · +'+fmt(result.earnedM)+' M';render();
+ }
 }
 function settleDue(){
  if(!world)return;
@@ -289,6 +332,56 @@ function renderRionWiki(){
   add(row,'span','mw-rion-wiki-name',found.name);
  }
 }
+function renderMiningCard(mode){
+ if(MISSION_SERVER!=='dev'||!MINE||!world?.myonite||!MINE.canMine(world.rions))return null;
+ const mining=world.myonite;
+ if(mode==='offer'&&(mining.active||mining.awaitingChoiceTons))return null;
+ if(mode==='active'&&!mining.active)return null;
+ if(mode==='decision'&&!mining.awaitingChoiceTons)return null;
+ const item=elem('article','mw-card mw-mining-card');
+ const top=add(item,'div','mw-card-top'),identity=add(top,'div','mw-card-identity');
+ add(identity,'span','mw-tag','채광');
+ add(identity,'h3','mw-name',mode==='decision'?'마이오나이트 채굴 완료':'마이오나이트 채굴');
+ if(mode==='offer'){
+  const controls=add(top,'div','mw-card-controls');
+  const button=add(controls,'button','mw-button mw-accept','수락');
+  button.type='button';button.addEventListener('click',beginMining);
+ }else if(mode==='active'){
+  add(top,'span','mw-time mw-title-time',remainingStatus({
+   endsAt:mining.active.endsAt,durationTicks:60
+  }).time);
+ }else add(top,'span','mw-rion-success','채굴 완료');
+ const grid=add(item,'div','mw-rewards');
+ statCell(grid,'채굴량',String(MINE.CONFIG.myonite.tonsPerMine),'','톤');
+ statCell(grid,'채광시간','60','','초');
+ statCell(grid,'판매가',fmt(MINE.CONFIG.myonite.pricePerTonM),'','M/톤');
+ const foot=add(item,'div','mw-card-bottom');
+ if(mode==='active'){
+  const progress=remainingStatus({endsAt:mining.active.endsAt,durationTicks:60});
+  const track=add(foot,'div','mw-track');
+  add(track,'div','mw-fill').style.width=progress.completedPercent+'%';
+  add(foot,'span','mw-count',progress.percent+'%');
+ }else if(mode==='decision'){
+  const sell=add(foot,'button','mw-button mw-accept','판매 +100 M');
+  sell.type='button';sell.addEventListener('click',()=>resolveMining('sell'));
+  const store=add(foot,'button','mw-button','보관 +1톤');
+  store.type='button';
+  store.disabled=mining.storedTons+mining.awaitingChoiceTons>MINE.CONFIG.mission.temporaryStorageTons;
+  store.addEventListener('click',()=>resolveMining('store'));
+ }else add(foot,'span','mw-small','채광 리온 R.0 · 효율 보너스 0%');
+ return item;
+}
+function renderMiningLedger(){
+ const panel=$m('mw-mining-ledger');if(!panel)return;
+ panel.replaceChildren();
+ if(MISSION_SERVER!=='dev'||!MINE||!world?.myonite||!MINE.canMine(world.rions))return;
+ const stored=world.myonite.storedTons,limit=MINE.CONFIG.mission.temporaryStorageTons;
+ add(panel,'span','mw-small','마이오나이트 임시 보관 '+stored+' / '+limit+'톤');
+ if(stored){
+  const button=add(panel,'button','mw-button','보관 원석 1톤 판매 · +100 M');
+  button.type='button';button.addEventListener('click',sellStoredMining);
+ }
+}
 function renderMission(m,active){
  const item=elem('article','mw-card');item.dataset.missionId=m.id;
  const remaining=active?remainingStatus(m):null;
@@ -348,6 +441,14 @@ function updateProgress(){
   const fill=card?.querySelector('.mw-expire-fill');
   if(fill)fill.style.width=Math.min(100,Math.max(0,((Date.now()-m.createdAt)/OFFER_LIFETIME_MS)*100))+'%';
  }
+ if(MISSION_SERVER==='dev'&&world.myonite?.active){
+  const card=$m('mw-active')?.querySelector('.mw-mining-card');
+  const status=remainingStatus({endsAt:world.myonite.active.endsAt,durationTicks:60});
+  const fill=card?.querySelector('.mw-fill'),count=card?.querySelector('.mw-count'),clock=card?.querySelector('.mw-time');
+  if(fill)fill.style.width=status.completedPercent+'%';
+  if(count)count.textContent=status.percent+'%';
+  if(clock)clock.textContent=status.time;
+ }
 }
 function render(){
  if(!world)return;
@@ -367,24 +468,32 @@ function render(){
  const button=$m('mw-rion-tab');
  if(button)button.setAttribute('aria-pressed',rionPage?'true':'false');
  if(rionPage)renderRionWiki();
- $m('mw-offer-count').textContent=(world.offers.length+(world.rions?.pending?1:0))+'건';
- $m('mw-active-count').textContent=world.active.length+'건';
+ const miningReady=MISSION_SERVER==='dev'&&MINE&&world.myonite&&MINE.canMine(world.rions);
+ $m('mw-offer-count').textContent=(world.offers.length+(world.rions?.pending?1:0)+
+  (miningReady&&!world.myonite.active?1:0))+'건';
+ $m('mw-active-count').textContent=(world.active.length+(miningReady&&world.myonite.active?1:0))+'건';
+ renderMiningLedger();
  const offers=$m('mw-offers');offers.replaceChildren();
  const pendingCard=renderRionEncounter();
  if(pendingCard)offers.append(pendingCard);
  const completedCard=renderRionComplete();
  if(completedCard)offers.append(completedCard);
+ const miningCard=renderMiningCard(world.myonite?.awaitingChoiceTons?'decision':'offer');
+ if(miningCard)offers.append(miningCard);
  if(world.offers.length)for(const m of world.offers)offers.append(renderMission(m,false));
  if(!offers.children.length)add(offers,'p','mw-muted','다음 10분 주기에 새로운 임무가 등장합니다.');
  const active=$m('mw-active');active.replaceChildren();
+ const miningActive=renderMiningCard('active');
+ if(miningActive)active.append(miningActive);
  if(world.active.length)for(const m of [...world.active].sort((a,b)=>a.endsAt-b.endsAt))active.append(renderMission(m,true));
- else add(active,'p','mw-muted','진행 중인 임무가 없습니다.');
+ if(!active.children.length)add(active,'p','mw-muted','진행 중인 임무가 없습니다.');
  const history=$m('mw-history');history.replaceChildren();renderHistory(history);
  if(scroller)scroller.scrollTop=scrollY;
 }
 function tick(){
  if($m('mw-root')?.hidden)return;
  settleDue();
+ settleMining();
  refreshOffers();
  refreshRion();
  // The completed discovery card is visual only; after one hour remove it and
@@ -403,7 +512,7 @@ function openGame(){
  if(!world)return;
  $m('mw-root').hidden=false;
  $m('mw-money-strip').hidden=false;
- settleDue();refreshOffers();refreshRion();render();
+ settleDue();settleMining();refreshOffers();refreshRion();render();
 }
 function setupUi(){
  const parent=document.querySelector('.shell');
@@ -414,6 +523,7 @@ function setupUi(){
  add(scroll,'p','mw-notice','').id='mw-notice';
  const section1=add(scroll,'section','mw-section');
  const h1=add(section1,'div','mw-section-head');add(h1,'h2','mw-section-title','이용 가능한 임무');add(h1,'span','mw-small','').id='mw-offer-count';
+ add(section1,'div','mw-mining-ledger','').id='mw-mining-ledger';
  add(section1,'div','mw-cards','').id='mw-offers';
  const section2=add(scroll,'section','mw-section');
  const h2=add(section2,'div','mw-section-head');add(h2,'h2','mw-section-title','진행 중');add(h2,'span','mw-small','').id='mw-active-count';
@@ -448,14 +558,20 @@ async function bootstrap(){
   const rionResponse=await fetch('./myon-rion-registry.json',{cache:'no-store'});
   if(!rionResponse.ok)throw Error('리온 등록부 로딩 실패');
   const definitions=await rionResponse.json();
-  if(definitions.schema!==1||!Array.isArray(definitions.records)||definitions.records.length!==161
-   ||new Set(definitions.records.map(r=>r.id)).size!==161
+  if(definitions.schema!==1||!Array.isArray(definitions.records)||definitions.records.length!==162
+   ||new Set(definitions.records.map(r=>r.id)).size!==162
    ||definitions.records.filter(r=>r.kind==='field').length!==150)
    throw Error('리온 등록부 구조 오류');
   rionDefinitions=definitions.records;
+  if(MISSION_SERVER==='dev'&&!MINE)throw Error('DEV 채광 시스템 로딩 실패');
   world=load()||newWorld();
   world.rions=RIONS.initialize(world.rions,rionDefinitions,Date.now());
   if(!world.rions)throw Error('리온 발견 기록이 손상되어 시작을 중단합니다.');
+  if(MISSION_SERVER==='dev'){
+   world.rions=MINE.prepareDiscovery(world.rions,Date.now()).state;
+   if(world.myonite===undefined)world.myonite=MINE.initialState();
+   if(!MINE.valid(world.myonite))throw Error('광석 보관 및 채광 기록이 손상되었습니다.');
+  }
   if(!write(world))throw Error('현재 서버의 저장소를 사용할 수 없습니다.');
   setupUi();
   openGame();
