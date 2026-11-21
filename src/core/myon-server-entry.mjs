@@ -2,10 +2,10 @@
 // Nothing here writes to a player's game database.
 import {validReleases,validRevision} from './myon-release-state.mjs'
 
-// The same immutable approved gameplay build powers both servers; only their runtime clocks and stores differ.
+// LIVE pins the separately verified Myonite mining release; the retired TEST pin remains frozen.
 export const LIVE_RELEASE=Object.freeze({
- revision:'a3c93e3b4931af3488a6bc5fb15022b17513f451',
- version:'0.13.94'
+ revision:'ea0a7b3e4589a4116ccbf903528b1d3b05af2937',
+ version:'0.14.5.2'
 })
 export const TEST_RELEASE=Object.freeze({
  revision:'a3c93e3b4931af3488a6bc5fb15022b17513f451',

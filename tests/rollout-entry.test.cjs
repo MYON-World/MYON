@@ -62,14 +62,14 @@ test('production builder redirects direct root and archived top-level visits to 
  assert.match(src,/new URL\("\.\.\/\.\.\/",location\.href\)/);
  assert.match(src,/window\.self===window\.top/);
 });
-test('new portal opens DEV at the latest checked SHA and freezes LIVE approval',async()=>{
+test('new portal uses pinned LIVE and TEST revisions independent of DEV',async()=>{
  const {targetForServer,dbForServer,archiveUrl,LIVE_RELEASE,TEST_RELEASE}=await import('../src/core/myon-server-entry.mjs');
  assert.equal(targetForServer('live',releases).revision,LIVE_RELEASE.revision);
  assert.equal(targetForServer('dev',releases).revision,D);
  assert.equal(targetForServer('test',releases).revision,TEST_RELEASE.revision);
- assert.equal(LIVE_RELEASE.revision,TEST_RELEASE.revision,'official and accelerated worlds must use exactly the same frozen game build');
- assert.equal(LIVE_RELEASE.version,'0.13.94');
- assert.equal(LIVE_RELEASE.revision,'a3c93e3b4931af3488a6bc5fb15022b17513f451');
+ assert.notEqual(LIVE_RELEASE.revision,TEST_RELEASE.revision,'LIVE promotion must not alter the retired accelerated TEST pin');
+ assert.equal(LIVE_RELEASE.version,'0.14.5.2');
+ assert.equal(LIVE_RELEASE.revision,'ea0a7b3e4589a4116ccbf903528b1d3b05af2937');
  assert.notEqual(dbForServer('dev'),dbForServer('live'));
  assert.notEqual(dbForServer('test'),dbForServer('live'));
  assert.notEqual(dbForServer('test'),dbForServer('dev'));
@@ -647,13 +647,13 @@ test('update notice preserves read-only monitoring and requires verified portal 
  assert.ok(mission.includes("saved===JSON.stringify(world)&&validWorld(JSON.parse(saved))"));
 });
 
-test('v0.13.94 promotion changes only LIVE/TEST frozen revision, preserving DEV layout and server saves',async()=>{
+test('v0.14.5.2 approval changes only the LIVE revision, preserving TEST and separated saves',async()=>{
  const {LIVE_RELEASE,TEST_RELEASE,dbForServer}=await import('../src/core/myon-server-entry.mjs');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
  const missions=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
- assert.equal(LIVE_RELEASE.revision,'a3c93e3b4931af3488a6bc5fb15022b17513f451');
- assert.equal(TEST_RELEASE.revision,LIVE_RELEASE.revision);
- assert.equal(LIVE_RELEASE.version,'0.13.94');
+ assert.equal(LIVE_RELEASE.revision,'ea0a7b3e4589a4116ccbf903528b1d3b05af2937');
+ assert.equal(TEST_RELEASE.revision,'a3c93e3b4931af3488a6bc5fb15022b17513f451');
+ assert.equal(LIVE_RELEASE.version,'0.14.5.2');
  assert.equal(TEST_RELEASE.version,'0.13.94');
  assert.ok(app.includes('class="game-controls dev-controls"'));
  assert.ok(app.includes("@click=\"enterServer('dev')\""));
