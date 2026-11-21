@@ -18,6 +18,8 @@ const $m=id=>document.getElementById(id);
 let catalog=[],cities=[],world=null,cityNameData=null,notice='',rionDefinitions=[],rionPage=false;
 const RIONS=window.MYON_RIONS;
 const MINE=window.MYON_DEV_RION_MINING;
+// LIVE and DEV run the same approved stage-zero Rion rules; TEST stays on its own pin.
+const RION_GAMEPLAY=MISSION_SERVER==='dev'||MISSION_SERVER==='live';
 if(!RIONS)throw Error('리온 시스템을 불러오지 못했습니다.');
 const rionById=id=>rionDefinitions.find(r=>r.id===id);
 const hasRion=id=>!!world?.rions&&RIONS.discovered(world.rions,id);
@@ -112,8 +114,8 @@ function newWorld(){
  const next={schema:1,city,cityName,createdAt,cash:0,stats:initialStats(city),offers:[],active:[],history:[],nextOfferAt:createdAt+OFFER_INTERVAL_MS,
   rions:RIONS.initialize(null,rionDefinitions,createdAt)};
  if(!next.rions)throw Error('신규 리온 기록 초기화에 실패했습니다.');
- if(MISSION_SERVER==='dev'){
-  if(!MINE)throw Error('DEV 채광 시스템 로딩 실패');
+ if(RION_GAMEPLAY){
+  if(!MINE)throw Error('리온 채광 시스템 로딩 실패');
   next.rions=MINE.prepareDiscovery(next.rions,createdAt).state;
   next.myonite=MINE.initialState();
  }
@@ -184,7 +186,7 @@ function applyDelta(stats,field,amount){
 }
 function refreshRion(){
  if(!world?.rions)return false;
- const step=MISSION_SERVER==='dev'&&MINE
+ const step=RION_GAMEPLAY&&MINE
   ?MINE.prepareDiscovery(world.rions,Date.now())
   :RIONS.advance(world.rions,rionDefinitions,Date.now());
  if(!step.changed)return false;
@@ -196,7 +198,7 @@ function acceptRion(){
  if(!world?.rions?.pending)return;
  const result=RIONS.accept(world.rions,rionDefinitions,Date.now());
  if(!result){refreshRion();return}
- if(!transact(next=>{next.rions=MISSION_SERVER==='dev'&&MINE
+ if(!transact(next=>{next.rions=RION_GAMEPLAY&&MINE
   ?MINE.prepareDiscovery(result.state,Date.now()).state:result.state}))return;
  notice=(rionById(result.id)?.name||'새로운 리온')+'을 발견했습니다.';
  render();
@@ -204,7 +206,7 @@ function acceptRion(){
   window.MYON_RION_CHECK_UPDATE();
 }
 function settleMining(){
- if(MISSION_SERVER!=='dev'||!MINE||!world?.myonite?.active)return;
+ if(!RION_GAMEPLAY||!MINE||!world?.myonite?.active)return;
  const result=MINE.finish(world.myonite,Date.now());
  if(!result)return;
  if(transact(next=>{next.myonite=result})){
@@ -213,13 +215,13 @@ function settleMining(){
  }
 }
 function beginMining(){
- if(MISSION_SERVER!=='dev'||!MINE||!MINE.canMine(world?.rions))return;
+ if(!RION_GAMEPLAY||!MINE||!MINE.canMine(world?.rions))return;
  const result=MINE.start(world.myonite,world.rions,Date.now());
  if(!result)return;
  if(transact(next=>{next.myonite=result})){notice='마이오나이트 채광 시작 · 60초';render()}
 }
 function resolveMining(action){
- if(MISSION_SERVER!=='dev'||!MINE||!MINE.canMine(world?.rions))return;
+ if(!RION_GAMEPLAY||!MINE||!MINE.canMine(world?.rions))return;
  const item=action==='store'?MINE.storeNew(world.myonite):MINE.sellNew(world.myonite);
  if(!item){notice='보관 한도 10톤 · 판매를 선택하세요.';render();return}
  const state=action==='store'?item:item.state;
@@ -229,7 +231,7 @@ function resolveMining(action){
  }
 }
 function sellStoredMining(){
- if(MISSION_SERVER!=='dev'||!MINE||!MINE.canMine(world?.rions))return;
+ if(!RION_GAMEPLAY||!MINE||!MINE.canMine(world?.rions))return;
  const result=MINE.sellStored(world.myonite,1);
  if(!result)return;
  if(transact(next=>{next.myonite=result.state;next.cash+=result.earnedM})){
@@ -333,7 +335,7 @@ function renderRionWiki(){
  }
 }
 function renderMiningCard(mode){
- if(MISSION_SERVER!=='dev'||!MINE||!world?.myonite||!MINE.canMine(world.rions))return null;
+ if(!RION_GAMEPLAY||!MINE||!world?.myonite||!MINE.canMine(world.rions))return null;
  const mining=world.myonite;
  if(mode==='offer'&&(mining.active||mining.awaitingChoiceTons))return null;
  if(mode==='active'&&!mining.active)return null;
@@ -374,7 +376,7 @@ function renderMiningCard(mode){
 function renderMiningLedger(){
  const panel=$m('mw-mining-ledger');if(!panel)return;
  panel.replaceChildren();
- if(MISSION_SERVER!=='dev'||!MINE||!world?.myonite||!MINE.canMine(world.rions))return;
+ if(!RION_GAMEPLAY||!MINE||!world?.myonite||!MINE.canMine(world.rions))return;
  const stored=world.myonite.storedTons,limit=MINE.CONFIG.mission.temporaryStorageTons;
  add(panel,'span','mw-small','마이오나이트 임시 보관 '+stored+' / '+limit+'톤');
  if(stored){
@@ -441,7 +443,7 @@ function updateProgress(){
   const fill=card?.querySelector('.mw-expire-fill');
   if(fill)fill.style.width=Math.min(100,Math.max(0,((Date.now()-m.createdAt)/OFFER_LIFETIME_MS)*100))+'%';
  }
- if(MISSION_SERVER==='dev'&&world.myonite?.active){
+ if(RION_GAMEPLAY&&world.myonite?.active){
   const card=$m('mw-active')?.querySelector('.mw-mining-card');
   const status=remainingStatus({endsAt:world.myonite.active.endsAt,durationTicks:60});
   const fill=card?.querySelector('.mw-fill'),count=card?.querySelector('.mw-count'),clock=card?.querySelector('.mw-time');
@@ -468,7 +470,7 @@ function render(){
  const button=$m('mw-rion-tab');
  if(button)button.setAttribute('aria-pressed',rionPage?'true':'false');
  if(rionPage)renderRionWiki();
- const miningReady=MISSION_SERVER==='dev'&&MINE&&world.myonite&&MINE.canMine(world.rions);
+ const miningReady=RION_GAMEPLAY&&MINE&&world.myonite&&MINE.canMine(world.rions);
  $m('mw-offer-count').textContent=(world.offers.length+(world.rions?.pending?1:0)+
   (miningReady&&!world.myonite.active?1:0))+'건';
  $m('mw-active-count').textContent=(world.active.length+(miningReady&&world.myonite.active?1:0))+'건';
@@ -563,11 +565,11 @@ async function bootstrap(){
    ||definitions.records.filter(r=>r.kind==='field').length!==150)
    throw Error('리온 등록부 구조 오류');
   rionDefinitions=definitions.records;
-  if(MISSION_SERVER==='dev'&&!MINE)throw Error('DEV 채광 시스템 로딩 실패');
+  if(RION_GAMEPLAY&&!MINE)throw Error('리온 채광 시스템 로딩 실패');
   world=load()||newWorld();
   world.rions=RIONS.initialize(world.rions,rionDefinitions,Date.now());
   if(!world.rions)throw Error('리온 발견 기록이 손상되어 시작을 중단합니다.');
-  if(MISSION_SERVER==='dev'){
+  if(RION_GAMEPLAY){
    world.rions=MINE.prepareDiscovery(world.rions,Date.now()).state;
    if(world.myonite===undefined)world.myonite=MINE.initialState();
    if(!MINE.valid(world.myonite))throw Error('광석 보관 및 채광 기록이 손상되었습니다.');

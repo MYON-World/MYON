@@ -77,6 +77,47 @@ test('previously discovered Rions stay intact when scheduling the new ordered ch
  assert.equal(R.valid(prepared.state,RION_DEFS),true);
  assert.equal(M.prepareDiscovery(prepared.state,t+1).changed,false);
 });
+test('approved LIVE uses the identical ordered Rion discovery and mining while retaining its existing save key',()=>{
+ const script=fs.readFileSync(path.join(root,'public/myon-dev-missions.js'),'utf8');
+ const instrumented=script.replace(/bootstrap\(\);\s*\}\)\(\);\s*$/,
+  "window.__liveProbe={newWorld,load,write,acceptRion,beginMining,settleMining,resolveMining,setData:(fields,cityList,ids)=>{catalog=fields;cities=cityList;rionDefinitions=ids;},setWorld:w=>world=w,getWorld:()=>world,store:STORE};\n})();");
+ assert.notEqual(script,instrumented);
+ let now=t;
+ const store=new Map();
+ const localStorage={getItem:key=>store.get(key)??null,setItem:(key,v)=>store.set(key,v)};
+ const window={};vm.runInNewContext(fs.readFileSync(path.join(root,'public/myon-rions.js'),'utf8'),{window},{timeout:2000});
+ vm.runInNewContext(fs.readFileSync(path.join(root,'public/myon-dev-rion-mining.js'),'utf8'),{window},{timeout:2000});
+ vm.runInNewContext(instrumented,{window,localStorage,MYON_MISSION_SERVER:'live',
+  DEV_SAVE_VERSION:'not-used',Date:{now:()=>now},Math,console,document:{getElementById:()=>null}},{timeout:2000});
+ const api=window.__liveProbe;
+ const fields=RION_DEFS.filter(r=>r.kind==='field').map((r,i)=>({id:i,name:r.fieldName,category:'분야',categoryIndex:Math.floor(i/10)}));
+ api.setData(fields,[{id:'lien',name:'리엔시'}],RION_DEFS);
+ const first=api.newWorld();
+ assert.equal(api.store,'MYON_LIVE_MISSIONS_V1');
+ assert.equal(first.rions.pending.id,'rion.role.mission');
+ assert.equal(first.rions.discovered.length,0);
+ assert.equal(first.myonite.storedTons,0);
+ api.setWorld(first);
+ for(const id of M.ORDER){
+  assert.equal(api.getWorld().rions.pending.id,id);
+  api.acceptRion();
+  assert.ok(api.getWorld().rions.discovered.some(x=>x.id===id&&x.stage===0));
+ }
+ assert.equal(api.getWorld().rions.pending,null);
+ api.beginMining();
+ assert.equal(api.getWorld().myonite.active.endsAt,now+60000);
+ now+=60000;api.settleMining();
+ assert.equal(api.getWorld().myonite.awaitingChoiceTons,1);
+ api.resolveMining('store');
+ assert.equal(api.getWorld().myonite.storedTons,1);
+ api.beginMining();
+ now+=60000;api.settleMining();api.resolveMining('sell');
+ assert.equal(api.getWorld().cash,100);
+ assert.equal(api.getWorld().myonite.storedTons,1);
+ assert.equal(api.load().myonite.storedTons,1);
+ assert.equal(JSON.parse(store.get('MYON_LIVE_MISSIONS_V1')).cash,100);
+});
+
 test('mission board connects discovery, mining progress, selling and inventory without replacing general missions',()=>{
  const c=fs.readFileSync(path.join(root,'public/myon-dev-missions.js'),'utf8');
  const html=fs.readFileSync(path.join(root,'public/myon-next.html'),'utf8');
