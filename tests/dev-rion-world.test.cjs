@@ -8,36 +8,35 @@ function create(){
  vm.runInNewContext(source,{window},{timeout:1500});
  return window.MYON_DEV_RION_WORLD;
 }
-test('World Rion R0 has stable sites and symmetric distances without a map',()=>{
+test('fresh World Rion R0 starts with zero sites and no distance reference',()=>{
  const W=create(),t=1700000000000;
  const a=W.initialState(t,()=>0.25),b=W.initialState(t,()=>0.25);
+ assert.equal(a.schema,3);
  assert.ok(W.valid(a));
+ assert.equal(a.discoveredCount,0);
+ assert.equal(a.baseCount,0);
+ assert.equal(W.list(a).length,0);
  assert.equal(a.seed,b.seed);
- assert.equal(a.discoveredCount,b.discoveredCount);
- for(let i=0;i<a.discoveredCount;i++){
-  assert.equal(W.district(a,i).id,W.district(b,i).id);
-  for(let j=0;j<a.discoveredCount;j++){
-   assert.equal(W.distance(a,i,j),W.distance(a,j,i));
-   assert.equal(W.distance(a,i,j),W.distance(b,i,j));
-  }
- }
- assert.equal(W.distance(a,0,0),0);
- assert.throws(()=>W.distance(a,0,a.discoveredCount),/발견되지 않은/);
+ assert.throws(()=>W.district(a,0),/발견되지 않은/);
+ assert.throws(()=>W.distance(a,0,0),/발견되지 않은/);
 });
-test('new discoveries never change previous locations or distances',()=>{
+test('site locations and all distances remain stable only after manual discoveries',()=>{
  const W=create(),a=W.initialState(1700000000000,()=>0.8);
- const before=W.distance(a,0,1);
- const found=W.explore(a,'채광단지',()=>0.85);
- assert.equal(found.foundCount,2);
- const b=found.state;
- assert.ok(b.discoveredCount>a.discoveredCount);
- assert.equal(b.seed,a.seed);
- assert.equal(b.createdAt,a.createdAt);
- assert.equal(W.distance(b,0,1),before);
- assert.equal(W.district(b,0).id,W.district(a,0).id);
- assert.equal(W.distance(b,0,b.discoveredCount-1),W.distance(b,b.discoveredCount-1,0));
- assert.equal(W.distance(JSON.parse(JSON.stringify(b)),0,1),before);
- assert.equal(W.valid({...b,discoveredCount:-1}),false);
+ const first=W.explore(a,'채광단지',()=>0.85);
+ assert.equal(first.foundCount,2);
+ const b=first.state;
+ assert.equal(b.discoveredCount,2);
+ assert.equal(W.district(b,0).id,'SITE-000001');
+ assert.equal(W.district(b,1).type,'채광단지');
+ const before=W.distance(b,0,1);
+ const second=W.explore(b,'산업단지',()=>0.98);
+ const c=second.state;
+ assert.equal(second.foundCount,3);
+ assert.equal(W.distance(c,0,1),before);
+ assert.equal(W.district(c,0).id,W.district(b,0).id);
+ assert.equal(W.distance(c,0,c.discoveredCount-1),W.distance(c,c.discoveredCount-1,0));
+ assert.equal(W.distance(JSON.parse(JSON.stringify(c)),0,1),before);
+ assert.equal(W.valid({...c,discoveredCount:-1}),false);
 });
 test('DEV integrates discovered world only, never modifies pre-existing LIVE/TEST routing',()=>{
  const html=fs.readFileSync(path.join(root,'public/myon-next.html'),'utf8');
@@ -72,24 +71,31 @@ test('targeted exploration yields 0, 1, 2 or 3 sites of exactly the selected typ
  assert.equal(W.explore(s,'산업단지',()=>0.05).foundCount,0);
  assert.equal(W.valid({...s,batches:[...s.batches,{from:999,count:1,type:'채광단지'}]}),false);
 });
-test('legacy R0 worlds retain old site IDs, kinds and all distances after targeted discovery',()=>{
+test('old schema 1 and 2 worlds reset all sites exactly once, keeping stable world identity',()=>{
  const W=create(),base=W.initialState(1700000000000,()=>0.31);
- const legacy={schema:1,generator:1,seed:base.seed,createdAt:base.createdAt,discoveredCount:14};
- assert.ok(W.valid(legacy));
- const baseline=Array.from({length:14},(_,i)=>W.district(legacy,i));
- const before=Array.from({length:14},(_,i)=>Array.from({length:14},(_,j)=>W.distance(legacy,i,j)));
- const migrated=W.migrate(legacy);
- assert.equal(migrated.baseCount,14);
- assert.equal(migrated.discoveredCount,14);
- const target=W.explore(migrated,'채광단지',()=>0.995);
- assert.equal(target.foundCount,3);
- const restored=JSON.parse(JSON.stringify(target.state));
- for(let i=0;i<14;i++){
-  assert.deepEqual(JSON.parse(JSON.stringify(W.district(restored,i))),JSON.parse(JSON.stringify(baseline[i])));
-  for(let j=0;j<14;j++)assert.equal(W.distance(restored,i,j),before[i][j]);
+ const older={schema:1,generator:1,seed:base.seed,createdAt:base.createdAt,discoveredCount:14};
+ const legacy2={schema:2,generator:1,seed:base.seed,createdAt:base.createdAt,
+  baseCount:5,discoveredCount:14,batches:[{from:5,count:3,type:'채광단지'},{from:8,count:6,type:'물류단지'}]};
+ for(const old of [older,legacy2]){
+  assert.ok(W.valid(old));
+  const restored=W.migrate(old);
+  assert.equal(restored.schema,3);
+  assert.equal(restored.discoveredCount,0);
+  assert.equal(restored.baseCount,0);
+  assert.deepEqual(JSON.parse(JSON.stringify(restored.batches)),[]);
+  assert.equal(restored.seed,old.seed);
+  assert.equal(restored.createdAt,old.createdAt);
+  assert.equal(old.discoveredCount,14,'previous saves are not mutated in place');
+  assert.strictEqual(W.migrate(restored),restored,'schema 3 prevents repeated resets');
+  assert.throws(()=>W.district(restored,0),/발견되지 않은/);
+  const discovered=W.explore(restored,'채광단지',()=>0.995);
+  assert.equal(discovered.foundCount,3);
+  assert.equal(discovered.state.discoveredCount,3);
+  for(let i=0;i<3;i++)assert.equal(W.district(discovered.state,i).type,'채광단지');
+  assert.equal(W.district(discovered.state,0).id,'SITE-000001');
+  assert.equal(W.migrate(discovered.state).discoveredCount,3,'newly found sites survive relaunch');
+  assert.equal(W.distance(discovered.state,0,1),W.distance(JSON.parse(JSON.stringify(discovered.state)),0,1));
  }
- for(let i=14;i<17;i++)assert.equal(W.district(restored,i).type,'채광단지');
- assert.equal(W.distance(restored,0,14),W.distance(restored,14,0));
 });
 test('DEV first offers World Rion, creates it only when accepted, then offers Mission',()=>{
  const win={},t=1800000000000;
@@ -117,6 +123,7 @@ test('DEV first offers World Rion, creates it only when accepted, then offers Mi
  assert.equal(state.rions.discovered[0].id,'rion.role.world');
  assert.equal(state.rions.pending.id,'rion.role.mission');
  assert.ok(win.MYON_DEV_RION_WORLD.valid(state.worldR0));
+ assert.equal(state.worldR0.discoveredCount,0);
  assert.equal(JSON.parse(store.get('MYON_DEV_MISSIONS_V1_0.14.7.1')).worldR0.seed,state.worldR0.seed);
 });
 test('DEV upgrade from v0.14.6.1 keeps existing save untouched and skips reset',async()=>{
@@ -138,4 +145,37 @@ test('DEV upgrade from v0.14.6.1 keeps existing save untouched and skips reset',
  assert.equal(resetCalled,false);
  assert.equal(JSON.parse(store.get(oldKey)).worldR0.discoveredCount,14);
  assert.equal(store.get(DEV_ACTIVE_VERSION_KEY),'0.14.7.1');
+});
+
+test('DEV v0.14.7.1 to 0.14.8 retains all other saved state and does not clear the DB',async()=>{
+ const {prepareDevVersion,DEV_ACTIVE_VERSION_KEY}=await import('../src/core/myon-dev-version.mjs');
+ const key='MYON_DEV_MISSIONS_V1_0.14.7.1';
+ const game={schema:1,offers:[{id:'offer1'}],active:[{id:'active1'}],cash:123456,
+  rions:{schema:2,discovered:[{id:'rion.role.world',stage:0,discoveredAt:1700000000000}],
+   pending:null,nextAt:1700000000010,latest:null},
+  myonite:{schema:1,storedTons:6,awaitingChoiceTons:0,active:null},
+  worldR0:{schema:2,generator:1,seed:123,createdAt:1700000000000,
+   baseCount:5,discoveredCount:7,batches:[{from:5,count:2,type:'채광단지'}]}};
+ const storageMap=new Map([[DEV_ACTIVE_VERSION_KEY,'0.14.7.1'],[key,JSON.stringify(game)]]);
+ const storage={getItem:k=>storageMap.get(k)??null,setItem:(k,v)=>storageMap.set(k,v)};
+ let reset=false;
+ const upgraded=await prepareDevVersion({version:'0.14.8',storage,
+  deleteDatabase:async()=>{reset=true;},purgeBackups:async()=>{reset=true;}});
+ assert.equal(upgraded.reset,false);
+ assert.equal(reset,false);
+ assert.equal(storage.getItem(key),JSON.stringify(game),'old save remains unchanged');
+ const W=create(),next={...game,worldR0:W.migrate(game.worldR0)};
+ assert.equal(next.worldR0.discoveredCount,0);
+ for(const field of ['cash','offers','active','rions','myonite'])
+  assert.deepEqual(JSON.parse(JSON.stringify(next[field])),JSON.parse(JSON.stringify(game[field])));
+ assert.equal(storage.getItem(DEV_ACTIVE_VERSION_KEY),'0.14.8');
+ const after=W.explore(next.worldR0,'정제단지',()=>0.4);
+ assert.equal(after.state.discoveredCount,1);
+ assert.equal(W.migrate(after.state).discoveredCount,1);
+});
+test('zero-site UI does not calculate a missing reference-site distance',()=>{
+ const s=fs.readFileSync(path.join(root,'public/myon-dev-world-ui.js'),'utf8');
+ assert.match(s,/if\(state\.discoveredCount\)\{/);
+ assert.match(s,/발견된 단지 0곳/);
+ assert.match(s,/아직 발견된 단지가 없습니다/);
 });

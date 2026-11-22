@@ -1,5 +1,5 @@
-/* MYON DEV World Rion R0 — fixed hidden sites and selectable random discovery.
-   Existing schema-1 worlds keep every site type, ID and distance unchanged. */
+/* MYON DEV World Rion R0 — empty-first-world and targeted random discovery.
+   DEV schema 3 clears all legacy sites once; other game progress remains unchanged. */
 (function(root){
 'use strict';
 const ID='rion.role.world';
@@ -15,16 +15,17 @@ function hash(seed,index,salt){
 function found(rions){return !!rions?.discovered?.some(r=>r.id===ID)}
 function initialState(now=Date.now(),random=Math.random){
  const seed=Math.floor(Math.max(0,Math.min(.9999999999,random()))*4294967296)>>>0;
- const baseCount=3+hash(seed,0,17)%6;
- return {schema:2,generator:GENERATOR,seed,createdAt:now,baseCount,discoveredCount:baseCount,batches:[]};
+ return {schema:3,generator:GENERATOR,seed,createdAt:now,baseCount:0,discoveredCount:0,batches:[]};
 }
 function valid(state){
- if(!state||![1,2].includes(state.schema)||state.generator!==GENERATOR
+ if(!state||![1,2,3].includes(state.schema)||state.generator!==GENERATOR
   ||!Number.isSafeInteger(state.seed)||state.seed<0||state.seed>0xffffffff
   ||!Number.isSafeInteger(state.createdAt)||state.createdAt<=0
-  ||!Number.isSafeInteger(state.discoveredCount)||state.discoveredCount<3||state.discoveredCount>MAX_SITES)return false;
+  ||!Number.isSafeInteger(state.discoveredCount)||state.discoveredCount<(state.schema===3?0:3)
+  ||state.discoveredCount>MAX_SITES)return false;
  if(state.schema===1)return true;
- if(!Number.isSafeInteger(state.baseCount)||state.baseCount<3||state.baseCount>state.discoveredCount
+ if(!Number.isSafeInteger(state.baseCount)||state.baseCount<(state.schema===3?0:3)
+  ||(state.schema===3&&state.baseCount!==0)||state.baseCount>state.discoveredCount
   ||!Array.isArray(state.batches)||state.batches.length>state.discoveredCount-state.baseCount)return false;
  let start=state.baseCount;
  for(const batch of state.batches){
@@ -36,17 +37,19 @@ function valid(state){
 }
 function migrate(input){
  if(!valid(input))return null;
- if(input.schema===2)return input;
- return {schema:2,generator:input.generator,seed:input.seed,createdAt:input.createdAt,
-  baseCount:input.discoveredCount,discoveredCount:input.discoveredCount,batches:[]};
+ if(input.schema===3)return input;
+ // One-time site reset: no previously generated/discovered sites survive.
+ // Seed and world discovery time stay stable; only the site's count/records reset.
+ return {schema:3,generator:input.generator,seed:input.seed,createdAt:input.createdAt,
+  baseCount:0,discoveredCount:0,batches:[]};
 }
 function checkIndex(state,index){
  if(!valid(state)||!Number.isSafeInteger(index)||index<0||index>=state.discoveredCount)
   throw Error('발견되지 않은 단지입니다.');
 }
 function siteType(state,index){
- if(state.schema===2&&index>=state.baseCount){
-  // Every accepted exploration stores one compact batch; old kinds come from seed.
+ if(state.schema>=2&&index>=state.baseCount){
+  // In schema 3, every site comes from a chosen-type exploration batch.
   let lo=0,hi=state.batches.length-1;
   while(lo<=hi){
    const mid=Math.floor((lo+hi)/2),batch=state.batches[mid];

@@ -32,7 +32,7 @@ function render(view,state,engine,onExplore){
  if(!engine.valid(state))return;
  const old=view.querySelector('.mw-world-panel');
  if(old)old.remove();
- sourceIndex=Math.min(sourceIndex,state.discoveredCount-1);
+ sourceIndex=state.discoveredCount?Math.min(sourceIndex,state.discoveredCount-1):0;
  const maxPage=Math.max(0,Math.ceil(state.discoveredCount/PAGE_SIZE)-1);
  page=Math.min(page,maxPage);
  const panel=add(view,'section','mw-world-panel');
@@ -41,8 +41,12 @@ function render(view,state,engine,onExplore){
  add(heading,'h2',null,'월드 리온 · R0');
  add(heading,'p','mw-world-small','지도 없음 · 단지 위치 고정 · 모든 단지 간 거리 자동 계산');
  add(head,'span','mw-tag','발견');
- const source=engine.district(state,sourceIndex);
- add(panel,'p','mw-world-small','기준: '+source.name+' ('+source.id+') · 발견된 단지 '+state.discoveredCount.toLocaleString('ko-KR')+'곳');
+ if(state.discoveredCount){
+  const source=engine.district(state,sourceIndex);
+  add(panel,'p','mw-world-small','기준: '+source.name+' ('+source.id+') · 발견된 단지 '+state.discoveredCount.toLocaleString('ko-KR')+'곳');
+ }else{
+  add(panel,'p','mw-world-small','발견된 단지 0곳 · 필요한 단지 종류를 선택해 탐색하세요.');
+ }
  const search=add(panel,'div','mw-world-search');
  add(search,'label','mw-world-small','단지 종류');
  const select=add(search,'select');
@@ -73,6 +77,7 @@ function render(view,state,engine,onExplore){
  add(panel,'p','mw-world-small','선택한 종류만 탐색합니다. 결과는 미발견(0곳), 1곳 또는 여러 곳일 수 있습니다.');
  if(lastResult)add(panel,'p','mw-world-result',lastResult);
  const list=add(panel,'div','mw-world-list');
+ if(!state.discoveredCount)add(list,'p','mw-world-small','아직 발견된 단지가 없습니다.');
  for(const site of engine.list(state,page*PAGE_SIZE,PAGE_SIZE)){
   const row=add(list,'div','mw-world-site'+(site.index===sourceIndex?' is-source':''));
   const name=add(row,'div');
@@ -92,7 +97,7 @@ function render(view,state,engine,onExplore){
   const next=add(actions,'button','mw-button','다음 단지');next.type='button';
   next.addEventListener('click',()=>{page++;render(view,state,engine,onExplore)});
  }
- add(panel,'p','mw-world-count','발견한 단지는 건설이 아닌 자연 단지입니다. 기존 종류·거리·고유번호는 변하지 않습니다.');
+ add(panel,'p','mw-world-count','처음에는 단지 0곳이며 탐색으로 발견한 단지만 나타납니다. 발견 후에는 종류·거리·고유번호가 유지됩니다.');
 }
 window.MYON_DEV_WORLD_UI=Object.freeze({render});
 })();
