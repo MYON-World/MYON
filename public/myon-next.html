@@ -7,6 +7,13 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
  const portal=new URL('../../',location.href);portal.search=location.search;portal.hash=location.hash;location.replace(portal.href);
 }
 </script>
+<script>
+// Legacy mission/Rion scripts remain archived for existing LIVE/TEST pins.
+// For the new DEV release, navigate before running legacy gameplay scripts.
+if(window.self!==window.top && new URLSearchParams(location.search).get('server')==='dev'){
+ location.replace(new URL('./myon-150.html'+location.search,location.href).href);
+}
+</script>
 <style>
 :root{color-scheme:dark;--ink:#eff8ff;--soft:#a7bed2;--faint:#6788a2;--line:#335571;--blue:#9cdef8;font-family:Inter,"Pretendard Variable","Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;overscroll-behavior:none}body{background:radial-gradient(ellipse at 55% 15%,#153450 0%,#08192a 38%,#050d18 100%);color:var(--ink);-webkit-font-smoothing:antialiased}button{font:inherit;cursor:pointer}button:focus-visible{outline:2px solid #beeaff;outline-offset:2px}button:disabled{cursor:default;opacity:.6}
@@ -205,7 +212,7 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
 const params=new URLSearchParams(location.search);
 const requestedDevVersion=params.get('dev_version');
 const isVersionedDevSave=params.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(params.get('build')||'')&&/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(requestedDevVersion||'');
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.8';
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.9';
 const MYON_MISSION_SERVER=['live','test'].includes(params.get('server'))?params.get('server'):'dev';
 const missionHeader=document.querySelector('.top-server');
 if(MYON_MISSION_SERVER==='live')missionHeader.textContent='정식버전';

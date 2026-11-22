@@ -88,6 +88,21 @@ export async function prepareDevVersion({version,storage=globalThis.localStorage
  if(!storage||typeof storage.getItem!=='function')throw Error('DEV 저장 확인을 할 수 없습니다.')
  const previous=storage.getItem(DEV_ACTIVE_VERSION_KEY)
  if(previous===version)return {reset:false,version}
+ // One-time simplification: carry forward only mission progress in the next DEV
+ // runtime. Never overwrite prior keys or purge the player's historical saves.
+ if(version==='0.14.9'&&['0.14.8','0.14.7.1'].includes(previous)){
+  const old=storage.getItem('MYON_DEV_MISSIONS_V1_'+previous);
+  if(old){
+   let snapshot;
+   try{snapshot=JSON.parse(old)}catch{throw Error('기존 DEV 임무 기록이 손상되어 전환을 중단했습니다.')}
+   if(snapshot?.schema!==1||!Array.isArray(snapshot.stats)||snapshot.stats.length!==150
+      ||!Array.isArray(snapshot.offers)||!Array.isArray(snapshot.active)
+      ||!Array.isArray(snapshot.history)||!Number.isSafeInteger(snapshot.cash))
+    throw Error('기존 DEV 임무 데이터를 확인할 수 없어 전환을 중단했습니다.');
+  }
+  storage.setItem(DEV_ACTIVE_VERSION_KEY,version);
+  return {reset:false,migrated:true,previous,version,removed:0};
+ }
  preserveRionDiscovery(storage,previous);
  // One-time v0.13.95 -> v0.13.96 migration retains existing mission progress.
  // Older keys remain untouched; the new game copies and validates the previous save.
