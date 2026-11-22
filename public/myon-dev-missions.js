@@ -175,7 +175,7 @@ function load(){
  if(current.saved)return current.saved;
  if(current.existing)throw Error('기존 게임 기록을 확인할 수 없어 초기화를 중단했습니다.');
  // Migrate a prior DEV game only; never read LIVE or TEST saves.
- if(MISSION_SERVER==='dev'&&DEV_SAVE_VERSION==='0.14.6'){
+ if(MISSION_SERVER==='dev'&&DEV_SAVE_VERSION==='0.14.6.1'){
   const legacy=fromKeys(['MYON_DEV_MISSIONS_V1_0.14.5.3','MYON_DEV_MISSIONS_V1_0.14.5.3.backup']);
   if(legacy.saved)return legacy.saved;
   if(legacy.existing)throw Error('이전 개발서버 기록이 손상되어 월드 이관을 중단합니다.');

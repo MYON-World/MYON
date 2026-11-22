@@ -7,5 +7,5 @@
 - The generator deterministically assigns each hidden site's fixed position and type from its `seed` and immutable zero-based index. All pairs have consistent, symmetric, on-demand straight-line distances in km.
 - No all-pairs matrix is stored. List presentation is paginated, avoiding quadratic storage growth. More sites can be discovered without altering earlier distances or moving existing sites. The practical count limit is 2^32−1.
 - External file save/load is not connected in this R0 change. The existing DEV mission/localStorage save and optional pre-entry backups are unchanged; the R0 state is incorporated in that save object.
-- DEV v0.14.5.3 → 0.14.6 explicitly preserves previous progress; older DEV epoch resets follow the existing rules. Existing legacy keys are not overwritten. LIVE/TEST pins and deployment workflow are untouched.
+- DEV v0.14.5.3 → 0.14.6.1 explicitly preserves previous progress; older DEV epoch resets follow the existing rules. Existing legacy keys are not overwritten. LIVE/TEST pins and deployment workflow are untouched.
 - R1+ discussions: resource regeneration, district efficiency, transport, contracts and production are explicitly out of scope for R0.

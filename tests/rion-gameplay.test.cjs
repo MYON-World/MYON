@@ -14,13 +14,14 @@ function engine(){
 test('163 discovery candidates include mining, mission and Myonite',()=>{
  assert.equal(definitions.length,163);
  assert.equal(new Set(definitions.map(r=>r.id)).size,163);
- assert.equal(definitions.filter(r=>r.kind==='system').length,6);
+ assert.equal(definitions.filter(r=>r.kind==='system').length,7);
  assert.equal(definitions.filter(r=>r.kind==='style').length,5);
  assert.equal(definitions.filter(r=>r.kind==='field').length,150);
  assert.equal(definitions.filter(r=>r.kind==='material').length,1);
  assert.ok(definitions.some(r=>r.id==='rion.material.myonite'&&r.name==='마이오나이트 리온'));
  assert.ok(definitions.some(r=>r.id==='rion.role.mission'&&r.name==='임무 리온'));
  assert.ok(definitions.some(r=>r.id==='rion.role.mining'&&r.name==='채광 리온'));
+ assert.ok(definitions.some(r=>r.id==='rion.role.world'&&r.name==='월드 리온'));
  assert.ok(definitions.some(r=>r.id==='rion.role.ui'));
  assert.ok(definitions.some(r=>r.id==='rion.role.wiki'));
 });
