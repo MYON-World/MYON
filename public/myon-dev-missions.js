@@ -18,6 +18,7 @@ const $m=id=>document.getElementById(id);
 let catalog=[],cities=[],world=null,cityNameData=null,notice='',rionDefinitions=[],rionPage=false;
 const RIONS=window.MYON_RIONS;
 const MINE=window.MYON_DEV_RION_MINING;
+const WORLD=window.MYON_DEV_RION_WORLD;
 // LIVE and DEV run the same approved stage-zero Rion rules; TEST stays on its own pin.
 const RION_GAMEPLAY=MISSION_SERVER==='dev'||MISSION_SERVER==='live';
 if(!RIONS)throw Error('리온 시스템을 불러오지 못했습니다.');
@@ -116,7 +117,7 @@ function newWorld(){
  if(!next.rions)throw Error('신규 리온 기록 초기화에 실패했습니다.');
  if(RION_GAMEPLAY){
   if(!MINE)throw Error('리온 채광 시스템 로딩 실패');
-  next.rions=MINE.prepareDiscovery(next.rions,createdAt).state;
+  next.rions=MINE.prepareDiscovery(next.rions,createdAt,MISSION_SERVER==='dev').state;
   next.myonite=MINE.initialState();
  }
  for(let i=0;i<INITIAL_OFFERS;i++)next.offers.push(generateMission(next,createdAt,true));
@@ -127,6 +128,7 @@ function validWorld(v){
   &&Number.isSafeInteger(v.cash)&&v.cash>=0&&Array.isArray(v.offers)&&Array.isArray(v.active)&&Array.isArray(v.history)
   &&(v.rions===undefined||(v.rions&&RIONS.valid(RIONS.initialize(v.rions,rionDefinitions),rionDefinitions)))
   &&(v.myonite===undefined||(MINE&&MINE.valid(v.myonite)))
+  &&(v.worldR0===undefined||(WORLD&&WORLD.valid(v.worldR0)))
   &&v.offers.length<=MAX_WAITING_OFFERS&&Number.isSafeInteger(v.nextOfferAt)&&v.nextOfferAt>0&&[...v.offers,...v.active].every(m=>m&&Number.isSafeInteger(m.durationTicks)&&m.durationTicks>=1800
     &&Number.isSafeInteger(m.field)&&m.field>=0&&m.field<DOMAINS_REQUIRED&&Number.isSafeInteger(m.money)
      &&Number.isSafeInteger(m.acceptCost)&&m.acceptCost>=0
@@ -173,6 +175,11 @@ function load(){
  if(current.saved)return current.saved;
  if(current.existing)throw Error('기존 게임 기록을 확인할 수 없어 초기화를 중단했습니다.');
  // Migrate a prior DEV game only; never read LIVE or TEST saves.
+ if(MISSION_SERVER==='dev'&&DEV_SAVE_VERSION==='0.14.6'){
+  const legacy=fromKeys(['MYON_DEV_MISSIONS_V1_0.14.5.3','MYON_DEV_MISSIONS_V1_0.14.5.3.backup']);
+  if(legacy.saved)return legacy.saved;
+  if(legacy.existing)throw Error('이전 개발서버 기록이 손상되어 월드 이관을 중단합니다.');
+ }
  if(MISSION_SERVER==='dev'&&['0.13.96','preview-0.13.96'].includes(DEV_SAVE_VERSION)){
   const before=DEV_SAVE_VERSION==='0.13.96'?'0.13.95':'preview-0.13.95';
   const legacy=fromKeys(['MYON_DEV_MISSIONS_V1_'+before,'MYON_DEV_MISSIONS_V1_'+before+'.backup']);
@@ -187,7 +194,7 @@ function applyDelta(stats,field,amount){
 function refreshRion(){
  if(!world?.rions)return false;
  const step=RION_GAMEPLAY&&MINE
-  ?MINE.prepareDiscovery(world.rions,Date.now())
+  ?MINE.prepareDiscovery(world.rions,Date.now(),MISSION_SERVER==='dev')
   :RIONS.advance(world.rions,rionDefinitions,Date.now());
  if(!step.changed)return false;
  const ok=transact(next=>{next.rions=step.state});
@@ -198,12 +205,25 @@ function acceptRion(){
  if(!world?.rions?.pending)return;
  const result=RIONS.accept(world.rions,rionDefinitions,Date.now());
  if(!result){refreshRion();return}
- if(!transact(next=>{next.rions=RION_GAMEPLAY&&MINE
-  ?MINE.prepareDiscovery(result.state,Date.now()).state:result.state}))return;
+ if(!transact(next=>{
+  next.rions=RION_GAMEPLAY&&MINE
+   ?MINE.prepareDiscovery(result.state,Date.now(),MISSION_SERVER==='dev').state:result.state;
+  if(MISSION_SERVER==='dev'&&WORLD&&result.id===WORLD.ID&&!next.worldR0)
+   next.worldR0=WORLD.initialState();
+ }))return;
  notice=(rionById(result.id)?.name||'새로운 리온')+'을 발견했습니다.';
  render();
  if(result.id==='rion.role.development'&&typeof window.MYON_RION_CHECK_UPDATE==='function')
   window.MYON_RION_CHECK_UPDATE();
+}
+function discoverMoreWorld(){
+ if(MISSION_SERVER!=='dev'||!WORLD||!WORLD.found(world?.rions)||!WORLD.valid(world?.worldR0))return;
+ const expanded=WORLD.discoverMore(world.worldR0);
+ if(!expanded)return;
+ if(transact(next=>{next.worldR0=expanded})){
+  notice='새 단지를 발견했습니다. · 총 '+fmt(expanded.discoveredCount)+'곳';
+  render();
+ }
 }
 function settleMining(){
  if(!RION_GAMEPLAY||!MINE||!world?.myonite?.active)return;
@@ -315,6 +335,8 @@ function renderRionWiki(){
  if(!view)return;
  if(MISSION_SERVER==='dev'&&window.MYON_DEV_MINING_UI){
   window.MYON_DEV_MINING_UI.render(view);
+  if(WORLD&&WORLD.found(world?.rions)&&WORLD.valid(world?.worldR0)&&window.MYON_DEV_WORLD_UI)
+   window.MYON_DEV_WORLD_UI.render(view,world.worldR0,WORLD,discoverMoreWorld);
   return;
  }
  view.replaceChildren();
@@ -461,7 +483,7 @@ function render(){
  $m('mw-cash').textContent=fmt(world.cash);
  $m('mw-notice').textContent=notice;
 
- const showUi=hasRion('rion.role.ui');
+ const showUi=hasRion('rion.role.ui')||(MISSION_SERVER==='dev'&&WORLD&&WORLD.found(world.rions));
  const nav=$m('mw-rion-nav'),scroll=$m('mw-scroll'),view=$m('mw-rion-view');
  if(!showUi)rionPage=false;
  if(nav)nav.hidden=!showUi;
@@ -560,8 +582,8 @@ async function bootstrap(){
   const rionResponse=await fetch('./myon-rion-registry.json',{cache:'no-store'});
   if(!rionResponse.ok)throw Error('리온 등록부 로딩 실패');
   const definitions=await rionResponse.json();
-  if(definitions.schema!==1||!Array.isArray(definitions.records)||definitions.records.length!==162
-   ||new Set(definitions.records.map(r=>r.id)).size!==162
+  if(definitions.schema!==1||!Array.isArray(definitions.records)||definitions.records.length!==163
+   ||new Set(definitions.records.map(r=>r.id)).size!==163
    ||definitions.records.filter(r=>r.kind==='field').length!==150)
    throw Error('리온 등록부 구조 오류');
   rionDefinitions=definitions.records;
@@ -570,9 +592,13 @@ async function bootstrap(){
   world.rions=RIONS.initialize(world.rions,rionDefinitions,Date.now());
   if(!world.rions)throw Error('리온 발견 기록이 손상되어 시작을 중단합니다.');
   if(RION_GAMEPLAY){
-   world.rions=MINE.prepareDiscovery(world.rions,Date.now()).state;
+   world.rions=MINE.prepareDiscovery(world.rions,Date.now(),MISSION_SERVER==='dev').state;
    if(world.myonite===undefined)world.myonite=MINE.initialState();
    if(!MINE.valid(world.myonite))throw Error('광석 보관 및 채광 기록이 손상되었습니다.');
+   if(MISSION_SERVER==='dev'&&WORLD&&WORLD.found(world.rions)&&world.worldR0===undefined)
+    world.worldR0=WORLD.initialState();
+   if(world.worldR0!==undefined&&(!WORLD||!WORLD.valid(world.worldR0)))
+    throw Error('월드 리온 R0 기록이 손상되었습니다.');
   }
   if(!write(world))throw Error('현재 서버의 저장소를 사용할 수 없습니다.');
   setupUi();

@@ -3,6 +3,7 @@
 (function(root){
 'use strict';
 const ORDER=Object.freeze(['rion.role.mission','rion.material.myonite','rion.role.mining']);
+const WORLD_ORDER=Object.freeze([...ORDER,'rion.role.world']);
 const CONFIG=Object.freeze({
  mission:Object.freeze({temporaryStorageTons:10}),
  myonite:Object.freeze({tonsPerMine:1,pricePerTonM:100}),
@@ -11,9 +12,9 @@ const CONFIG=Object.freeze({
 const copy=x=>JSON.parse(JSON.stringify(x));
 const found=(rions,id)=>!!rions?.discovered?.some(x=>x.id===id);
 const canMine=rions=>ORDER.every(id=>found(rions,id));
-function prepareDiscovery(input,now=Date.now()){
+function prepareDiscovery(input,now=Date.now(),includeWorld=false){
  const state=copy(input);
- const next=ORDER.find(id=>!found(state,id));
+ const next=(includeWorld?WORLD_ORDER:ORDER).find(id=>!found(state,id));
  const isSame=next?state.pending?.id===next&&state.nextAt===null:state.pending===null&&state.nextAt===null;
  if(isSame)return {state,changed:false};
  state.pending=next?{id:next,createdAt:now}:null;
@@ -64,6 +65,6 @@ function sellStored(input,tons=1){
  return {state,earnedM:tons*CONFIG.myonite.pricePerTonM};
 }
 root.MYON_DEV_RION_MINING=Object.freeze({
- ORDER,CONFIG,found,canMine,prepareDiscovery,initialState,valid,start,finish,sellNew,storeNew,sellStored
+ ORDER,WORLD_ORDER,CONFIG,found,canMine,prepareDiscovery,initialState,valid,start,finish,sellNew,storeNew,sellStored
 });
 })(typeof window!=='undefined'?window:globalThis);

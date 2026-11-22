@@ -1,0 +1,11 @@
+# MYON 월드 리온 R0 (DEV only)
+- World Rion: `rion.role.world` / `WRD-000001`. Stage name: R0 (the existing discovery engine stores stage 0).
+- DEV discovery follows Mission → Myonite → Mining → World; LIVE and TEST remain pinned to approved archives.
+- No map, visible coordinates, factory placement, production, efficiency upgrades or ore regeneration in R0.
+- The existing mission world is preserved. World state is created *only* when the World Rion is discovered.
+- R0 state in the same DEV mission save: `worldR0: {schema:1,generator:1,seed,createdAt,discoveredCount}`.
+- The generator deterministically assigns each hidden site's fixed position and type from its `seed` and immutable zero-based index. All pairs have consistent, symmetric, on-demand straight-line distances in km.
+- No all-pairs matrix is stored. List presentation is paginated, avoiding quadratic storage growth. More sites can be discovered without altering earlier distances or moving existing sites. The practical count limit is 2^32−1.
+- External file save/load is not connected in this R0 change. The existing DEV mission/localStorage save and optional pre-entry backups are unchanged; the R0 state is incorporated in that save object.
+- DEV v0.14.5.3 → 0.14.6 explicitly preserves previous progress; older DEV epoch resets follow the existing rules. Existing legacy keys are not overwritten. LIVE/TEST pins and deployment workflow are untouched.
+- R1+ discussions: resource regeneration, district efficiency, transport, contracts and production are explicitly out of scope for R0.

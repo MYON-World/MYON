@@ -1110,6 +1110,11 @@
       "id": "rion.role.mining",
       "kind": "system",
       "name": "채광 리온"
+    },
+    {
+      "id": "rion.role.world",
+      "kind": "system",
+      "name": "월드 리온"
     }
   ]
 }

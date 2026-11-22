@@ -973,6 +973,12 @@
       "number": "MNG-000001",
       "namespace": "MNG",
       "legacyFieldIndex": null
+    },
+    {
+      "id": "rion.role.world",
+      "number": "WRD-000001",
+      "namespace": "WRD",
+      "legacyFieldIndex": null
     }
   ]
 }

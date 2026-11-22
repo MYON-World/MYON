@@ -91,6 +91,20 @@ export async function prepareDevVersion({version,storage=globalThis.localStorage
  preserveRionDiscovery(storage,previous);
  // One-time v0.13.95 -> v0.13.96 migration retains existing mission progress.
  // Older keys remain untouched; the new game copies and validates the previous save.
+ if(previous==='0.14.5.3'&&version==='0.14.6'){
+  // Preserve this DEV world's mission, mining, cash and Rion state for World R0.
+  // The new runtime loads the previous versioned mission key without deleting it.
+  const oldKey='MYON_DEV_MISSIONS_V1_0.14.5.3';
+  const oldRaw=storage.getItem(oldKey);
+  if(oldRaw){
+   let old;
+   try{old=JSON.parse(oldRaw)}catch{throw Error('이전 DEV 기록이 손상되어 업데이트를 중단합니다.')}
+   if(old?.schema!==1||!Array.isArray(old.offers)||!Array.isArray(old.active)||!Number.isSafeInteger(old.cash))
+    throw Error('이전 DEV 저장 구조를 검증할 수 없어 업데이트를 중단합니다.');
+  }
+  storage.setItem(DEV_ACTIVE_VERSION_KEY,version);
+  return {reset:false,migrated:true,previous,version,removed:0};
+ }
  if(previous==='0.13.95'&&version==='0.13.96'){
   storage.setItem(DEV_ACTIVE_VERSION_KEY,version);
   return {reset:false,migrated:true,previous,version,removed:0};

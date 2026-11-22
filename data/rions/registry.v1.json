@@ -2055,6 +2055,14 @@
       "serial": 1,
       "kind": "system",
       "name": "채광 리온"
+    },
+    {
+      "id": "rion.role.world",
+      "number": "WRD-000001",
+      "namespace": "WRD",
+      "serial": 1,
+      "kind": "system",
+      "name": "월드 리온"
     }
   ]
 }

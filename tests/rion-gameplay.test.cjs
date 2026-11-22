@@ -11,9 +11,9 @@ function engine(){
  vm.runInNewContext(engineScript,{window},{timeout:2000});
  return window.MYON_RIONS;
 }
-test('162 discovery candidates include mining, mission and Myonite',()=>{
- assert.equal(definitions.length,162);
- assert.equal(new Set(definitions.map(r=>r.id)).size,162);
+test('163 discovery candidates include mining, mission and Myonite',()=>{
+ assert.equal(definitions.length,163);
+ assert.equal(new Set(definitions.map(r=>r.id)).size,163);
  assert.equal(definitions.filter(r=>r.kind==='system').length,6);
  assert.equal(definitions.filter(r=>r.kind==='style').length,5);
  assert.equal(definitions.filter(r=>r.kind==='field').length,150);
@@ -121,14 +121,14 @@ test('UI and Wiki legacy IDs convert without changing any field ID; malformed sa
  duplicate.discovered[1].id='rion.role.ui';
  assert.equal(R.initialize(duplicate,definitions,T),null);
 });
-test('the last unknown Rion can still be found, but 162/162 discoveries end scheduling',()=>{
+test('the last unknown Rion can still be found, but 163/163 discoveries end scheduling',()=>{
  const R=engine(),s=R.initialize(null,definitions,T,()=>0);
  s.discovered=definitions.slice(0,-1).map(r=>({id:r.id,stage:0,discoveredAt:T}));
  s.nextAt=T+5;
  const step=R.advance(s,definitions,T+5,()=>0);
  assert.equal(step.state.pending.id,definitions.at(-1).id);
  const found=R.accept(step.state,definitions,T+6);
- assert.equal(found.state.discovered.length,162);
+ assert.equal(found.state.discovered.length,163);
  assert.equal(found.state.nextAt,null);
  assert.equal(R.advance(found.state,definitions,T+24*R.HOUR).changed,false);
 });
