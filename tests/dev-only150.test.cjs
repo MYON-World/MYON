@@ -13,14 +13,14 @@ function start(legacy={}){
  };
  const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
  const context={window,document:{getElementById:element,querySelectorAll:()=>[]},
-  localStorage,location:{search:'?server=dev&dev_version=0.14.9'},
+  localStorage,location:{search:'?server=dev&dev_version=0.14.9.1'},
   URLSearchParams,Date,Intl,Math,JSON,Object,console,setInterval(){},confirm:()=>true};
  vm.runInNewContext(script,context,{timeout:3000});
  return {data,window};
 }
 test('DEV only-150 world starts with exactly 150 fields and 4 free missions',()=>{
  const {data,window}=start();
- const save=JSON.parse(data.get('MYON_DEV_MISSIONS_V1_0.14.9'));
+ const save=JSON.parse(data.get('MYON_DEV_MISSIONS_V1_0.14.9.1'));
  assert.equal(save.stats.length,150);
  assert.equal(save.offers.length,4);
  assert.ok(save.offers.every(m=>m.acceptCost===0));
@@ -29,12 +29,12 @@ test('DEV only-150 world starts with exactly 150 fields and 4 free missions',()=
  assert.equal(typeof window.MYON_SAFE_UPDATE_CHECKPOINT,'function');
 });
 test('DEV save migration preserves money and missions, excludes obsolete systems and leaves old key untouched',()=>{
- const prior=JSON.parse(start().data.get('MYON_DEV_MISSIONS_V1_0.14.9'));
+ const prior=JSON.parse(start().data.get('MYON_DEV_MISSIONS_V1_0.14.9.1'));
  const legacy={...prior,cash:456,rions:{pending:{}},myonite:{storedTons:2},
   worldR0:{discoveredCount:5},offers:prior.offers.map(m=>({...m,contributionRion:'rion.role.world'}))};
  const raw=JSON.stringify(legacy);
  const {data}=start({'MYON_DEV_MISSIONS_V1_0.14.8':raw});
- const current=JSON.parse(data.get('MYON_DEV_MISSIONS_V1_0.14.9'));
+ const current=JSON.parse(data.get('MYON_DEV_MISSIONS_V1_0.14.9.1'));
  assert.equal(current.cash,456);
  assert.equal(current.offers.length,4);
  assert.equal(data.get('MYON_DEV_MISSIONS_V1_0.14.8'),raw);
