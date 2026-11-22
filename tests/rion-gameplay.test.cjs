@@ -295,12 +295,12 @@ test('fresh world starts with zero discovered Rions even if an older DEV archive
  assert.ok(world.offers.every(m=>m.contributionRion===null));
  // A saved player who really accepted a Rion can still continue with that discovery.
  const accepted=R.accept(world.rions,definitions,now);
- assert.equal(accepted.id,'rion.role.mission');
+ assert.equal(accepted.id,'rion.role.world');
  const continuing={...world,rions:accepted.state};
  storage.set('MYON_DEV_MISSIONS_V1_testfresh',JSON.stringify(continuing));
  const loaded=api.load();
  assert.ok(loaded,'existing valid save loads');
  assert.equal(loaded.rions.discovered.length,1);
- assert.equal(loaded.rions.discovered[0].id,'rion.role.mission');
+ assert.equal(loaded.rions.discovered[0].id,'rion.role.world');
  assert.equal(loaded.cash,0);
 });

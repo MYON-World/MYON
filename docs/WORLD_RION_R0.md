@@ -6,6 +6,6 @@
 - Select the desired site type from Mining, Refining, Industry, Logistics, Residential, and Commerce. Each user-initiated search produces **0, 1, 2 or 3** newly discovered sites of the selected type. Distribution is provisional R0 tuning (20%, 50%, 23%, 7%). A failed search leaves the game save unchanged. No automatic site addition and no facility construction.
 - Each discovered site receives a stable ID and hidden fixed location. All pair distances are symmetric and computed when needed from the seed+index. No large pair matrix is stored.
 - Existing `worldR0` schema 1 upgrades to schema 2 without changing existing site types, ID or distances. Schema 2 keeps `seed,createdAt,baseCount,discoveredCount` and compact contiguous `batches:[{from,count,type}]`. Only new targeted searches append to batches; old sites still resolve their type from the original seed.
-- DEV 0.14.6.1 → 0.14.7 preserves the previous DEV versioned save and loads it into the new key after validation. Existing older keys remain untouched. LIVE 0.14.5.2 and TEST 0.13.94 pins stay unchanged.
+- DEV 0.14.6.1 → 0.14.7.1 preserves the previous DEV versioned save and loads it into the new key after validation. Existing older keys remain untouched. LIVE 0.14.5.2 and TEST 0.13.94 pins stay unchanged.
 - External file picker save/load has not been connected to actual game yet. Existing DEV localStorage save plus entry backup remains in use.
 - Ore stock, time-based regeneration, site operating efficiency, resource transport, and financial contracts are later-stage features.

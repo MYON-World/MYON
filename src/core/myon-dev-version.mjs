@@ -91,7 +91,7 @@ export async function prepareDevVersion({version,storage=globalThis.localStorage
  preserveRionDiscovery(storage,previous);
  // One-time v0.13.95 -> v0.13.96 migration retains existing mission progress.
  // Older keys remain untouched; the new game copies and validates the previous save.
- if(previous==='0.14.6.1'&&version==='0.14.7'){
+ if(previous==='0.14.6.1'&&version==='0.14.7.1'){
   // Keep the complete previous DEV mission save, including discovered sites.
   // The new runtime validates and copies that record to its new versioned key.
   const oldKey='MYON_DEV_MISSIONS_V1_0.14.6.1';

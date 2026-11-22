@@ -27,7 +27,9 @@ test('World Rion R0 has stable sites and symmetric distances without a map',()=>
 test('new discoveries never change previous locations or distances',()=>{
  const W=create(),a=W.initialState(1700000000000,()=>0.8);
  const before=W.distance(a,0,1);
- const b=W.discoverMore(a);
+ const found=W.explore(a,'채광단지',()=>0.85);
+ assert.equal(found.foundCount,2);
+ const b=found.state;
  assert.ok(b.discoveredCount>a.discoveredCount);
  assert.equal(b.seed,a.seed);
  assert.equal(b.createdAt,a.createdAt);
@@ -101,7 +103,7 @@ test('DEV first offers World Rion, creates it only when accepted, then offers Mi
  const store=new Map();
  const localStorage={getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v)};
  const defs=JSON.parse(fs.readFileSync(path.join(root,'public/myon-rion-registry.json'),'utf8')).records;
- vm.runInNewContext(instrumented,{window:win,localStorage,MYON_MISSION_SERVER:'dev',DEV_SAVE_VERSION:'0.14.7',
+ vm.runInNewContext(instrumented,{window:win,localStorage,MYON_MISSION_SERVER:'dev',DEV_SAVE_VERSION:'0.14.7.1',
   Date:{now:()=>t},Math,console,document:{getElementById:()=>null}},{timeout:2000});
  const api=win.__probe;
  const fields=defs.filter(r=>r.kind==='field').map((r,i)=>({id:i,name:r.fieldName,category:'분야',categoryIndex:Math.floor(i/10)}));
@@ -115,7 +117,7 @@ test('DEV first offers World Rion, creates it only when accepted, then offers Mi
  assert.equal(state.rions.discovered[0].id,'rion.role.world');
  assert.equal(state.rions.pending.id,'rion.role.mission');
  assert.ok(win.MYON_DEV_RION_WORLD.valid(state.worldR0));
- assert.equal(JSON.parse(store.get('MYON_DEV_MISSIONS_V1_0.14.7')).worldR0.seed,state.worldR0.seed);
+ assert.equal(JSON.parse(store.get('MYON_DEV_MISSIONS_V1_0.14.7.1')).worldR0.seed,state.worldR0.seed);
 });
 test('DEV upgrade from v0.14.6.1 keeps existing save untouched and skips reset',async()=>{
  const {prepareDevVersion,DEV_ACTIVE_VERSION_KEY}=await import('../src/core/myon-dev-version.mjs');
@@ -130,10 +132,10 @@ test('DEV upgrade from v0.14.6.1 keeps existing save untouched and skips reset',
   setItem:(k,v)=>store.set(k,v),
   length:0
  };
- const result=await prepareDevVersion({version:'0.14.7',storage:localStorage,
+ const result=await prepareDevVersion({version:'0.14.7.1',storage:localStorage,
   deleteDatabase:async()=>{resetCalled=true;},purgeBackups:async()=>{resetCalled=true;}});
  assert.equal(result.migrated,true);
  assert.equal(resetCalled,false);
  assert.equal(JSON.parse(store.get(oldKey)).worldR0.discoveredCount,14);
- assert.equal(store.get(DEV_ACTIVE_VERSION_KEY),'0.14.7');
+ assert.equal(store.get(DEV_ACTIVE_VERSION_KEY),'0.14.7.1');
 });
