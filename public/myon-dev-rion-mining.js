@@ -3,7 +3,7 @@
 (function(root){
 'use strict';
 const ORDER=Object.freeze(['rion.role.mission','rion.material.myonite','rion.role.mining']);
-const WORLD_ORDER=Object.freeze([...ORDER,'rion.role.world']);
+const WORLD_ORDER=Object.freeze(['rion.role.world',...ORDER]);
 const CONFIG=Object.freeze({
  mission:Object.freeze({temporaryStorageTons:10}),
  myonite:Object.freeze({tonsPerMine:1,pricePerTonM:100}),

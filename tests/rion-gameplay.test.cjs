@@ -285,7 +285,7 @@ test('fresh world starts with zero discovered Rions even if an older DEV archive
  const world=api.newWorld();
  assert.equal(world.rions.schema,2);
  assert.equal(world.rions.discovered.length,0);
- assert.equal(world.rions.pending.id,'rion.role.mission');
+ assert.equal(world.rions.pending.id,'rion.role.world');
  assert.equal(world.rions.latest,null);
  assert.equal(world.rions.nextAt,null);
  assert.equal(world.myonite.storedTons,0);

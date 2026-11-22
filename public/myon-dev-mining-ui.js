@@ -10,8 +10,8 @@ style.textContent=[
  '@media(max-width:740px){.mw-mining-panel{padding:13px}.mw-mining-panel h2{font-size:16px}}'
 ].join('\n');
 document.head.append(style);
-function render(view){
- view.replaceChildren();
+function render(view,append=false){
+ if(!append)view.replaceChildren();
  const panel=document.createElement('section');
  panel.className='mw-mining-panel';
  const name=document.createElement('h2');

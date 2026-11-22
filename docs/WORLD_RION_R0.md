@@ -1,11 +1,11 @@
 # MYON 월드 리온 R0 (DEV only)
-- World Rion: `rion.role.world` / `WRD-000001`. Stage name: R0 (the existing discovery engine stores stage 0).
-- DEV discovery follows Mission → Myonite → Mining → World; LIVE and TEST remain pinned to approved archives.
-- No map, visible coordinates, factory placement, production, efficiency upgrades or ore regeneration in R0.
-- The existing mission world is preserved. World state is created *only* when the World Rion is discovered.
-- R0 state in the same DEV mission save: `worldR0: {schema:1,generator:1,seed,createdAt,discoveredCount}`.
-- The generator deterministically assigns each hidden site's fixed position and type from its `seed` and immutable zero-based index. All pairs have consistent, symmetric, on-demand straight-line distances in km.
-- No all-pairs matrix is stored. List presentation is paginated, avoiding quadratic storage growth. More sites can be discovered without altering earlier distances or moving existing sites. The practical count limit is 2^32−1.
-- External file save/load is not connected in this R0 change. The existing DEV mission/localStorage save and optional pre-entry backups are unchanged; the R0 state is incorporated in that save object.
-- DEV v0.14.5.3 → 0.14.6.1 explicitly preserves previous progress; older DEV epoch resets follow the existing rules. Existing legacy keys are not overwritten. LIVE/TEST pins and deployment workflow are untouched.
-- R1+ discussions: resource regeneration, district efficiency, transport, contracts and production are explicitly out of scope for R0.
+- World Rion: `rion.role.world` / `WRD-000001`. Stage name: R0 (discovery engine stores stage 0).
+- DEV discovery: **World → Mission → Myonite → Mining**; previously discovered Rions stay discovered. LIVE and TEST remain on their approved pinned archives.
+- No map, visible coordinates, facility placement, production, efficiency upgrades or ore regeneration in R0.
+- World R0 is created only upon World Rion discovery, then stored inside the DEV mission save.
+- Select the desired site type from Mining, Refining, Industry, Logistics, Residential, and Commerce. Each user-initiated search produces **0, 1, 2 or 3** newly discovered sites of the selected type. Distribution is provisional R0 tuning (20%, 50%, 23%, 7%). A failed search leaves the game save unchanged. No automatic site addition and no facility construction.
+- Each discovered site receives a stable ID and hidden fixed location. All pair distances are symmetric and computed when needed from the seed+index. No large pair matrix is stored.
+- Existing `worldR0` schema 1 upgrades to schema 2 without changing existing site types, ID or distances. Schema 2 keeps `seed,createdAt,baseCount,discoveredCount` and compact contiguous `batches:[{from,count,type}]`. Only new targeted searches append to batches; old sites still resolve their type from the original seed.
+- DEV 0.14.6.1 → 0.14.7 preserves the previous DEV versioned save and loads it into the new key after validation. Existing older keys remain untouched. LIVE 0.14.5.2 and TEST 0.13.94 pins stay unchanged.
+- External file picker save/load has not been connected to actual game yet. Existing DEV localStorage save plus entry backup remains in use.
+- Ore stock, time-based regeneration, site operating efficiency, resource transport, and financial contracts are later-stage features.

@@ -175,6 +175,12 @@ function load(){
  if(current.saved)return current.saved;
  if(current.existing)throw Error('기존 게임 기록을 확인할 수 없어 초기화를 중단했습니다.');
  // Migrate a prior DEV game only; never read LIVE or TEST saves.
+ if(MISSION_SERVER==='dev'&&['0.14.7','preview-0.14.7'].includes(DEV_SAVE_VERSION)){
+  const before=DEV_SAVE_VERSION==='0.14.7'?'0.14.6.1':'preview-0.14.6.1';
+  const legacy=fromKeys(['MYON_DEV_MISSIONS_V1_'+before,'MYON_DEV_MISSIONS_V1_'+before+'.backup']);
+  if(legacy.saved)return legacy.saved;
+  if(legacy.existing)throw Error('이전 개발서버 기록이 손상되어 단지 탐색 업데이트를 중단합니다.');
+ }
  if(MISSION_SERVER==='dev'&&DEV_SAVE_VERSION==='0.14.6.1'){
   const legacy=fromKeys(['MYON_DEV_MISSIONS_V1_0.14.5.3','MYON_DEV_MISSIONS_V1_0.14.5.3.backup']);
   if(legacy.saved)return legacy.saved;
@@ -216,14 +222,15 @@ function acceptRion(){
  if(result.id==='rion.role.development'&&typeof window.MYON_RION_CHECK_UPDATE==='function')
   window.MYON_RION_CHECK_UPDATE();
 }
-function discoverMoreWorld(){
- if(MISSION_SERVER!=='dev'||!WORLD||!WORLD.found(world?.rions)||!WORLD.valid(world?.worldR0))return;
- const expanded=WORLD.discoverMore(world.worldR0);
- if(!expanded)return;
- if(transact(next=>{next.worldR0=expanded})){
-  notice='새 단지를 발견했습니다. · 총 '+fmt(expanded.discoveredCount)+'곳';
-  render();
- }
+function exploreWorld(type){
+ if(MISSION_SERVER!=='dev'||!WORLD||!WORLD.found(world?.rions)||!WORLD.valid(world?.worldR0))
+  return {error:'월드 리온을 먼저 발견해야 합니다.'};
+ const result=WORLD.explore(world.worldR0,type);
+ if(!result)return {error:'단지 종류 또는 탐색 범위를 확인하세요.'};
+ if(result.foundCount===0)return {foundCount:0,from:result.from,state:world.worldR0};
+ if(!transact(next=>{next.worldR0=result.state}))
+  return {error:'저장에 실패해 탐색 결과를 적용하지 않았습니다.'};
+ return {foundCount:result.foundCount,from:result.from,state:world.worldR0};
 }
 function settleMining(){
  if(!RION_GAMEPLAY||!MINE||!world?.myonite?.active)return;
@@ -333,10 +340,12 @@ function renderRionComplete(){
 function renderRionWiki(){
  const view=$m('mw-rion-view');
  if(!view)return;
- if(MISSION_SERVER==='dev'&&window.MYON_DEV_MINING_UI){
-  window.MYON_DEV_MINING_UI.render(view);
+ if(MISSION_SERVER==='dev'){
+  view.replaceChildren();
   if(WORLD&&WORLD.found(world?.rions)&&WORLD.valid(world?.worldR0)&&window.MYON_DEV_WORLD_UI)
-   window.MYON_DEV_WORLD_UI.render(view,world.worldR0,WORLD,discoverMoreWorld);
+   window.MYON_DEV_WORLD_UI.render(view,world.worldR0,WORLD,exploreWorld);
+  if(MINE&&MINE.canMine(world?.rions)&&window.MYON_DEV_MINING_UI)
+   window.MYON_DEV_MINING_UI.render(view,true);
   return;
  }
  view.replaceChildren();
@@ -597,6 +606,8 @@ async function bootstrap(){
    if(!MINE.valid(world.myonite))throw Error('광석 보관 및 채광 기록이 손상되었습니다.');
    if(MISSION_SERVER==='dev'&&WORLD&&WORLD.found(world.rions)&&world.worldR0===undefined)
     world.worldR0=WORLD.initialState();
+   if(MISSION_SERVER==='dev'&&WORLD&&world.worldR0!==undefined)
+    world.worldR0=WORLD.migrate(world.worldR0);
    if(world.worldR0!==undefined&&(!WORLD||!WORLD.valid(world.worldR0)))
     throw Error('월드 리온 R0 기록이 손상되었습니다.');
   }
