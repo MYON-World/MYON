@@ -2,10 +2,10 @@
 // Nothing here writes to a player's game database.
 import {validReleases,validRevision} from './myon-release-state.mjs'
 
-// LIVE pins the separately verified Myonite mining release; the retired TEST pin remains frozen.
+// LIVE pins the verified UI-only improvement of the original Myonite-mining game; retired TEST stays frozen.
 export const LIVE_RELEASE=Object.freeze({
- revision:'ea0a7b3e4589a4116ccbf903528b1d3b05af2937',
- version:'0.14.5.2'
+ revision:'04668dc88fbbc52d515aa0b029dede4df889ae74',
+ version:'0.14.11'
 })
 export const TEST_RELEASE=Object.freeze({
  revision:'a3c93e3b4931af3488a6bc5fb15022b17513f451',
