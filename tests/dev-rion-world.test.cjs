@@ -126,52 +126,44 @@ test('DEV first offers World Rion, creates it only when accepted, then offers Mi
  assert.equal(state.worldR0.discoveredCount,0);
  assert.equal(JSON.parse(store.get('MYON_DEV_MISSIONS_V1_0.14.7.1')).worldR0.seed,state.worldR0.seed);
 });
-test('DEV upgrade from v0.14.6.1 keeps existing save untouched and skips reset',async()=>{
+test('DEV version change from v0.14.6.1 resets old missions and discoveries',async()=>{
  const {prepareDevVersion,DEV_ACTIVE_VERSION_KEY}=await import('../src/core/myon-dev-version.mjs');
  const oldKey='MYON_DEV_MISSIONS_V1_0.14.6.1',store=new Map();
  store.set(DEV_ACTIVE_VERSION_KEY,'0.14.6.1');
  store.set(oldKey,JSON.stringify({schema:1,offers:[],active:[],cash:122,
   rions:{schema:2,discovered:[],pending:null,nextAt:Date.now()+10000,latest:null},
   worldR0:{schema:1,generator:1,seed:20,createdAt:1700000000000,discoveredCount:14}}));
- let resetCalled=false;
- const localStorage={
-  getItem:k=>store.get(k)??null,
-  setItem:(k,v)=>store.set(k,v),
-  length:0
- };
- const result=await prepareDevVersion({version:'0.14.7.1',storage:localStorage,
-  deleteDatabase:async()=>{resetCalled=true;},purgeBackups:async()=>{resetCalled=true;}});
- assert.equal(result.migrated,true);
- assert.equal(resetCalled,false);
- assert.equal(JSON.parse(store.get(oldKey)).worldR0.discoveredCount,14);
+ store.set('MYON_LIVE_MISSIONS_V1','official save');
+ const storage={get length(){return store.size},key:i=>[...store.keys()][i]??null,
+  getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)};
+ const calls=[];
+ const result=await prepareDevVersion({version:'0.14.7.1',storage,
+  deleteDatabase:async()=>calls.push('dev db'),purgeBackups:async()=>calls.push('dev backups')});
+ assert.equal(result.reset,true);
+ assert.deepEqual(calls,['dev db','dev backups']);
+ assert.equal(store.has(oldKey),false);
+ assert.equal(store.get('MYON_LIVE_MISSIONS_V1'),'official save');
  assert.equal(store.get(DEV_ACTIVE_VERSION_KEY),'0.14.7.1');
 });
-
-test('DEV v0.14.7.1 to 0.14.8 retains all other saved state and does not clear the DB',async()=>{
+test('DEV v0.14.7.1 to v0.14.8 resets all DEV records, not official saves',async()=>{
  const {prepareDevVersion,DEV_ACTIVE_VERSION_KEY}=await import('../src/core/myon-dev-version.mjs');
- const key='MYON_DEV_MISSIONS_V1_0.14.7.1';
+ const oldKey='MYON_DEV_MISSIONS_V1_0.14.7.1';
  const game={schema:1,offers:[{id:'offer1'}],active:[{id:'active1'}],cash:123456,
   rions:{schema:2,discovered:[{id:'rion.role.world',stage:0,discoveredAt:1700000000000}],
    pending:null,nextAt:1700000000010,latest:null},
-  myonite:{schema:1,storedTons:6,awaitingChoiceTons:0,active:null},
-  worldR0:{schema:2,generator:1,seed:123,createdAt:1700000000000,
-   baseCount:5,discoveredCount:7,batches:[{from:5,count:2,type:'채광단지'}]}};
- const storageMap=new Map([[DEV_ACTIVE_VERSION_KEY,'0.14.7.1'],[key,JSON.stringify(game)]]);
- const storage={getItem:k=>storageMap.get(k)??null,setItem:(k,v)=>storageMap.set(k,v)};
- let reset=false;
- const upgraded=await prepareDevVersion({version:'0.14.8',storage,
-  deleteDatabase:async()=>{reset=true;},purgeBackups:async()=>{reset=true;}});
- assert.equal(upgraded.reset,false);
- assert.equal(reset,false);
- assert.equal(storage.getItem(key),JSON.stringify(game),'old save remains unchanged');
- const W=create(),next={...game,worldR0:W.migrate(game.worldR0)};
- assert.equal(next.worldR0.discoveredCount,0);
- for(const field of ['cash','offers','active','rions','myonite'])
-  assert.deepEqual(JSON.parse(JSON.stringify(next[field])),JSON.parse(JSON.stringify(game[field])));
- assert.equal(storage.getItem(DEV_ACTIVE_VERSION_KEY),'0.14.8');
- const after=W.explore(next.worldR0,'정제단지',()=>0.4);
- assert.equal(after.state.discoveredCount,1);
- assert.equal(W.migrate(after.state).discoveredCount,1);
+  myonite:{schema:1,storedTons:6,awaitingChoiceTons:0,active:null}};
+ const data=new Map([[DEV_ACTIVE_VERSION_KEY,'0.14.7.1'],[oldKey,JSON.stringify(game)],
+  ['MYON_LIVE_MISSIONS_V1','permanent LIVE save']]);
+ const storage={get length(){return data.size},key:i=>[...data.keys()][i]??null,
+  getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
+ const calls=[];
+ const result=await prepareDevVersion({version:'0.14.8',storage,
+  deleteDatabase:async()=>calls.push('DEV database'),purgeBackups:async()=>calls.push('DEV backups')});
+ assert.equal(result.reset,true);
+ assert.deepEqual(calls,['DEV database','DEV backups']);
+ assert.equal(data.has(oldKey),false);
+ assert.equal(data.get('MYON_LIVE_MISSIONS_V1'),'permanent LIVE save');
+ assert.equal(data.get(DEV_ACTIVE_VERSION_KEY),'0.14.8');
 });
 test('zero-site UI does not calculate a missing reference-site distance',()=>{
  const s=fs.readFileSync(path.join(root,'public/myon-dev-world-ui.js'),'utf8');
