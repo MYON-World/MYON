@@ -235,7 +235,7 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
 const params=new URLSearchParams(location.search);
 const requestedDevVersion=params.get('dev_version');
 const isVersionedDevSave=params.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(params.get('build')||'')&&/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(requestedDevVersion||'');
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.10';
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.10.1';
 const MYON_MISSION_SERVER=['live','test'].includes(params.get('server'))?params.get('server'):'dev';
 const missionHeader=document.querySelector('.top-server');
 if(MYON_MISSION_SERVER==='live')missionHeader.textContent='정식버전';
@@ -260,10 +260,6 @@ const query=new URLSearchParams(location.search);
 const version=DEV_SAVE_VERSION;
 if(query.get('server')&&query.get('server')!=='dev')throw Error('DEV 전용 임무 화면입니다.');
 const SAVE='MYON_DEV_MISSIONS_V1_'+version,INTERVAL=600000,LIFETIME=3600000,MAX_OFFERS=10;
-const LEGACY_KEYS=['MYON_DEV_MISSIONS_V1_0.14.9.1','MYON_DEV_MISSIONS_V1_preview-0.14.9.1',
- 'MYON_DEV_MISSIONS_V1_0.14.9','MYON_DEV_MISSIONS_V1_preview-0.14.9',
- 'MYON_DEV_MISSIONS_V1_0.14.8','MYON_DEV_MISSIONS_V1_preview-0.14.8',
- 'MYON_DEV_MISSIONS_V1_0.14.7.1','MYON_DEV_MISSIONS_V1_preview-0.14.7.1'];
 const $=id=>document.getElementById(id),rand=(a,b)=>a+Math.floor(Math.random()*(b-a+1)),pick=arr=>arr[rand(0,arr.length-1)],round2=n=>Math.round((n+Number.EPSILON)*100)/100,format=n=>Number(n).toLocaleString('ko-KR');
 const band=()=>{let p=Math.random()*100;let [a,b]=p<60?[1,10]:p<90?[11,30]:p<99?[31,60]:[61,100];return rand(a,b)/100};
 const signed=n=>(n>=0?'+':'−')+Math.abs(n).toFixed(2);
@@ -298,15 +294,6 @@ function restore(){
   if(!valid(saved))throw Error('현재 DEV 임무 기록이 손상되어 초기화를 중단했습니다.');
   game=missionOnly(saved);
   if(!save())throw Error('DEV 임무 저장 검증에 실패했습니다.');
-  return;
- }
- for(const key of LEGACY_KEYS){
-  const raw=localStorage.getItem(key)||localStorage.getItem(key+'.backup');
-  if(!raw)continue;
-  const old=JSON.parse(raw);
-  if(!valid(old))throw Error('기존 DEV 임무 기록을 검증할 수 없어 초기화를 중단했습니다.');
-  game=missionOnly(old);
-  if(!save())throw Error('기존 DEV 임무를 새 저장소로 복사하지 못했습니다.');
   return;
  }
  initial();

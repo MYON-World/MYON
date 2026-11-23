@@ -190,32 +190,32 @@ test('approval manifest comes from frozen LIVE and TEST pins, not the newest DEV
  assert.match(pins,/LIVE_RELEASE=Object\.freeze/);
  assert.match(pins,/TEST_RELEASE=Object\.freeze/);
 });
-test('v0.13.95 to v0.13.96 preserves DEV progress, future DEV resets retain Rion discoveries',async()=>{
+test('DEV version change resets temporary discoveries and missions without altering LIVE',async()=>{
  const {prepareDevVersion,DEV_ACTIVE_VERSION_KEY,DEV_RION_CONTINUITY_KEY}=await import('../src/core/myon-dev-version.mjs');
- const rions={schema:1,discovered:[{id:'rion.role.ui',stage:0,discoveredAt:T}],
-  pending:null,nextAt:T+5000,latest:null};
- const older={schema:1,offers:[],active:[],rions,cash:200};
- const values=new Map([[DEV_ACTIVE_VERSION_KEY,'0.13.95'],
-  ['MYON_DEV_MISSIONS_V1_0.13.95',JSON.stringify(older)]]);
+ const rions={schema:1,discovered:[{id:'rion.role.ui',stage:0,discoveredAt:T}]};
+ const old={schema:1,offers:[],active:[],rions,cash:200};
+ const values=new Map([[DEV_ACTIVE_VERSION_KEY,'0.14.10'],
+  ['MYON_DEV_MISSIONS_V1_0.14.10',JSON.stringify(old)],
+  [DEV_RION_CONTINUITY_KEY,JSON.stringify(rions)],
+  ['MYON_LIVE_MISSIONS_V1','permanent official save'],
+  ['MYON_TEST_MISSIONS_V1','unchanged pinned test']]);
  const storage={get length(){return values.size},key:i=>[...values.keys()][i]??null,
   getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)};
- const effects=[];
- const opts={storage,idb:{},deleteDatabase:async()=>effects.push('db'),purgeBackups:async()=>effects.push('backup')};
- const migrated=await prepareDevVersion({...opts,version:'0.13.96'});
- assert.equal(migrated.reset,false);
- assert.equal(migrated.migrated,true);
- assert.equal(values.has('MYON_DEV_MISSIONS_V1_0.13.95'),true);
- assert.deepEqual(JSON.parse(values.get(DEV_RION_CONTINUITY_KEY)),rions);
- assert.equal(effects.length,0);
- values.set('MYON_DEV_MISSIONS_V1_0.13.96',JSON.stringify({...older,cash:250}));
- const after=await prepareDevVersion({...opts,version:'0.13.97'});
- assert.equal(after.reset,true);
- assert.deepEqual(effects,['db','backup']);
- assert.equal(values.has('MYON_DEV_MISSIONS_V1_0.13.96'),false);
- assert.deepEqual(JSON.parse(values.get(DEV_RION_CONTINUITY_KEY)),rions);
- assert.equal(values.get(DEV_ACTIVE_VERSION_KEY),'0.13.97');
+ const calls=[];
+ const opts={storage,idb:{},deleteDatabase:async()=>calls.push('dev-db'),
+  purgeBackups:async()=>calls.push('dev-backup')};
+ const result=await prepareDevVersion({...opts,version:'0.14.10.1'});
+ assert.equal(result.reset,true);
+ assert.deepEqual(calls,['dev-db','dev-backup']);
+ assert.equal(values.has('MYON_DEV_MISSIONS_V1_0.14.10'),false);
+ assert.equal(values.has(DEV_RION_CONTINUITY_KEY),false);
+ assert.equal(values.get('MYON_LIVE_MISSIONS_V1'),'permanent official save');
+ assert.equal(values.get('MYON_TEST_MISSIONS_V1'),'unchanged pinned test');
+ assert.equal(values.get(DEV_ACTIVE_VERSION_KEY),'0.14.10.1');
+ const same=await prepareDevVersion({...opts,version:'0.14.10.1'});
+ assert.equal(same.reset,false);
+ assert.equal(calls.length,2);
 });
-
 test('completed discovery card states the actual name without UI Rion and vanishes after one hour',()=>{
  const game=fs.readFileSync(path.join(root,'public/myon-dev-missions.js'),'utf8');
  const instrumented=game.replace(/bootstrap\(\);\s*\}\)\(\);\s*$/,

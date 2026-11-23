@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'public/myon-150.html'),'utf8');
-const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1],KEY='MYON_DEV_MISSIONS_V1_0.14.10';
+const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1],KEY='MYON_DEV_MISSIONS_V1_0.14.10.1';
 function harness(legacy={}){
  const data=new Map(Object.entries(legacy)),elements=new Map(),window={setInterval(){}};
  let now=Date.UTC(2026,10,23,0,0,0);
@@ -17,8 +17,8 @@ function harness(legacy={}){
  const document={getElementById:el,querySelectorAll(){return []}};
  const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
  const ctx=vm.createContext({document,localStorage,window,console,Math,Intl,JSON,Object,
-  Date:FakeDate,URLSearchParams,location:{search:'?server=dev&dev_version=0.14.10&build='+'1'.repeat(40)}});
- vm.runInContext('const DEV_SAVE_VERSION="0.14.10";',ctx);
+  Date:FakeDate,URLSearchParams,location:{search:'?server=dev&dev_version=0.14.10.1&build='+'1'.repeat(40)}});
+ vm.runInContext('const DEV_SAVE_VERSION="0.14.10.1";',ctx);
  vm.runInContext(script,ctx,{timeout:3000});
  return {data,elements,ctx,window,run:q=>vm.runInContext(q,ctx),tick:ms=>{now+=ms;vm.runInContext('update()',ctx)}};
 }
@@ -79,18 +79,20 @@ test('ongoing tasks are sorted by earliest completion, including Rion',()=>{
  const content=s.elements.get('active').innerHTML;
  assert.ok(content.indexOf('분석중')>=0&&content.indexOf('분석중')<content.indexOf('곡물'));
 });
-test('v0.14.9.1 mission/cash is copied to v0.14.10 without touching the old save',()=>{
+test('DEV starts fresh and never imports previous-version mission, cash or Rion progress',()=>{
  const initial=saved(harness());
- const legacy={...initial,cash:456,uiRion:undefined,rions:{pending:{}},myonite:{storedTons:2},
-  worldR0:{count:5},offers:initial.offers.map(x=>({...x,contributionRion:'rion.role.world'}))};
- const raw=JSON.stringify(legacy),s=harness({'MYON_DEV_MISSIONS_V1_0.14.9.1':raw});
+ const legacy={...initial,cash:456,uiRion:{phase:'done',acceptedAt:Date.UTC(2026,10,22),completedAt:Date.UTC(2026,10,22)+3600000},
+  rions:{discovered:[{id:'rion.role.ui'}]},offers:initial.offers.slice(0,1)};
+ const raw=JSON.stringify(legacy);
+ const oldKey='MYON_DEV_MISSIONS_V1_0.14.10';
+ const s=harness({[oldKey]:raw,'MYON_DEV_MISSIONS_V1_0.14.9.1':raw});
  const current=saved(s);
- assert.equal(current.cash,456);
+ assert.equal(current.cash,0);
  assert.equal(current.offers.length,4);
- assert.equal(s.data.get('MYON_DEV_MISSIONS_V1_0.14.9.1'),raw);
  assert.equal(current.uiRion.phase,'waiting');
- for(const key of ['rions','myonite','worldR0'])assert.equal(key in current,false);
- assert.equal('contributionRion' in current.offers[0],false);
+ assert.equal(current.history.length,0);
+ assert.equal(s.data.get(oldKey),raw);
+ for(const k of ['rions','myonite','worldR0'])assert.equal(k in current,false);
 });
 test('DEV route and LIVE/TEST pins remain unchanged',()=>{
  const next=fs.readFileSync(path.join(root,'public/myon-next.html'),'utf8');
