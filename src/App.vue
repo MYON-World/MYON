@@ -121,9 +121,9 @@ async function enterServer(server){
   entryIndex.value=1
   entryStep.value='게임 파일 확인 중'
   const url=await verifyArchive({base:BASE,server,revision:target.revision})
-  // Only the UI-only LIVE approval v0.14.11 loads its frozen official game and enhanced presentation.
+  // The approved LIVE immediate UI discovery v0.14.14 uses the frozen enhanced game.
   // Existing LIVE pins and DEV/TEST keep their original immutable pages.
-  const gamePage=server==='live'&&target.version==='0.14.11'?'myon-live-ui.html':'myon-next.html'
+  const gamePage=server==='live'&&target.version==='0.14.14'?'myon-live-ui.html':'myon-next.html'
   const gameUrl=url.replace('/myon.html?','/'+gamePage+'?')
   const nextFile=await fetch(gameUrl,{method:'HEAD',cache:'no-store'})
   if(!nextFile.ok)throw Error('MYON 게임 화면을 확인할 수 없습니다. 기존 세이브는 유지됩니다.')

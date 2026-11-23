@@ -68,8 +68,8 @@ test('new portal uses pinned LIVE and TEST revisions independent of DEV',async()
  assert.equal(targetForServer('dev',releases).revision,D);
  assert.equal(targetForServer('test',releases).revision,TEST_RELEASE.revision);
  assert.notEqual(LIVE_RELEASE.revision,TEST_RELEASE.revision,'LIVE promotion must not alter the retired accelerated TEST pin');
- assert.equal(LIVE_RELEASE.version,'0.14.11');
- assert.equal(LIVE_RELEASE.revision,'04668dc88fbbc52d515aa0b029dede4df889ae74');
+ assert.equal(LIVE_RELEASE.version,'0.14.14');
+ assert.equal(LIVE_RELEASE.revision,'7a33f144f7a7e71aba7745be2fa7788b75fa3dc0');
  assert.notEqual(dbForServer('dev'),dbForServer('live'));
  assert.notEqual(dbForServer('test'),dbForServer('live'));
  assert.notEqual(dbForServer('test'),dbForServer('dev'));
@@ -187,7 +187,7 @@ test('DEV numeric missions are the only runtime page (no city-picker or characte
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
- assert.ok(app.includes("const gamePage=server==='live'&&target.version==='0.14.11'?'myon-live-ui.html':'myon-next.html'"));
+ assert.ok(app.includes("const gamePage=server==='live'&&target.version==='0.14.14'?'myon-live-ui.html':'myon-next.html'"));
  assert.ok(app.includes("const gameUrl=url.replace('/myon.html?','/'+gamePage+'?')"));
  assert.doesNotMatch(app,/<button type="button" class="server-row test"/);
  assert.match(app,/가속 서버 종료/);
@@ -648,13 +648,13 @@ test('update notice preserves read-only monitoring and requires verified portal 
  assert.ok(mission.includes("saved===JSON.stringify(world)&&validWorld(JSON.parse(saved))"));
 });
 
-test('v0.14.11 approval changes only LIVE UI while preserving TEST and separated saves',async()=>{
+test('v0.14.14 approval enables immediate UI discovery while preserving TEST and separated saves',async()=>{
  const {LIVE_RELEASE,TEST_RELEASE,dbForServer}=await import('../src/core/myon-server-entry.mjs');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
  const missions=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
- assert.equal(LIVE_RELEASE.revision,'04668dc88fbbc52d515aa0b029dede4df889ae74');
+ assert.equal(LIVE_RELEASE.revision,'7a33f144f7a7e71aba7745be2fa7788b75fa3dc0');
  assert.equal(TEST_RELEASE.revision,'a3c93e3b4931af3488a6bc5fb15022b17513f451');
- assert.equal(LIVE_RELEASE.version,'0.14.11');
+ assert.equal(LIVE_RELEASE.version,'0.14.14');
  assert.equal(TEST_RELEASE.version,'0.13.94');
  assert.ok(app.includes('class="game-controls dev-controls"'));
  assert.ok(app.includes("@click=\"enterServer('dev')\""));

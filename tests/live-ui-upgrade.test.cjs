@@ -51,7 +51,7 @@ test('LIVE enhanced page retains official markup while loading isolated official
  assert.match(html,/\.mw-live-ui-open > #mw-root/);
  for(const match of html.matchAll(/<script>([\s\S]*?)<\/script>/g))new vm.Script(match[1]);
  const app=read('src/App.vue');
- assert.match(app,/server==='live'&&target\.version==='0\.14\.11'/);
+ assert.match(app,/server==='live'&&target\.version==='0\.14\.14'/);
  assert.match(app,/myon-live-ui\.html/);
  assert.match(app,/myon-next\.html/);
 });
