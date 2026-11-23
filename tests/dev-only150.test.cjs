@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'public/myon-150.html'),'utf8');
-const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1],KEY='MYON_DEV_MISSIONS_V1_0.14.10.2';
+const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1],KEY='MYON_DEV_MISSIONS_V1_0.14.11';
 function harness(legacy={}){
  const data=new Map(Object.entries(legacy)),elements=new Map(),window={setInterval(){}};
  let now=Date.UTC(2026,10,23,0,0,0);
@@ -17,8 +17,8 @@ function harness(legacy={}){
  const document={getElementById:el,querySelectorAll(){return []}};
  const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
  const ctx=vm.createContext({document,localStorage,window,console,Math,Intl,JSON,Object,
-  Date:FakeDate,URLSearchParams,location:{search:'?server=dev&dev_version=0.14.10.2&build='+'1'.repeat(40)}});
- vm.runInContext('const DEV_SAVE_VERSION="0.14.10.2";',ctx);
+  Date:FakeDate,URLSearchParams,location:{search:'?server=dev&dev_version=0.14.11&build='+'1'.repeat(40)}});
+ vm.runInContext('const DEV_SAVE_VERSION="0.14.11";',ctx);
  vm.runInContext(script,ctx,{timeout:3000});
  return {data,elements,ctx,window,run:q=>vm.runInContext(q,ctx),tick:ms=>{now+=ms;vm.runInContext('update()',ctx)}};
 }

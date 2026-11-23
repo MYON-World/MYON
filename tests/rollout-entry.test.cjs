@@ -187,7 +187,8 @@ test('DEV numeric missions are the only runtime page (no city-picker or characte
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
- assert.ok(app.includes("const gameUrl=url.replace('/myon.html?','/myon-next.html?')"));
+ assert.ok(app.includes("const gamePage=server==='live'&&target.version==='0.14.11'?'myon-live-ui.html':'myon-next.html'"));
+ assert.ok(app.includes("const gameUrl=url.replace('/myon.html?','/'+gamePage+'?')"));
  assert.doesNotMatch(app,/<button type="button" class="server-row test"/);
  assert.match(app,/가속 서버 종료/);
  assert.match(app,/testCountdown/);
