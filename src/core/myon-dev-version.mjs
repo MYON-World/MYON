@@ -90,7 +90,7 @@ export async function prepareDevVersion({version,storage=globalThis.localStorage
  if(previous===version)return {reset:false,version}
  // One-time simplification: carry forward only mission progress in the next DEV
  // runtime. Never overwrite prior keys or purge the player's historical saves.
- if(['0.14.9','0.14.9.1'].includes(version)&&['0.14.8','0.14.7.1','0.14.9'].includes(previous)){
+ if(['0.14.9','0.14.9.1','0.14.10'].includes(version)&&['0.14.8','0.14.7.1','0.14.9','0.14.9.1'].includes(previous)){
   const old=storage.getItem('MYON_DEV_MISSIONS_V1_'+previous);
   if(old){
    let snapshot;

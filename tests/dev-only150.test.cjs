@@ -1,51 +1,101 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict');
-const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const root=path.resolve(__dirname,'..');
-const html=fs.readFileSync(path.join(root,'public/myon-150.html'),'utf8');
-const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
-const script=scripts.at(-1)[1];
-function start(legacy={}){
- const data=new Map(Object.entries(legacy)),elements=new Map(),window={};
- const element=id=>{
-  if(!elements.has(id))elements.set(id,{textContent:'',innerHTML:'',addEventListener(){}});
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'public/myon-150.html'),'utf8');
+const script=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1],KEY='MYON_DEV_MISSIONS_V1_0.14.10';
+function harness(legacy={}){
+ const data=new Map(Object.entries(legacy)),elements=new Map(),window={setInterval(){}};
+ let now=Date.UTC(2026,10,23,0,0,0);
+ class FakeDate extends Date{constructor(...args){super(...(args.length?args:[now]))}static now(){return now}}
+ function el(id){
+  if(!elements.has(id))elements.set(id,{
+   textContent:'',innerHTML:'',hidden:true,disabled:true,dataset:{},
+   classList:{toggle(){}},style:{width:'',setProperty(){}},
+   setAttribute(){},addEventListener(){},getBoundingClientRect(){return {width:320}}
+  });
   return elements.get(id);
- };
+ }
+ const document={getElementById:el,querySelectorAll(){return []}};
  const localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
- const context={window,document:{getElementById:element,querySelectorAll:()=>[]},
-  localStorage,location:{search:'?server=dev&dev_version=0.14.9.1'},
-  URLSearchParams,Date,Intl,Math,JSON,Object,console,setInterval(){},confirm:()=>true};
- vm.runInNewContext(script,context,{timeout:3000});
- return {data,window};
+ const ctx=vm.createContext({document,localStorage,window,console,Math,Intl,JSON,Object,
+  Date:FakeDate,URLSearchParams,location:{search:'?server=dev&dev_version=0.14.10&build='+'1'.repeat(40)}});
+ vm.runInContext('const DEV_SAVE_VERSION="0.14.10";',ctx);
+ vm.runInContext(script,ctx,{timeout:3000});
+ return {data,elements,ctx,window,run:q=>vm.runInContext(q,ctx),tick:ms=>{now+=ms;vm.runInContext('update()',ctx)}};
 }
-test('DEV only-150 world starts with exactly 150 fields and 4 free missions',()=>{
- const {data,window}=start();
- const save=JSON.parse(data.get('MYON_DEV_MISSIONS_V1_0.14.9.1'));
- assert.equal(save.stats.length,150);
- assert.equal(save.offers.length,4);
- assert.ok(save.offers.every(m=>m.acceptCost===0));
- assert.equal(save.cash,0);
- for(const key of ['rions','myonite','worldR0'])assert.equal(key in save,false);
- assert.equal(typeof window.MYON_SAFE_UPDATE_CHECKPOINT,'function');
+const saved=s=>JSON.parse(s.data.get(KEY));
+test('original MYON layout is retained and 150 normal fields remain',()=>{
+ assert.match(html,/class="top-identity"/);
+ assert.match(html,/class="mw-root"/);
+ assert.match(html,/class="mw-money-strip"/);
+ assert.doesNotMatch(html,/MYON · 임무 150/);
+ assert.doesNotMatch(html,/150개 분야 임무/);
+ const s=harness(),g=saved(s);
+ assert.equal(g.stats.length,150);
+ assert.equal(g.offers.length,4);
+ assert.ok(g.offers.every(m=>m.acceptCost===0));
+ assert.equal(g.cash,0);
+ assert.equal(g.uiRion.phase,'waiting');
+ assert.equal(typeof s.window.MYON_SAFE_UPDATE_CHECKPOINT,'function');
+ for(const key of ['rions','myonite','worldR0'])assert.equal(key in g,false);
 });
-test('DEV save migration preserves money and missions, excludes obsolete systems and leaves old key untouched',()=>{
- const prior=JSON.parse(start().data.get('MYON_DEV_MISSIONS_V1_0.14.9.1'));
- const legacy={...prior,cash:456,rions:{pending:{}},myonite:{storedTons:2},
-  worldR0:{discoveredCount:5},offers:prior.offers.map(m=>({...m,contributionRion:'rion.role.world'}))};
- const raw=JSON.stringify(legacy);
- const {data}=start({'MYON_DEV_MISSIONS_V1_0.14.8':raw});
- const current=JSON.parse(data.get('MYON_DEV_MISSIONS_V1_0.14.9.1'));
+test('UI Rion appears after one hour and does not expire before acceptance',()=>{
+ const s=harness();
+ s.tick(3600000);
+ assert.equal(saved(s).uiRion.phase,'pending');
+ assert.match(s.elements.get('offers').innerHTML,/알 수 없는 임무/);
+ s.tick(5*3600000);
+ assert.equal(saved(s).uiRion.phase,'pending');
+ assert.match(s.elements.get('offers').innerHTML,/알 수 없는 임무/);
+ assert.equal(s.run('rionAccept()'),true);
+ assert.equal(saved(s).uiRion.phase,'active');
+});
+test('UI Rion completes 60-minute stages; 40-50min fills menu and locks at 100%',()=>{
+ const s=harness();
+ s.tick(3600000);s.run('rionAccept()');
+ assert.equal(s.run('rionStage(Date.now())[1]'),'분석중');
+ s.tick(20*60000);
+ assert.equal(s.run('rionStage(Date.now())[1]'),'UI 리온');
+ s.tick(20*60000);
+ assert.equal(s.run('rionStage(Date.now())[1]'),'세팅중');
+ assert.equal(s.elements.get('ui-rion-nav').hidden,false);
+ assert.equal(s.elements.get('ui-rion-title').textContent,'메뉴 세팅중');
+ assert.equal(s.elements.get('ui-rion-lock').hidden,true);
+ s.tick(5*60000);
+ assert.equal(s.elements.get('ui-rion-fill').style.width,'50%');
+ s.tick(5*60000);
+ assert.equal(s.elements.get('ui-rion-title').textContent,'리온');
+ assert.equal(s.elements.get('ui-rion-lock').hidden,false);
+ assert.equal(s.elements.get('ui-rion-fill').disabled,true);
+ s.tick(10*60000);
+ assert.equal(saved(s).uiRion.phase,'done');
+ assert.equal(s.elements.get('ui-rion-nav').hidden,false);
+ assert.ok(saved(s).history.some(x=>x.type==='ui-rion'));
+});
+test('ongoing tasks are sorted by earliest completion, including Rion',()=>{
+ const s=harness();
+ s.tick(3600000);s.run('rionAccept()');
+ s.run('game.active.push({id:"late",field:0,minutes:120,endsAt:Date.now()+7200000,expiresAt:Date.now()+7200000,acceptCost:0,money:100, direct:.10})');
+ s.run('render()');
+ const content=s.elements.get('active').innerHTML;
+ assert.ok(content.indexOf('분석중')>=0&&content.indexOf('분석중')<content.indexOf('곡물'));
+});
+test('v0.14.9.1 mission/cash is copied to v0.14.10 without touching the old save',()=>{
+ const initial=saved(harness());
+ const legacy={...initial,cash:456,uiRion:undefined,rions:{pending:{}},myonite:{storedTons:2},
+  worldR0:{count:5},offers:initial.offers.map(x=>({...x,contributionRion:'rion.role.world'}))};
+ const raw=JSON.stringify(legacy),s=harness({'MYON_DEV_MISSIONS_V1_0.14.9.1':raw});
+ const current=saved(s);
  assert.equal(current.cash,456);
  assert.equal(current.offers.length,4);
- assert.equal(data.get('MYON_DEV_MISSIONS_V1_0.14.8'),raw);
+ assert.equal(s.data.get('MYON_DEV_MISSIONS_V1_0.14.9.1'),raw);
+ assert.equal(current.uiRion.phase,'waiting');
  for(const key of ['rions','myonite','worldR0'])assert.equal(key in current,false);
  assert.equal('contributionRion' in current.offers[0],false);
 });
-test('only DEV routes to 150 missions; LIVE/TEST pins remain immutable',()=>{
- const legacy=fs.readFileSync(path.join(root,'public/myon-next.html'),'utf8');
+test('DEV route and LIVE/TEST pins remain unchanged',()=>{
+ const next=fs.readFileSync(path.join(root,'public/myon-next.html'),'utf8');
  const entry=fs.readFileSync(path.join(root,'src/core/myon-server-entry.mjs'),'utf8');
- assert.match(legacy,/server'\)===\s*'dev'/);
- assert.match(legacy,/myon-150\.html/);
+ assert.match(next,/myon-150\.html/);
  assert.match(entry,/version:'0\.14\.5\.2'/);
  assert.match(entry,/version:'0\.13\.94'/);
 });
