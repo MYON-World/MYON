@@ -25,18 +25,22 @@ test('LIVE remains the exact official v0.14.5.2 economy, Rion discovery, mining 
   .replace("fetch('./myon-world-baseline.json'","fetch('./myon-live-ui-baseline.json'")
   .replace("fetch('./myon-city-names.json'","fetch('./myon-live-ui-city-names.json'")
   .replace("fetch('./myon-rion-registry.json'","fetch('./myon-live-ui-registry.json'");
- assert.equal(read('public/myon-live-ui-missions.js'),expected,'Only asset URLs may differ from approved LIVE engine');
+ const live=read('public/myon-live-ui-missions.js');
+ assert.match(live,/function acceptUiRion\(/);
+ assert.match(live,/function settleUiRion\(/);
+ assert.match(live,/function renderUiRionActive\(/);
+ assert.match(live,/world\.uiRion=uiRionState\(world\)/);
+ assert.match(live,/next\.rions\.discovered\.push\(\{id:'rion.role.ui',stage:0,discoveredAt:now\}\)/);
+ for(const name of ['generateMission','settleMining','renderMiningCard','settleDue','write','load']) {
+  const regex=new RegExp('function '+name+'\\([\\s\\S]*?(?=\\nfunction |$)');
+  const before=expected.match(regex)?.[0],after=live.match(regex)?.[0];
+  assert.ok(before&&after, 'Missing original '+name);
+  assert.equal(after,before, 'Existing gameplay function changed: '+name);
+ }
 
  // The LIVE UI discovery extension is the only allowed departure from frozen
  // mining logic; the original ORDER and canMine gate must remain untouched.
- const originalMining=pinnedRead('myon-dev-rion-mining.js');
- const miningWithUi=originalMining
-  .replace("const ORDER=Object.freeze(['rion.role.mission','rion.material.myonite','rion.role.mining']);",
-    "const ORDER=Object.freeze(['rion.role.mission','rion.material.myonite','rion.role.mining']);\n// UI discovery is independent of the original three-stage mining progression.\nconst UI_RION='rion.role.ui';")
-  .replace(" const next=ORDER.find(id=>!found(state,id));",
-    " // Preserve any waiting discovery from existing LIVE saves before introducing UI.\n const waiting=state.pending&&!found(state,state.pending.id)?state.pending.id:null;\n const next=waiting||(!found(state,UI_RION)?UI_RION:ORDER.find(id=>!found(state,id)));");
- assert.notEqual(miningWithUi,originalMining);
- assert.equal(read('public/myon-live-ui-mining.js'),miningWithUi,'Unexpected change to official mining logic');
+ assert.equal(read('public/myon-live-ui-mining.js'),pinnedRead('myon-dev-rion-mining.js'),'Mining progression must remain official');
   assert.match(expected,/MYON_LIVE_MISSIONS_V1/);
  assert.equal(JSON.parse(read('public/myon-live-ui-registry.json')).records.length,162);
 });
@@ -56,58 +60,81 @@ test('LIVE enhanced page retains official markup while loading isolated official
  assert.match(app,/myon-next\.html/);
 });
 
-test('LIVE presents the UI Rion immediately on a fresh game, then resumes original mining discoveries',()=>{
- const game={},rions={};
- vm.runInNewContext(read('public/myon-live-ui-mining.js'),{window:game});
- vm.runInNewContext(read('public/myon-live-ui-rions.js'),{window:rions});
- const E=game.MYON_DEV_RION_MINING,R=rions.MYON_RIONS;
- const defs=JSON.parse(read('public/myon-live-ui-registry.json')).records;
- const now=Date.parse('2026-11-24T00:00:00Z');
- let state=R.initialize(null,defs,now);
- assert.equal(state.pending,null);
- assert.equal(state.nextAt,now+3600000);
- state=E.prepareDiscovery(state,now).state;
- assert.equal(state.pending.id,'rion.role.ui');
- assert.equal(state.pending.createdAt,now,'UI offer must appear without any 1-hour wait');
- assert.equal(state.nextAt,null,'pending UI must not expire');
- state=R.accept(state,defs,now+1000).state;
- state=E.prepareDiscovery(state,now+1000).state;
- assert.equal(state.pending.id,'rion.role.mission');
- assert.equal(E.canMine(state),false);
- for(let i=0;i<3;i++){
-  assert.equal(state.pending.id,E.ORDER[i]);
-  state=R.accept(state,defs,now+2000+i*1000).state;
-  state=E.prepareDiscovery(state,now+2000+i*1000).state;
- }
- assert.equal(state.pending,null);
- assert.equal(E.canMine(state),true,'original three-Rion mining unlock must remain');
- assert.equal(state.discovered.filter(x=>x.id==='rion.role.ui').length,1,'UI must be unique');
+test('original mining progression remains independent of the UI scene',()=>{
+ const win={};vm.runInNewContext(read('public/myon-live-ui-mining.js'),{window:win});
+ const E=win.MYON_DEV_RION_MINING,now=Date.parse('2026-11-24T00:00:00Z');
+ const a={schema:2,discovered:[],pending:null,nextAt:now+3600000,latest:null};
+ const started=E.prepareDiscovery(a,now).state;
+ assert.equal(started.pending.id,'rion.role.mission');
+ assert.deepEqual([...E.ORDER],['rion.role.mission','rion.material.myonite','rion.role.mining']);
+ const mined={...a,discovered:E.ORDER.map(id=>({id,stage:0,discoveredAt:now})),nextAt:null};
+ assert.equal(E.canMine(mined),true);
 });
-test('LIVE restores an already-waiting mining Rion without overwriting it, and queues UI after acceptance',()=>{
- const game={},rions={};
- vm.runInNewContext(read('public/myon-live-ui-mining.js'),{window:game});
- vm.runInNewContext(read('public/myon-live-ui-rions.js'),{window:rions});
- const E=game.MYON_DEV_RION_MINING,R=rions.MYON_RIONS;
+function liveHarness(){
+ let now=Date.parse('2026-11-24T00:00:00Z'),data=null;
+ const window={};
+ const sandbox={window,console,Math,JSON,MYON_MISSION_SERVER:'live',DEV_SAVE_VERSION:'test',
+  localStorage:{setItem(k,v){data=v},getItem(){return data}},
+  document:{getElementById(){return null}},
+  Date:class extends Date{constructor(...args){super(...(args.length?args:[now]))}static now(){return now}},
+ };
+ vm.runInNewContext(read('public/myon-live-ui-rions.js'),sandbox);
+ vm.runInNewContext(read('public/myon-live-ui-mining.js'),sandbox);
+ const script=read('public/myon-live-ui-missions.js');
+ const patched=script.replace(/bootstrap\(\);\s*\}\)\(\);\s*$/,
+  "globalThis.__test={setWorld:v=>{world=v},getWorld:()=>world,acceptUiRion,settleUiRion,validWorld,uiRionState,uiRionStage,uiRionProgress};})();");
+ assert.notEqual(script,patched);
+ const base=JSON.parse(read('public/myon-live-ui-baseline.json'));
  const defs=JSON.parse(read('public/myon-live-ui-registry.json')).records;
- const now=Date.parse('2026-11-24T00:00:00Z');
- const saved=R.initialize(null,defs,now);
- saved.pending={id:'rion.role.mission',createdAt:now-600000};
- saved.nextAt=null;
- const preserved=E.prepareDiscovery(saved,now);
- assert.equal(preserved.changed,false);
- assert.equal(JSON.stringify(preserved.state),JSON.stringify(saved));
- let accepted=R.accept(preserved.state,defs,now+1000).state;
- accepted=E.prepareDiscovery(accepted,now+1000).state;
- assert.equal(accepted.pending.id,'rion.role.ui');
- const fullyMining={...saved,
-   discovered:E.ORDER.map(id=>({id,stage:0,discoveredAt:now-1000})),
-   pending:null,nextAt:null,latest:null};
- assert.equal(E.canMine(fullyMining),true);
- const pending=E.prepareDiscovery(fullyMining,now).state;
- assert.equal(pending.pending.id,'rion.role.ui');
- assert.equal(E.canMine(pending),true);
+ sandbox.__defs=defs;
+ // rionDefinitions is internal to the IIFE; initialize it before probes use validWorld.
+ const initialized=patched.replace("globalThis.__test={","rionDefinitions=globalThis.__defs;globalThis.__test={");
+ vm.runInNewContext(initialized,sandbox,{timeout:2000});
+ const R=window.MYON_RIONS,E=window.MYON_DEV_RION_MINING;
+ const world={schema:1,city:'lien',cityName:'리온',createdAt:now,cash:0,
+ stats:Array(150).fill(50),offers:[],active:[],history:[],nextOfferAt:now+600000,
+ rions:E.prepareDiscovery(R.initialize(null,defs,now),now).state,
+ myonite:E.initialState(),uiRion:{phase:'pending',acceptedAt:0,completedAt:0}};
+ const probe=sandbox.__test;
+ assert.equal(probe.validWorld(world),true);
+ probe.setWorld(world);
+ return {probe,getSaved:()=>data,advance:ms=>{now+=ms},R};
+}
+test('LIVE UI appears at once, but accepting only begins analysis and never discovers instantly',()=>{
+ const h=liveHarness();
+ const {probe,R}=h;
+ let w=probe.getWorld();
+ assert.equal(w.uiRion.phase,'pending');
+ assert.equal(R.discovered(w.rions,'rion.role.ui'),false);
+ probe.acceptUiRion();
+ w=probe.getWorld();
+ assert.equal(w.uiRion.phase,'active');
+ assert.equal(R.discovered(w.rions,'rion.role.ui'),false);
+ assert.deepEqual(Array.from(probe.uiRionStage()),['??','분석중']);
+ assert.ok(h.getSaved());
+ h.advance(20*60000);
+ assert.deepEqual(Array.from(probe.uiRionStage()),['리온','UI 리온']);
+ h.advance(20*60000);
+ assert.deepEqual(Array.from(probe.uiRionStage()),['UI 리온','세팅중']);
+ h.advance(20*60000-1000);
+ assert.equal(probe.settleUiRion(),false);
+ assert.equal(R.discovered(probe.getWorld().rions,'rion.role.ui'),false);
+ h.advance(1000);
+ assert.equal(probe.settleUiRion(),true);
+ assert.equal(R.discovered(probe.getWorld().rions,'rion.role.ui'),true);
+ assert.equal(probe.getWorld().uiRion.phase,'done');
+ assert.equal(probe.validWorld(probe.getWorld()),true);
 });
-
+test('old LIVE UI discoverers remain complete on migration without resetting saved progress',()=>{
+ const h=liveHarness(),{probe,R}=h;
+ const world=probe.getWorld();
+ world.cash=73000;
+ world.rions.discovered.push({id:'rion.role.ui',stage:0,discoveredAt:world.createdAt-10000});
+ delete world.uiRion;
+ assert.equal(probe.uiRionState(world).phase,'done');
+ assert.equal(world.cash,73000);
+ assert.equal(R.discovered(world.rions,'rion.role.ui'),true);
+});
 function probe(){
  const source=read('public/myon-live-ui-overlay.js');
  assert.doesNotMatch(source,/localStorage\.setItem|localStorage\.removeItem|indexedDB\.deleteDatabase/);
@@ -128,7 +155,7 @@ test('preexisting LIVE UI discoverers get unlocked menu on first visit',()=>{
 });
 test('new UI discoverers finish menu only after 60 minutes; 40-50 fills continuously',()=>{
  const p=probe(),d=Date.parse('2026-11-23T15:00:00Z');
- const st=m=>p.status(world('rion.role.ui',d),d+m*60000);
+ const st=m=>p.status({uiRion:{phase:'active',acceptedAt:d,completedAt:0},rions:{discovered:[]}},d+m*60000);
  assert.equal(st(0).visible,false);
  assert.equal(st(39).visible,false);
  assert.equal(st(40).visible,true);
@@ -137,8 +164,9 @@ test('new UI discoverers finish menu only after 60 minutes; 40-50 fills continuo
  assert.equal(st(50).ratio,1);
  assert.equal(st(50).ready,false);
  assert.equal(st(59).ready,false);
- assert.equal(st(60).ready,true);
+ assert.equal(st(60).ready,false,'only mission completion may unlock');
  assert.equal(st(60).ratio,1);
+ assert.equal(p.status({uiRion:{phase:'done',acceptedAt:d,completedAt:d+3600000},rions:{discovered:[]}},d+3600000).ready,true);
  assert.equal(p.status(world('rion.role.development',d),d+99999999).visible,false);
 });
 test('folder tree includes only discovered Rion names and necessary parent categories',()=>{

@@ -3,8 +3,6 @@
 (function(root){
 'use strict';
 const ORDER=Object.freeze(['rion.role.mission','rion.material.myonite','rion.role.mining']);
-// UI discovery is independent of the original three-stage mining progression.
-const UI_RION='rion.role.ui';
 const CONFIG=Object.freeze({
  mission:Object.freeze({temporaryStorageTons:10}),
  myonite:Object.freeze({tonsPerMine:1,pricePerTonM:100}),
@@ -15,9 +13,7 @@ const found=(rions,id)=>!!rions?.discovered?.some(x=>x.id===id);
 const canMine=rions=>ORDER.every(id=>found(rions,id));
 function prepareDiscovery(input,now=Date.now()){
  const state=copy(input);
- // Preserve any waiting discovery from existing LIVE saves before introducing UI.
- const waiting=state.pending&&!found(state,state.pending.id)?state.pending.id:null;
- const next=waiting||(!found(state,UI_RION)?UI_RION:ORDER.find(id=>!found(state,id)));
+ const next=ORDER.find(id=>!found(state,id));
  const isSame=next?state.pending?.id===next&&state.nextAt===null:state.pending===null&&state.nextAt===null;
  if(isSame)return {state,changed:false};
  state.pending=next?{id:next,createdAt:now}:null;

@@ -21,12 +21,12 @@ function findUi(world){
  return world?.rions?.discovered?.find(x=>x?.id==='rion.role.ui'||x?.id==='rion.role.user')||null;
 }
 function status(world,now){
- const d=findUi(world);
- if(!d)return {visible:false,ready:false,ratio:0};
- const legacy=!Number.isSafeInteger(d.discoveredAt)||d.discoveredAt<UPGRADE_CUTOFF;
- if(legacy)return {visible:true,ready:true,ratio:1};
- const elapsed=Math.max(0,now-d.discoveredAt);
- return {visible:elapsed>=40*MINUTE,ready:elapsed>=HOUR,
+ // Previously discovered LIVE Rions remain immediately available on upgrade.
+ const ui=world?.uiRion;
+ if(findUi(world)||ui?.phase==='done')return {visible:true,ready:true,ratio:1};
+ if(ui?.phase!=='active')return {visible:false,ready:false,ratio:0};
+ const elapsed=Math.max(0,now-ui.acceptedAt);
+ return {visible:elapsed>=40*MINUTE,ready:false,
   ratio:Math.min(1,Math.max(0,(elapsed-40*MINUTE)/(10*MINUTE)))};
 }
 function nodeTree(world){
@@ -149,6 +149,7 @@ function attach(){
 function paint(){
  if(!button||!shell||!nav)return;
  const world=cachedWorld,state=status(world,Date.now());
+ nav.hidden=!state.visible;
  nav.style.display=state.visible?'flex':'none';
  if(!state.visible){if(isOpen)showPage(false);return}
  button.disabled=!state.ready;
