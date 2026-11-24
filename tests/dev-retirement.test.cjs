@@ -54,7 +54,9 @@ test('direct archived DEV pages redirect before game scripts load, without touch
   const html=read('public/'+name);
   if(name==='myon-150.html')assert.match(html,/The myon-150 page is DEV-only/);
   else assert.match(html,/!\['live','test'\].includes/);
-  assert.ok(html.indexOf('DEV retirement: reject')<html.indexOf('myon-dev-missions.js'));
+  const runtimeStart=name==='myon-150.html'?'const params=new URLSearchParams(location.search)':'<script src="myon-dev-missions.js"';
+  assert.ok(html.includes('DEV retirement: reject'));
+  assert.ok(html.indexOf('DEV retirement: reject')<html.indexOf(runtimeStart));
  }
 });
 test('LIVE save isolation, official game and retired TEST money transfer remain unchanged',()=>{
