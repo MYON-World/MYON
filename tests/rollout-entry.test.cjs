@@ -157,7 +157,8 @@ test('MYON portal uses a compact image-free design with two worlds and retiremen
  assert.doesNotMatch(app,/class="planet-shade"/);
  assert.match(app,/class="hero"/);
  assert.match(app,/@click="enterServer\('live'\)"/);
- assert.match(app,/@click="enterServer\('dev'\)"/);
+ assert.match(app,/class="server-row dev" disabled aria-disabled="true"/);
+ assert.doesNotMatch(app,/@click="enterServer\('dev'\)"/);
  assert.match(app,/@click="transferTestFunds"/);
  assert.doesNotMatch(app,/@click="enterServer\('test'\)"/);
  assert.match(app,/v-if="entering\|\|entryFailed"/);
@@ -659,7 +660,7 @@ test('LIVE tracks main while retaining official UI and TEST save separation',asy
  assert.ok(app.includes("const available=server==='live'||server==='dev'?await refreshReleases():releases"));
  assert.ok(app.includes("const gamePage=server==='live'?'myon-live-ui.html':'myon-next.html'"));
  assert.ok(app.includes('class="game-controls dev-controls"'));
- assert.ok(app.includes("@click=\"enterServer('dev')\""));
+ assert.ok(app.includes("if(server==='dev'){message.value='개발 서버 접속이 종료되었습니다."));
  assert.ok(!app.includes("@click=\"enterServer('test')\""));
  assert.ok(app.includes('@click="transferTestFunds"'));
  assert.ok(app.includes("@click=\"enterServer('live')\""));

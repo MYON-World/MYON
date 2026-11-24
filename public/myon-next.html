@@ -3,6 +3,13 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#06101d"><title>MYON WORLD · DEV 임무 테스트</title>
 <script>
+// DEV retirement: reject direct root and archived DEV game URLs before game code starts.
+if(!['live','test'].includes(new URLSearchParams(location.search).get('server'))){
+ const portal=new URL(location.pathname.includes('/releases/')?'../../':'./',location.href);
+ portal.search='';portal.hash='';location.replace(portal.href);
+}
+</script>
+<script>
 if(window.self===window.top && location.pathname.includes('/releases/')){
  const portal=new URL('../../',location.href);portal.search=location.search;portal.hash=location.hash;location.replace(portal.href);
 }
@@ -212,7 +219,7 @@ if(window.self!==window.top && new URLSearchParams(location.search).get('server'
 const params=new URLSearchParams(location.search);
 const requestedDevVersion=params.get('dev_version');
 const isVersionedDevSave=params.get('server')==='dev'&&/^[a-f0-9]{40}$/i.test(params.get('build')||'')&&/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(requestedDevVersion||'');
-const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.18.1';
+const DEV_SAVE_VERSION=isVersionedDevSave?requestedDevVersion:'preview-0.14.19';
 const MYON_MISSION_SERVER=['live','test'].includes(params.get('server'))?params.get('server'):'dev';
 const missionHeader=document.querySelector('.top-server');
 if(MYON_MISSION_SERVER==='live')missionHeader.textContent='정식버전';

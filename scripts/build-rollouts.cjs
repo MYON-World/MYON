@@ -39,6 +39,19 @@ for(const sha of revisions){
  const guard='<script>if(window.self===window.top){var u=new URL("../../",location.href);u.search=location.search;u.hash=location.hash;location.replace(u.href);}</script>';
  if(!archiveHtml.includes('<head>'))throw Error('Archived game lacks head element: '+sha);
  fs.writeFileSync(archivePath,archiveHtml.replace('<head>','<head>'+guard));
+ // Reject DEV gameplay at its archived entry points, including pre-retirement releases.
+ // This is a navigation guard only; no historical save data or game mechanics are changed.
+ for(const file of ['myon-next.html','myon-150.html']){
+  const devGuard=file==='myon-150.html'
+   ?'<script>if(true){var u=new URL("../../",location.href);u.search="";u.hash="";location.replace(u.href);}</script>'
+   :'<script>if(!["live","test"].includes(new URLSearchParams(location.search).get("server")))'+
+    '{var u=new URL("../../",location.href);u.search="";u.hash="";location.replace(u.href);}</script>';
+  const target=path.join(out,file);
+  if(!fs.existsSync(target))continue;
+  const html=fs.readFileSync(target,'utf8');
+  if(!html.includes('<head>'))throw Error('Archived DEV entry lacks head: '+file);
+  fs.writeFileSync(target,html.replace('<head>','<head>'+devGuard));
+ }
  // Block archived TEST gameplay URLs after conversion to the two-server portal.
  // Source backups are read by the portal; TEST never needs a live game iframe.
  const nextPath=path.join(out,'myon-next.html');
