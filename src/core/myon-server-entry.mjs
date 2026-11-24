@@ -2,11 +2,8 @@
 // Nothing here writes to a player's game database.
 import {validReleases,validRevision} from './myon-release-state.mjs'
 
-// LIVE pins the verified UI-only improvement of the original Myonite-mining game; retired TEST stays frozen.
-export const LIVE_RELEASE=Object.freeze({
- revision:'6496add1137930e867f5534e4edd07684384f646',
- version:'0.14.16'
-})
+// The official LIVE release is always the newest deployed main commit.
+// The retired TEST release stays pinned for backup/retirement compatibility.
 export const TEST_RELEASE=Object.freeze({
  revision:'a3c93e3b4931af3488a6bc5fb15022b17513f451',
  version:'0.13.94'
@@ -21,7 +18,10 @@ export const BACKUP_DB='myon-entry-backups-v1'
 const STORE='game',BACKUP_STORE='snapshots'
 
 export function targetForServer(server,releases){
- if(server==='live')return LIVE_RELEASE
+ if(server==='live'){
+  if(!validReleases(releases))throw Error('정식 서버의 배포 목록을 확인할 수 없습니다.')
+  return releases[releases.length-1]
+ }
  if(server==='test')return TEST_RELEASE
  if(server==='dev'){
   if(!validReleases(releases))throw Error('개발 서버의 배포 목록을 확인할 수 없습니다.')

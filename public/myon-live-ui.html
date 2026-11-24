@@ -161,7 +161,7 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
 .mw-update-inner{height:36px;display:flex;align-items:center;justify-content:center;gap:9px;padding:0 7px}
 .mw-update-symbol{flex:none;width:15px;height:15px;display:grid;place-items:center;border:1px solid #6aadc3;border-radius:50%;background:#1b5165}
 .mw-update-symbol span{width:5px;height:5px;border-radius:50%;background:#b4edee;box-shadow:0 0 8px #6adcdc}
-.mw-update-copy{font-size:11px;font-weight:600;letter-spacing:-.1px;color:#d6effb;white-space:nowrap}
+.mw-update-copy{font-size:11px;font-weight:600;letter-spacing:-.1px;color:#d6effb;white-space:normal;text-align:center;overflow-wrap:break-word}
 .mw-update-separator{color:#679bb2;margin:0 4px}
 .mw-update-restart{color:#9bd9c4}
 @media(max-width:390px){.mw-update-inner{height:34px;gap:6px}.mw-update-copy{font-size:10px}.mw-update-separator{margin:0 2px}.mw-update-symbol{width:13px;height:13px}}
@@ -235,7 +235,7 @@ if(window.self===window.top && location.pathname.includes('/releases/')){
  <div id="mw-update-reveal" class="mw-update-reveal" hidden role="status" aria-live="polite">
   <div class="mw-update-panel">
    <span class="mw-update-accent" aria-hidden="true"></span>
-   <div class="mw-update-inner"><span class="mw-update-symbol" aria-hidden="true"><span></span></span><span class="mw-update-copy">신규 업데이트 적용 가능 <span class="mw-update-separator">·</span> <span class="mw-update-restart">재시작 요망</span></span></div>
+   <div class="mw-update-inner"><span class="mw-update-symbol" aria-hidden="true"><span></span></span><span class="mw-update-copy">신규 업데이트 적용 예정 <span class="mw-update-separator">·</span> <span class="mw-update-restart">저장 후 재시작 요망</span></span></div>
   </div>
  </div>
  <section id="mw-start-error" class="mw-start-error" hidden role="alert"></section>

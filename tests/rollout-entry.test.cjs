@@ -62,14 +62,15 @@ test('production builder redirects direct root and archived top-level visits to 
  assert.match(src,/new URL\("\.\.\/\.\.\/",location\.href\)/);
  assert.match(src,/window\.self===window\.top/);
 });
-test('new portal uses pinned LIVE and TEST revisions independent of DEV',async()=>{
- const {targetForServer,dbForServer,archiveUrl,LIVE_RELEASE,TEST_RELEASE}=await import('../src/core/myon-server-entry.mjs');
- assert.equal(targetForServer('live',releases).revision,LIVE_RELEASE.revision);
+test('LIVE selects the last deployed main revision, while TEST remains pinned',async()=>{
+ const {targetForServer,dbForServer,archiveUrl,TEST_RELEASE}=await import('../src/core/myon-server-entry.mjs');
+ assert.equal(targetForServer('live',releases).revision,D);
+ assert.equal(targetForServer('live',releases).version,'0.13.54');
+ assert.equal(targetForServer('live',releases.slice(0,2)).revision,B);
+ assert.throws(()=>targetForServer('live',null),/정식 서버의 배포 목록/);
  assert.equal(targetForServer('dev',releases).revision,D);
  assert.equal(targetForServer('test',releases).revision,TEST_RELEASE.revision);
- assert.notEqual(LIVE_RELEASE.revision,TEST_RELEASE.revision,'LIVE promotion must not alter the retired accelerated TEST pin');
- assert.equal(LIVE_RELEASE.version,'0.14.16');
- assert.equal(LIVE_RELEASE.revision,'6496add1137930e867f5534e4edd07684384f646');
+ assert.notEqual(D,TEST_RELEASE.revision,'TEST must not follow main');
  assert.notEqual(dbForServer('dev'),dbForServer('live'));
  assert.notEqual(dbForServer('test'),dbForServer('live'));
  assert.notEqual(dbForServer('test'),dbForServer('dev'));
@@ -135,7 +136,7 @@ test('build keeps per-commit descriptions while the simplified portal omits hist
  assert.match(app,/class="servers"/);
  assert.match(app,/class="sunset"/);
  assert.doesNotMatch(app,/class="version-history"/);
- assert.match(app,/visibleVersionHistory\(releases,\{live:LIVE_RELEASE,test:TEST_RELEASE,dev:current\}\)/);
+ assert.match(app,/visibleVersionHistory\(releases,\{live,test:TEST_RELEASE,dev:current\}\)/);
  assert.ok(notes['0.13.66'].entries.length>=2);
 });
 
@@ -187,7 +188,7 @@ test('DEV numeric missions are the only runtime page (no city-picker or characte
  const html=fs.readFileSync(path.resolve(__dirname,'../public/myon-next.html'),'utf8');
  const game=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
- assert.ok(app.includes("const gamePage=server==='live'&&target.version==='0.14.16'?'myon-live-ui.html':'myon-next.html'"));
+ assert.ok(app.includes("const gamePage=server==='live'?'myon-live-ui.html':'myon-next.html'"));
  assert.ok(app.includes("const gameUrl=url.replace('/myon.html?','/'+gamePage+'?')"));
  assert.doesNotMatch(app,/<button type="button" class="server-row test"/);
  assert.match(app,/가속 서버 종료/);
@@ -648,14 +649,15 @@ test('update notice preserves read-only monitoring and requires verified portal 
  assert.ok(mission.includes("saved===JSON.stringify(world)&&validWorld(JSON.parse(saved))"));
 });
 
-test('v0.14.16 approval restores UI discovery stage while preserving TEST and separated saves',async()=>{
- const {LIVE_RELEASE,TEST_RELEASE,dbForServer}=await import('../src/core/myon-server-entry.mjs');
+test('LIVE tracks main while retaining official UI and TEST save separation',async()=>{
+ const {targetForServer,TEST_RELEASE,dbForServer}=await import('../src/core/myon-server-entry.mjs');
  const app=fs.readFileSync(path.resolve(__dirname,'../src/App.vue'),'utf8');
  const missions=fs.readFileSync(path.resolve(__dirname,'../public/myon-dev-missions.js'),'utf8');
- assert.equal(LIVE_RELEASE.revision,'6496add1137930e867f5534e4edd07684384f646');
+ assert.equal(targetForServer('live',releases).revision,D);
  assert.equal(TEST_RELEASE.revision,'a3c93e3b4931af3488a6bc5fb15022b17513f451');
- assert.equal(LIVE_RELEASE.version,'0.14.16');
  assert.equal(TEST_RELEASE.version,'0.13.94');
+ assert.ok(app.includes("const available=server==='live'||server==='dev'?await refreshReleases():releases"));
+ assert.ok(app.includes("const gamePage=server==='live'?'myon-live-ui.html':'myon-next.html'"));
  assert.ok(app.includes('class="game-controls dev-controls"'));
  assert.ok(app.includes("@click=\"enterServer('dev')\""));
  assert.ok(!app.includes("@click=\"enterServer('test')\""));

@@ -12,7 +12,6 @@ const pinnedRead=name=>execFileSync('git',['show',pinned+':public/'+name],{cwd:r
 const frozen=[
  ['myon-rions.js','myon-live-ui-rions.js'],
  ['myon-dev-mining-ui.js','myon-live-ui-mining-ui.js'],
- ['myon-dev-update.js','myon-live-ui-update.js'],
  ['myon-rion-registry.json','myon-live-ui-registry.json'],
  ['myon-world-baseline.json','myon-live-ui-baseline.json'],
  ['myon-city-names.json','myon-live-ui-city-names.json']
@@ -55,7 +54,7 @@ test('LIVE enhanced page retains official markup while loading isolated official
  assert.match(html,/\.mw-live-ui-open > #mw-root/);
  for(const match of html.matchAll(/<script>([\s\S]*?)<\/script>/g))new vm.Script(match[1]);
  const app=read('src/App.vue');
- assert.match(app,/server==='live'&&target\.version==='0\.14\.16'/);
+ assert.match(app,/const gamePage=server==='live'\?'myon-live-ui.html':'myon-next.html'/);
  assert.match(app,/myon-live-ui\.html/);
  assert.match(app,/myon-next\.html/);
 });
@@ -188,4 +187,59 @@ test('folder tree includes only discovered Rion names and necessary parent categ
  assert.deepEqual([...tree.children[1].children[0].children].map(x=>x.name),['광역버스 리온']);
  const unknown=p.nodeTree({rions:{discovered:[]}});
  assert.equal(unknown.children.length,0);
+});
+
+
+test('main LIVE update notice waits for a newer deployed game file and never reloads the game',async()=>{
+ const source=read('public/myon-live-ui-update.js');
+ new vm.Script(source);
+ const old='a'.repeat(40),next='b'.repeat(40);
+ const href='https://example.github.io/MYON/releases/'+old+'/myon-live-ui.html?build='+old+'&server=live';
+ const panel={hidden:true,offsetHeight:0,classList:{add(){}}};
+ const timers=[],timeouts=[],requests=[];
+ let available=false,releases=[{revision:old,version:'0.14.17'}];
+ const win={setInterval:(fn,ms)=>timers.push({fn,ms}),setTimeout:(fn,ms)=>timeouts.push({fn,ms})};
+ const fetch=async(url,opts={})=>{
+  requests.push({url:String(url),opts});
+  if(opts.method==='HEAD')return {ok:available};
+  return {ok:true,json:async()=>({schema:1,releases})};
+ };
+ vm.runInNewContext(source,{
+  window:win,location:{href,search:new URL(href).search},URL,URLSearchParams,Date,
+  console:{warn(){}},document:{getElementById:()=>panel},fetch
+ },{timeout:2000});
+ assert.equal(timeouts.length,1);
+ assert.equal(timers.length,1);
+ assert.equal(timers[0].ms,60000);
+ await timeouts[0].fn();
+ assert.equal(panel.hidden,true,'same deployed main revision must not trigger a notice');
+ releases=[...releases,{revision:next,version:'0.14.18'}];
+ await timers[0].fn();
+ assert.equal(panel.hidden,true,'unavailable live page must block the restart notice');
+ assert.ok(requests.some(r=>r.url.includes('/releases/'+next+'/myon-live-ui.html')&&r.opts.method==='HEAD'));
+ available=true;
+ await timers[0].fn();
+ assert.equal(panel.hidden,false,'available newer LIVE version should show the notice even without Development Rion');
+ const previous=requests.length;
+ await timers[0].fn();
+ assert.equal(requests.length,previous,'do not keep checking after notice is shown');
+ assert.doesNotMatch(source,/location\.(?:replace|reload|assign)\(/);
+ assert.doesNotMatch(source,/localStorage\.setItem|indexedDB\.deleteDatabase/);
+ const html=read('public/myon-live-ui.html');
+ assert.match(html,/신규 업데이트 적용 예정/);
+ assert.match(html,/저장 후 재시작 요망/);
+});
+test('LIVE entry still checks game file, backups and original save namespace before playing',()=>{
+ const app=read('src/App.vue');
+ const entry=read('src/core/myon-server-entry.mjs');
+ assert.ok(app.includes("const available=server==='live'||server==='dev'?await refreshReleases():releases"));
+ assert.ok(app.indexOf("await verifyArchive({base:BASE,server,revision:target.revision})")<app.indexOf("await createEntryCheckpoint({server,revision:target.revision})"));
+ assert.ok(app.indexOf("await createEntryCheckpoint({server,revision:target.revision})")<app.indexOf("playing.value=true"));
+ assert.match(entry,/live:'myon-v00804-progress'/);
+ assert.match(entry,/live:'MYON_LIVE_MISSIONS_V1'/);
+ assert.match(app,/MYON_SAFE_UPDATE_CHECKPOINT/);
+ const builder=read('scripts/build-rollouts.cjs');
+ assert.match(builder,/latestLiveNotice/);
+ assert.match(builder,/myon-live-ui-update\.js/);
+ assert.match(builder,/LIVE must equal the deployed main commit/);
 });

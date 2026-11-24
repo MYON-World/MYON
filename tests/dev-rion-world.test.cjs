@@ -49,7 +49,8 @@ test('DEV integrates discovered world only, never modifies pre-existing LIVE/TES
  assert.match(mining,/rion\.role\.world/);
  assert.match(mission,/MISSION_SERVER==='dev'&&WORLD/);
  assert.match(mission,/worldR0/);
- assert.match(entry,/version:'0\.14\.16'/);
+ assert.match(entry,/if\(server==='live'\)/);
+ assert.doesNotMatch(entry,/LIVE_RELEASE=Object\.freeze/);
  assert.match(entry,/version:'0\.13\.94'/);
 });
 

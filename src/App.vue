@@ -4,7 +4,7 @@ import {validReleases} from './core/myon-release-state.mjs'
 import {prepareDevVersion} from './core/myon-dev-version.mjs'
 import {visibleVersionHistory} from './core/myon-version-history.mjs'
 import {validSunset,readTestRetirement,retireTestOnce} from './core/myon-test-retirement.mjs'
-import {LIVE_RELEASE,TEST_RELEASE,dbForServer,targetForServer,
+import {TEST_RELEASE,dbForServer,targetForServer,
  archiveUrl,verifyArchive,createEntryCheckpoint,readGameRecords,readMissionRecords} from './core/myon-server-entry.mjs'
 
 const BASE=String(import.meta.env.BASE_URL)
@@ -45,7 +45,7 @@ async function showVerifiedStep(index){
  await new Promise(resolve=>setTimeout(resolve,700))
 }
 function closeEntryResult(){if(!entering.value)entryFailed.value=false}
-const latestRevision=ref(''),latestVersion=ref('—'),liveVersion=ref('v'+LIVE_RELEASE.version)
+const latestRevision=ref(''),latestVersion=ref('—'),liveVersion=ref('—')
 const testVersion=ref(TEST_RELEASE?'v'+TEST_RELEASE.version:'미승인')
 const activeVersion=ref('—'),saveStatus=ref('기존 기록 확인은 입장 시 진행합니다.')
 const changes=ref([])
@@ -97,9 +97,11 @@ async function refreshReleases(){
   throw Error('배포 버전 목록을 검증하지 못했습니다.')
  releases=manifest.releases
  const current=targetForServer('dev',releases)
+ const live=targetForServer('live',releases)
  latestRevision.value=current.revision
  latestVersion.value='v'+current.version
- changes.value=visibleVersionHistory(releases,{live:LIVE_RELEASE,test:TEST_RELEASE,dev:current})
+ liveVersion.value='v'+live.version
+ changes.value=visibleVersionHistory(releases,{live,test:TEST_RELEASE,dev:current})
  return releases
 }
 async function enterServer(server){
@@ -112,7 +114,8 @@ async function enterServer(server){
  entryFailed.value=false;entryVersion.value='—';entryRevision.value='';entrySaveNote.value=''
  try{
   entryStep.value='배포 버전 확인 중'
-  const available=server==='dev'?await refreshReleases():releases
+  // Validate the current deployed manifest even when an older portal stays open.
+  const available=server==='live'||server==='dev'?await refreshReleases():releases
   const target=targetForServer(server,available)
   if(!target)throw Error('입장 가능한 승인 버전이 없습니다.')
   entryVersion.value='v'+target.version
@@ -121,9 +124,9 @@ async function enterServer(server){
   entryIndex.value=1
   entryStep.value='게임 파일 확인 중'
   const url=await verifyArchive({base:BASE,server,revision:target.revision})
-  // The approved LIVE v0.14.16 restores the full UI Rion scene and frozen game.
-  // Existing LIVE pins and DEV/TEST keep their original immutable pages.
-  const gamePage=server==='live'&&target.version==='0.14.16'?'myon-live-ui.html':'myon-next.html'
+  // The LIVE file is the stable, isolated official game at the newest main revision.
+  // DEV and TEST pages remain unchanged until server retirement is separately approved.
+  const gamePage=server==='live'?'myon-live-ui.html':'myon-next.html'
   const gameUrl=url.replace('/myon.html?','/'+gamePage+'?')
   const nextFile=await fetch(gameUrl,{method:'HEAD',cache:'no-store'})
   if(!nextFile.ok)throw Error('MYON 게임 화면을 확인할 수 없습니다. 기존 세이브는 유지됩니다.')
@@ -221,7 +224,7 @@ onMounted(async()=>{
  window.MYON_ROLLOUT_HOST_ACTIVE=true
  document.title='MYON WORLD · 서버 선택'
  try{await refreshReleases()}
- catch(error){message.value='DEV 최신 목록 확인 실패: DEV 입장에서 재시도할 수 있습니다.';console.warn(error)}
+ catch(error){message.value='최신 배포 목록 확인 실패: 입장할 때 다시 검사합니다.';console.warn(error)}
 })
 onUnmounted(()=>{if(testTimer)clearInterval(testTimer)})
 </script>

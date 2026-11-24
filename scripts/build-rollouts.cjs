@@ -9,6 +9,7 @@ const cmd=(...args)=>execFileSync('git',args,{cwd:root,maxBuffer:10*1024*1024,en
 const revisions=cmd('rev-list','--first-parent','--reverse',anchor+'^..HEAD').split(/\s+/).filter(Boolean);
 if(!revisions.length||revisions[0]!==anchor)throw Error('Immutable release history anchor missing');
 const latestUpdater=fs.readFileSync(path.join(root,'public/myon-auto-update.js'));
+const latestLiveNotice=fs.readFileSync(path.join(root,'public/myon-live-ui-update.js'));
 const versionNotes=JSON.parse(fs.readFileSync(path.join(root,'public/myon-version-notes.json'),'utf8'));
 
 const releases=[];
@@ -50,6 +51,9 @@ for(const sha of revisions){
  }
  // Coordinator is infrastructure, not game logic: even old games use latest safe FIFO protocol.
  fs.writeFileSync(path.join(out,'myon-auto-update.js'),latestUpdater);
+ // Read-only notice is infrastructure: existing LIVE sessions also detect new main releases.
+ if(fs.existsSync(path.join(out,'myon-live-ui-update.js')))
+  fs.writeFileSync(path.join(out,'myon-live-ui-update.js'),latestLiveNotice);
  const subject=cmd('show','-s','--format=%s',sha);
  const note=versionNotes[releaseVersion];
  releases.push({revision:sha,version:releaseVersion,
@@ -63,7 +67,7 @@ if(!/^[0-9]+$/.test(sunsetCommit))throw Error('TEST retirement start commit miss
 const startedAt=Number(sunsetCommit)*1000;
 fs.writeFileSync(path.join(dist,'myon-test-sunset.json'),
  JSON.stringify({schema:1,startedAt,endsAt:startedAt+7*24*60*60*1000})+'\n');
-// Generate official approvals directly from frozen server pins, not from the latest DEV revision.
+// Main HEAD is the official LIVE release; retired TEST remains independently pinned.
 const entry=fs.readFileSync(path.join(root,'src/core/myon-server-entry.mjs'),'utf8');
 function approval(key){
  const start=entry.indexOf('export const '+key+'=Object.freeze({');
@@ -74,8 +78,13 @@ function approval(key){
  if(!revision||!version)throw Error('Invalid official approval: '+key);
  return {revision:revision[1],version:version[1]};
 }
+const live=releases.at(-1);
+if(!live||live.revision!==cmd('rev-parse','HEAD'))throw Error('LIVE must equal the deployed main commit');
+for(const file of ['myon-live-ui.html','myon-live-ui-missions.js','myon-live-ui-overlay.js','myon-live-ui-update.js'])
+ if(!fs.existsSync(path.join(dist,'releases',live.revision,file)))
+  throw Error('LIVE game file missing: '+file);
 fs.writeFileSync(path.join(dist,'myon-approved-releases.json'),
- JSON.stringify({schema:1,live:approval('LIVE_RELEASE'),test:approval('TEST_RELEASE')})+'\n');
+ JSON.stringify({schema:1,live:{revision:live.revision,version:live.version},test:approval('TEST_RELEASE')})+'\n');
 // The legacy /MYON/myon.html shortcut previously served HEAD immediately,
 // bypassing the rollout queue. Publish ONLY a redirect at that URL.
 const redirect='<!doctype html><html lang="ko"><head><meta charset="utf-8">'+

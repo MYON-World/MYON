@@ -181,14 +181,15 @@ test('official read-only update notice needs a discovered development Rion AND n
  assert.ok(calls.some(c=>c.includes('myon-approved-releases.json')));
  assert.doesNotMatch(script,/location\.(?:replace|reload|assign)\(/);
 });
-test('approval manifest comes from frozen LIVE and TEST pins, not the newest DEV SHA',()=>{
+test('official manifest uses main HEAD for LIVE and keeps TEST pinned',()=>{
  const builder=fs.readFileSync(path.join(root,'scripts/build-rollouts.cjs'),'utf8');
- const pins=fs.readFileSync(path.join(root,'src/core/myon-server-entry.mjs'),'utf8');
+ const entry=fs.readFileSync(path.join(root,'src/core/myon-server-entry.mjs'),'utf8');
  assert.match(builder,/myon-approved-releases\.json/);
- assert.match(builder,/approval\('LIVE_RELEASE'\)/);
+ assert.match(builder,/live:\{revision:live.revision,version:live.version\}/);
  assert.match(builder,/approval\('TEST_RELEASE'\)/);
- assert.match(pins,/LIVE_RELEASE=Object\.freeze/);
- assert.match(pins,/TEST_RELEASE=Object\.freeze/);
+ assert.match(builder,/live.revision!==cmd\('rev-parse','HEAD'\)/);
+ assert.doesNotMatch(entry,/LIVE_RELEASE=Object\.freeze/);
+ assert.match(entry,/TEST_RELEASE=Object\.freeze/);
 });
 test('DEV version change resets temporary discoveries and missions without altering LIVE',async()=>{
  const {prepareDevVersion,DEV_ACTIVE_VERSION_KEY,DEV_RION_CONTINUITY_KEY}=await import('../src/core/myon-dev-version.mjs');

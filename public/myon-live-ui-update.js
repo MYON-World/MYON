@@ -1,4 +1,4 @@
-/* Read-only new-release notice: DEV tracks new DEV builds; official follows ONLY approved pins. */
+/* Read-only new-release notice: LIVE follows the deployed main commit; TEST stays pinned. */
 (function(){
 'use strict';
 const params=new URLSearchParams(location.search);
@@ -35,7 +35,7 @@ async function fetchJson(url){
 async function check(){
  if(ready||checking)return;
  // Development Rion gates official notices; DEV notices are unconditional.
- if(server!=='dev'&&window.MYON_RION_IS_DISCOVERED?.('rion.role.development')!==true)return;
+ if(server==='test'&&window.MYON_RION_IS_DISCOVERED?.('rion.role.development')!==true)return;
  checking=true;
  try{
   const data=await fetchJson(rolloutUrl);
@@ -47,7 +47,18 @@ async function check(){
    if(latest.revision!==revision&&newerVersion(latest.version,devVersion))reveal();
    return;
   }
-  // Latest development commits are never treated as official approvals.
+  // LIVE follows the newest successfully published main commit, never an older fixed pin.
+  if(server==='live'){
+   const latest=releases[releases.length-1];
+   const current=releases.find(r=>r.revision===revision);
+   if(!current||latest.revision===revision||!newerVersion(latest.version,current.version))return;
+   // Confirm the actual LIVE page exists before notifying anyone to restart.
+   const file=new URL('../../releases/'+latest.revision+'/myon-live-ui.html',location.href);
+   const response=await fetch(file.href,{method:'HEAD',cache:'no-store'});
+   if(response.ok)reveal();
+   return;
+  }
+  // Retired TEST alone continues to follow its frozen approval.
   const approved=await fetchJson(approvedUrl);
   const pin=approved?.[server];
   const current=releases.find(r=>r.revision===revision);
