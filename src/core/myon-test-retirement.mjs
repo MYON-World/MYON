@@ -1,5 +1,8 @@
 // MYON TEST one-visit retirement. The original TEST save is never modified.
-import {readGameRecords,createEntryCheckpoint,TEST_RELEASE,LIVE_RELEASE} from './myon-server-entry.mjs'
+import {readGameRecords,createEntryCheckpoint,TEST_RELEASE} from './myon-server-entry.mjs'
+// Historical TEST retirement backups retain the last approved LIVE baseline marker.
+// This is not the playable LIVE target; new gameplay always follows main's latest release.
+const TEST_RETIREMENT_LIVE_BASELINE='6496add1137930e867f5534e4edd07684384f646'
 
 export const TEST_RETIREMENT_KEY='MYON_TEST_RETIREMENT_V1'
 export const TEST_RETIREMENT_MARKER='v0141-test-funds-credit'
@@ -144,7 +147,7 @@ async function begin({storage,idb,deadline,now}){
   const source=parseMission(storage.getItem(TEST_MISSION),'가속 서버')
   if(!source&&!funds)throw Error('이 기기에 가속 서버 자금 세이브가 없습니다.')
   await createEntryCheckpoint({idb,storage,server:'test',revision:TEST_RELEASE.revision})
-  await createEntryCheckpoint({idb,storage,server:'live',revision:LIVE_RELEASE.revision})
+  await createEntryCheckpoint({idb,storage,server:'live',revision:TEST_RETIREMENT_LIVE_BASELINE})
   claim={schema:1,phase:'pending',claimedAt:now,missionCash:source?.cash||0,
    fundsUnits:funds?.balance||0}
   writeClaim(storage,claim) // From here TEST is permanently inaccessible on this browser.
