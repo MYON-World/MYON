@@ -157,7 +157,8 @@ test('MYON portal uses a compact image-free design with two worlds and retiremen
  assert.doesNotMatch(app,/class="planet-shade"/);
  assert.match(app,/class="hero"/);
  assert.match(app,/@click="enterServer\('live'\)"/);
- assert.match(app,/class="server-row dev" disabled aria-disabled="true"/);
+ assert.match(app,/<section v-if="showDevEntry" class="sunset dev-sunset"/);
+ assert.doesNotMatch(app,/class="server-row dev"/);
  assert.doesNotMatch(app,/@click="enterServer\('dev'\)"/);
  assert.match(app,/@click="transferTestFunds"/);
  assert.doesNotMatch(app,/@click="enterServer\('test'\)"/);

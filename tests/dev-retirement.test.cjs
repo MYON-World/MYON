@@ -33,13 +33,21 @@ test('DEV is disabled at the portal before file or save selection and disappears
  assert.match(app,/if\(server==='dev'\)\{message.value='개발 서버 접속이 종료되었습니다/);
  assert.ok(app.indexOf("if(server==='dev'){message.value='개발 서버 접속이 종료되었습니다.")<
   app.indexOf("entering.value=true;message.value=''"));
- assert.match(app,/<button v-if="showDevEntry" type="button" class="server-row dev" disabled aria-disabled="true">/);
+ assert.match(app,/<section v-if="showDevEntry" class="sunset dev-sunset"/);
+ assert.doesNotMatch(app,/class="server-row dev"/);
+ assert.ok(app.indexOf('class="server-row live"')<app.indexOf('<section v-if="showDevEntry" class="sunset dev-sunset"'));
+ assert.ok(app.indexOf('<section v-if="showDevEntry" class="sunset dev-sunset"')<
+  app.indexOf('<section v-if="showTestSunset" class="sunset"'));
+ assert.match(app,/showDevSunset \? devCountdown : '표준시 확인 중'/);
+ assert.match(app,/class="dev-closed-tag">접속 차단/);
+ assert.match(app,/\.portal \.servers>\.sunset\{margin-top:0\}/);
+ assert.match(app,/\.portal \.dev-sunset \.dev-closed-tag\{/);
  assert.match(app,/const showDevEntry=computed\(\(\)=>!devClockKnown.value\|\|devRemaining.value>0\)/);
  assert.match(app,/const showDevSunset=computed\(\(\)=>devClockKnown.value&&devRemaining.value>0\)/);
  assert.match(app,/const devExpired=computed\(\(\)=>devClockKnown.value&&devRemaining.value===0\)/);
- assert.match(app,/공통 종료 시각 · 대한민국 표준시/);
- assert.match(app,/2026\.12\.02 \(수\) 06:00 KST/);
- assert.match(app,/개발 서버 종료 완료/);
+ assert.match(app,/DEV 접속 종료 · 종료 후 메뉴에서 제거/);
+ assert.doesNotMatch(app,/class="dev-after"/);
+ assert.doesNotMatch(app,/class="dev-timezone"/);
  assert.doesNotMatch(app,/@click="enterServer\('dev'\)"/);
  assert.match(app,/parseServerDate\(serverHeader\)/);
  assert.match(app,/performance\.now\(\)/);
@@ -67,5 +75,8 @@ test('LIVE save isolation, official game and retired TEST money transfer remain 
  assert.match(entry,/live:'myon-v00804-progress'/);
  assert.match(app,/const gamePage=server==='live'\?'myon-live-ui.html':'myon-next.html'/);
  assert.match(app,/@click="transferTestFunds"/);
+ assert.match(app,/<section v-if="showTestSunset" class="sunset"/);
+ assert.match(app,/{{ testCountdown }}/);
+ assert.match(app,/{{ testTransferLabel }}/);
  assert.match(app,/readTestRetirement/);
 });

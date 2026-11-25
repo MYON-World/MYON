@@ -1,8 +1,7 @@
 {
   "name": "myon",
   "private": true,
-  "version": "0.14.19+hotfix.1",
-  "myonVersion": "0.14.19.1",
+  "version": "0.14.20",
   "type": "module",
   "scripts": {
     "dev": "vite",

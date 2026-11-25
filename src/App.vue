@@ -292,19 +292,12 @@ onUnmounted(()=>{if(testTimer)clearInterval(testTimer);if(devSyncTimer)clearInte
       <span class="server-main"><span class="server-icon">L</span><span class="server-copy"><strong>LIVE <small>정식 서버</small></strong><span>{{ liveVersion }} · 표준 운행</span></span></span>
       <span class="server-side"><span class="entry-text" aria-hidden="true">›</span></span>
      </button>
-     <button v-if="showDevEntry" type="button" class="server-row dev" disabled aria-disabled="true">
-      <span class="server-main"><span class="server-icon">D</span><span class="server-copy"><strong>DEV <small>개발 서버</small></strong><span>종료 예정 · 접속 차단</span></span></span>
-      <span class="server-side"><span class="dev-entry-locked">접속 불가</span></span>
-     </button>
+     <section v-if="showDevEntry" class="sunset dev-sunset" aria-label="개발 서버 종료 카운트다운" role="status">
+      <div class="sunset-head"><strong>개발 서버 종료</strong><strong class="sunset-time">{{ showDevSunset ? devCountdown : '표준시 확인 중' }}</strong></div>
+      <div class="sunset-bottom"><span>DEV 접속 종료 · 종료 후 메뉴에서 제거</span><span class="dev-closed-tag">접속 차단</span></div>
+     </section>
     </div>
-    <section v-if="showDevSunset" class="sunset dev-sunset" aria-label="개발 서버 종료 공지">
-     <div class="sunset-head"><strong>개발 서버 종료</strong><strong class="sunset-time">{{ devCountdown }}</strong></div>
-     <div class="sunset-bottom"><span>DEV 접속 종료 · 남은 기간 후 메뉴에서 제거됩니다</span><span class="dev-closed-tag">접속 차단 중</span></div>
-     <p class="dev-timezone">공통 종료 시각 · 대한민국 표준시(KST, UTC+09:00)</p>
-     <p class="dev-deadline">종료 예정: <strong>2026.12.02 (수) 06:00 KST</strong></p>
-    </section>
-    <p v-if="!devClockKnown" class="portal-info" role="status">개발 서버 접속 차단 중 · {{ devClockError||'표준시 확인 중' }}</p>
-    <p v-if="devExpired" class="dev-after">개발 서버 종료 완료. 서버 목록에서 DEV가 제거되었으며, 정식 LIVE만 이용할 수 있습니다.</p>
+    <p v-if="!devClockKnown&&devClockError" class="portal-info" role="status">{{ devClockError }} · DEV 접속은 계속 차단됩니다.</p>
     <section v-if="showTestSunset" class="sunset" aria-label="정식 가속 서버 종료">
      <div class="sunset-head"><strong>가속 서버 종료</strong><strong class="sunset-time">{{ testCountdown }}</strong></div>
      <div class="sunset-bottom">
@@ -407,17 +400,9 @@ button.server-row:disabled{cursor:not-allowed;opacity:.7}
 .server-row.live{border-color:rgba(104,220,199,.6);background:linear-gradient(90deg,rgba(12,67,67,.68),rgba(11,33,51,.67))}
 .server-row.dev{border-color:rgba(107,159,232,.48);background:linear-gradient(90deg,rgba(22,43,75,.74),rgba(10,26,45,.65))}
 .server-row.unavailable{opacity:.68}
-.server-row.dev:disabled{opacity:.66;background:linear-gradient(90deg,#15283bd8,#0c1929c7);border-color:#536c8470}
-.dev-entry-locked{border:1px solid #69839c70;border-radius:5px;padding:5px 7px;font-size:10px;font-weight:600;color:#c2d1de}
-.portal .sunset.dev-sunset{background:linear-gradient(125deg,#122e43d6,#0a1c2ec9);border-color:#56779198}
-.portal .dev-sunset .sunset-head strong{font-size:13px;color:#d9f2ff}
-.portal .dev-sunset .sunset-head .sunset-time{font-size:18px;color:#d9f2ff;white-space:nowrap}
-.portal .dev-sunset .sunset-bottom{border-top:1px solid #88afc029;padding-top:11px;flex-wrap:wrap}
-.portal .dev-sunset .sunset-bottom span{color:#9cbbcf}
-.portal .dev-sunset .sunset-bottom .dev-closed-tag{font-size:10px;color:#c9d8e4;border:1px solid #5f7d92;border-radius:6px;padding:7px 9px;background:#142f44}
-.dev-timezone{margin:12px 0 0;font-size:10px;color:#9dc4d5;line-height:1.7}
-.dev-deadline{margin:5px 0 0;font-size:10px;color:#9ab2c4;line-height:1.6}
-.dev-after{padding:15px;border-radius:9px;border:1px solid #36546a;color:#a8c3d3;font-size:11px;line-height:1.65;background:#12233380;margin-top:13px}
+.portal .servers>.sunset{margin-top:0}
+.portal .dev-sunset .sunset-time{white-space:nowrap}
+.portal .dev-sunset .dev-closed-tag{font-size:11px;font-weight:750;color:#ffefd0;background:linear-gradient(180deg,#99784a,#594021);border:1px solid #e5c48a;border-radius:8px;padding:10px 14px;white-space:nowrap}
 .server-main{display:flex;align-items:center;min-width:0;gap:13px}
 .server-icon{width:39px;height:39px;border-radius:9px;border:1px solid rgba(146,209,238,.28);display:grid;place-items:center;flex:none;background:rgba(80,132,169,.13);color:#c6e6f9;font-size:19px;font-weight:700;font-family:Georgia,serif}
 .server-row.live .server-icon{color:#aaf2de;border-color:#74d1b670;background:#0b55516b}
