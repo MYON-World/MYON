@@ -15,38 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Build MYON official game
+      - name: Prepare MYON
         run: |
-          npm ci
-          VERSION=$(node -p "require('./package.json').version")
-          printf '{"revision":"%s","version":"%s"}\n' "$GITHUB_SHA" "$VERSION" > public/myon-build.json
-          npm test
-          npm run build
-          node scripts/build-rollouts.cjs
-      - name: Check immutable releases and official game
-        run: |
-          test -f dist/index.html
-          test -f dist/myon.html
-          test -f dist/myon-v013.js
-          test -f dist/myon-build.json
-          test -f dist/myon-rollouts.json
-          test -f dist/myon-recovery.html
-          test -f "dist/releases/$GITHUB_SHA/myon.html"
-          test -f "dist/releases/$GITHUB_SHA/myon-v013.js"
-          # The legacy direct URL must redirect, never serve newest game code.
-          grep -Fq 'new URL("./",location.href)' dist/myon.html
-          ! grep -Fq 'myon-v013.js' dist/myon.html
-          # Even archived URLs must not bypass the official pinned parent.
-          grep -Fq 'window.self===window.top' "dist/releases/$GITHUB_SHA/myon.html"
-          ! test -e dist/test
-          ! test -e dist/dev
+          test -s index.html
+          mkdir -p dist
+          cp index.html dist/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

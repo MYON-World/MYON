@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b101b">
+<title>MYON</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;background:#0b101b;color:#edf3ff}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;min-height:100svh}
+[hidden]{display:none!important}
+.screen{min-height:100vh;min-height:100svh;display:grid;place-items:center;padding:28px;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 35%,#182d45 0%,#0b101b 58%)}
+.intro{width:min(100%,340px);text-align:center;display:flex;flex-direction:column;align-items:center;gap:24px}
+.symbol{width:74px;height:74px;display:grid;place-items:center;margin-bottom:2px;color:#91def4}
+h1{margin:0;font-size:clamp(48px,12vw,76px);line-height:1;letter-spacing:.13em;font-weight:750;padding-left:.13em}
+.subtitle{margin:0;font-size:14px;letter-spacing:.17em;color:#a3afc3}
+button{font:inherit;cursor:pointer;border-radius:10px;min-height:50px;font-weight:650}
+.start{width:100%;margin-top:24px;color:#0b1724;background:#a5e5f6;border:1px solid #b9edfa;box-shadow:0 8px 32px #72cde61a}
+.start:hover{background:#c0effb}
+button:focus-visible{outline:3px solid white;outline-offset:4px}
+.start:active{transform:translateY(1px)}
+.world{min-height:100vh;min-height:100svh;display:flex;flex-direction:column;padding:20px clamp(16px,5vw,40px)}
+header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #263243;padding-bottom:16px;gap:16px}
+.brand{font-weight:750;letter-spacing:.13em}
+.back{padding:8px 16px;min-height:40px;background:#172234;border:1px solid #34465e;color:#edf3ff}
+.empty{flex:1;display:grid;place-content:center;text-align:center;color:#a3afc3;padding:32px 0}
+.empty h2{margin:0 0 10px;color:#edf3ff;font-size:20px;font-weight:600}
+.empty p{margin:0;font-size:14px}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<main id="home" class="screen">
+  <section class="intro" aria-labelledby="game-title">
+    <svg class="symbol" viewBox="0 0 80 80" fill="none" aria-hidden="true">
+      <path d="M40 4 72 22v36L40 76 8 58V22L40 4Z" stroke="currentColor" stroke-width="1.6"/>
+      <path d="m8 22 32 19 32-19M40 41v35M24 13l32 19v19" stroke="currentColor" stroke-width="1.6"/>
+      <circle cx="40" cy="41" r="3" fill="currentColor"/>
+    </svg>
+    <h1 id="game-title">MYON</h1>
+    <p class="subtitle">새로운 시작</p>
+    <button id="start" class="start" type="button">게임 시작</button>
+  </section>
+</main>
+<main id="world" class="world" hidden>
+  <header><span class="brand">MYON</span><button id="back" class="back" type="button">처음으로</button></header>
+  <section class="empty" aria-labelledby="world-title">
+    <h2 id="world-title" tabindex="-1">새로운 세계</h2>
+    <p>게임 콘텐츠 준비 중</p>
+  </section>
+</main>
+<script>
+'use strict';
+const home=document.getElementById('home');
+const world=document.getElementById('world');
+const start=document.getElementById('start');
+const back=document.getElementById('back');
+start.addEventListener('click',()=>{home.hidden=true;world.hidden=false;document.getElementById('world-title').focus()});
+back.addEventListener('click',()=>{world.hidden=true;home.hidden=false;start.focus()});
+</script>
+</body>
+</html>
