@@ -319,7 +319,12 @@ applyButton.addEventListener('click',()=>{
 function randomInt(min,max){return min+Math.floor(Math.random()*(max-min+1))}
 // The mission ID retains its original spawn tick even after acceptance.
 function spawnTick(m){return Number(m.id.slice(m.id.lastIndexOf(':')+1))}
-function missionOrder(a,b){
+function missionOrder(a,b,elapsed=Math.max(0,lastTick)){
+  const phaseA=newObservationPhase(a,elapsed),phaseB=newObservationPhase(b,elapsed);
+  const rank=phase=>phase==='strong'?0:phase==='soft'?1:2;
+  const priority=rank(phaseA)-rank(phaseB);
+  if(priority)return priority;
+  if(phaseA&&phaseB)return spawnTick(b)-spawnTick(a)||a.id.localeCompare(b.id);
   if(a.selected!==b.selected)return a.selected?1:-1;
   const deadlineA=a.selected?a.end:autoAt(a);
   const deadlineB=b.selected?b.end:autoAt(b);
@@ -460,8 +465,8 @@ function createCard(m){
   }
   return {card,selected:m.selected,fill,time,track,newTag};
 }
-function syncCards(){
-  active.sort(missionOrder);
+function syncCards(elapsed=Math.max(0,lastTick)){
+  active.sort((a,b)=>missionOrder(a,b,elapsed));
   const ids=new Set(active.map(m=>m.id));
   for(const [id,v] of views){
     if(!ids.has(id)){v.card.remove();views.delete(id)}
@@ -480,6 +485,7 @@ function syncCards(){
   });
 }
 function animateBars(elapsed){
+  let reorder=false;
   for(const m of active){
     const v=views.get(m.id);
     if(!v)continue;
@@ -488,8 +494,10 @@ function animateBars(elapsed){
       if(!phase){
         v.newTag.remove();
         v.newTag=null;
+        reorder=true;
       }else if(v.newTag.dataset.phase!==phase){
         v.newTag.dataset.phase=phase;
+        reorder=true;
       }
     }
     const fraction=m.selected?clamp((elapsed-m.start)/m.duration):clamp((autoAt(m)-elapsed)/AUTO_ACCEPT);
@@ -500,6 +508,7 @@ function animateBars(elapsed){
     const value=String(m.selected?Math.floor(fraction*100):Math.min(AUTO_ACCEPT,Math.ceil(remaining)));
     if(v.track.getAttribute('aria-valuenow')!==value)v.track.setAttribute('aria-valuenow',value);
   }
+  if(reorder)syncCards(elapsed);
 }
 list.addEventListener('click',event=>{
   const button=event.target.closest('[data-mission-id]');
