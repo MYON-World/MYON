@@ -140,7 +140,16 @@ const OBSERVATION=Object.freeze([
   {content:'우주',source:'우주',min:30*DAY,max:365*DAY,interval:7*DAY,durationText:'편도 30~365일 랜덤',intervalText:'7일',out:'출발편',back:'복귀편'}
 ].map(x=>Object.freeze({...x,type:'관전형',field:'교통',key:JSON.stringify(['관전형','교통',x.content])})));
 const COMBINATIONS=Object.freeze([...OBSERVATION,...TYPES.filter(type=>type!=='관전형').flatMap(type=>Object.entries(CONTENT).flatMap(([field,items])=>items.map(content=>Object.freeze({type,field,content,key:JSON.stringify([type,field,content])}))))]);
-let observationNext=Object.create(null);
+let observationNext=Object.create(null),scheduledReturns=[];
+const SERVICE_WINDOW_RULE='kst-05-23-v1';
+function hasServiceWindow(c){return c.source==='버스'||c.source==='철도'||c.content==='국내선'}
+function nextServiceTick(tick,origin=epoch){
+  // Korea Standard Time is UTC+09:00 year-round.
+  const localSeconds=((Math.floor(origin/1000)+tick+9*HOUR)%DAY+DAY)%DAY;
+  if(localSeconds<5*HOUR)return tick+5*HOUR-localSeconds;
+  if(localSeconds>=23*HOUR)return tick+DAY-localSeconds+5*HOUR;
+  return tick;
+}
 const validKeys=new Set(COMBINATIONS.map(x=>x.key));
 let enabled=new Set(),currentPage='home',expandedStyle='';
 const settings=document.getElementById('play-settings');
@@ -255,7 +264,7 @@ function showSaveError(message){
 function saveSession(){
   if(startedAt===null||saveBlocked)return false;
   try{
-    localStorage.setItem(SAVE_KEY,JSON.stringify({revision:BUILD_REVISION,epoch,tick:Math.max(0,lastTick),nextSpawn,active,enabled:Array.from(enabled),observationNext}));
+    localStorage.setItem(SAVE_KEY,JSON.stringify({revision:BUILD_REVISION,epoch,tick:Math.max(0,lastTick),nextSpawn,active,enabled:Array.from(enabled),observationNext,scheduledReturns,serviceWindowRule:SERVICE_WINDOW_RULE}));
     showSaveError('');
     return true;
   }catch(error){
@@ -345,7 +354,7 @@ function spawn(tick){
 }
 function observationOffer(c,tick){
   const duration=randomInt(c.min,c.max);
-  return {id:BUILD_REVISION+':observation:'+c.content+':'+tick,field:c.field,content:c.content+(c.out?' · '+c.out:''),type:c.type,start:tick,end:tick+duration,duration,rule:'timer-v1',selected:true,returnContent:c.back?c.content+' · '+c.back:null};
+  return {id:BUILD_REVISION+':observation:'+c.content+':'+tick,field:c.field,content:c.content+(c.out?' · '+c.out:''),type:c.type,start:tick,end:tick+duration,duration,rule:'timer-v1',selected:true,serviceWindow:hasServiceWindow(c),returnContent:c.back?c.content+' · '+c.back:null};
 }
 function advanceObservation(tick){
   let changed=false;
@@ -354,12 +363,15 @@ function advanceObservation(tick){
     let next=observationNext[c.key];
     if(!Number.isSafeInteger(next)||next<0)next=tick;
     // Bound offline reconstruction by the maximum lifetime of both legs.
-    const horizon=(c.back?2:1)*c.max;
+    const limited=hasServiceWindow(c);
+    const horizon=(c.back?2:1)*c.max+(limited&&c.back?6*HOUR:0);
     if(next<=tick-horizon)next+=Math.ceil((tick-horizon+1-next)/c.interval)*c.interval;
+    if(limited)next=nextServiceTick(next);
     while(next<=tick){
       const mission=observationOffer(c,next);
       if(!active.some(m=>m.id===mission.id))active.push(mission);
       next+=c.interval;
+      if(limited)next=nextServiceTick(next);
       changed=true;
     }
     if(observationNext[c.key]!==next){observationNext[c.key]=next;changed=true;}
@@ -369,7 +381,12 @@ function advanceObservation(tick){
 function advanceMissions(tick){
   let changed=false;
   const remaining=[];
-  for(const original of active){
+  const readyReturns=scheduledReturns.filter(m=>m.start<=tick);
+  if(readyReturns.length){
+    scheduledReturns=scheduledReturns.filter(m=>m.start>tick);
+    changed=true;
+  }
+  for(const original of [...active,...readyReturns]){
     let m=original;
     while(m){
       if(!m.selected&&m.type==='관전형'){accept(m,Math.min(tick,autoAt(m)));changed=true;}
@@ -378,8 +395,9 @@ function advanceMissions(tick){
       changed=true;
       // The return is part of the already-started trip; it inherits its exact duration.
       if(m.returnContent){
-        const departure=m.end;
+        const departure=m.serviceWindow===true?nextServiceTick(m.end):m.end;
         m={id:m.id+':return:'+departure,field:m.field,content:m.returnContent,type:m.type,start:departure,end:departure+(m.type==='관전형'?m.duration:AUTO_ACCEPT),duration:m.duration,rule:'timer-v1',selected:m.type==='관전형',pairedReturn:true};
+        if(departure>tick){scheduledReturns.push(m);m=null;}
       }else m=null;
     }
   }
@@ -393,14 +411,13 @@ function formatTime(seconds){
 }
 function formatMissionTime(seconds){
   seconds=Math.max(0,Math.ceil(seconds));
-  const pad=n=>String(n).padStart(2,'0');
-  if(seconds<60)return pad(seconds);
-  if(seconds<3600)return pad(Math.floor(seconds/60))+':'+pad(seconds%60);
-  if(seconds<=7200)return formatTime(seconds);
-  const days=Math.floor(seconds/86400);
-  const hours=Math.floor(seconds%86400/3600);
-  const minutes=Math.floor(seconds%3600/60);
-  return (days?days+'일 ':'')+pad(hours)+':'+pad(minutes);
+  const totalDays=Math.floor(seconds/DAY);
+  const years=Math.floor(totalDays/365),days=totalDays%365;
+  const hours=Math.floor(seconds%DAY/HOUR),minutes=Math.floor(seconds%HOUR/MINUTE),secs=seconds%MINUTE;
+  if(seconds<MINUTE)return secs+'초';
+  if(seconds<HOUR)return minutes+'분 '+secs+'초';
+  if(seconds<=2*HOUR)return hours+'시 '+minutes+'분 '+secs+'초';
+  return (years?years+'년 ':'')+(days?days+'일 ':'')+hours+'시 '+minutes+'분';
 }
 function newObservationPhase(m,elapsed){
   const age=elapsed-spawnTick(m);
@@ -564,6 +581,7 @@ function begin(saved){
     // Accepted missions are immutable snapshots. Only offers use the new build.
     const sameBuild=saved.revision===BUILD_REVISION;
     active=saved.active.filter(m=>sameBuild||m.selected||m.pairedReturn===true||m.type==='관전형');
+    scheduledReturns=Array.isArray(saved.scheduledReturns)?saved.scheduledReturns.filter(m=>m&&m.pairedReturn===true&&m.type==='관전형'&&Number.isSafeInteger(m.start)&&Number.isSafeInteger(m.end)&&Number.isSafeInteger(m.duration)&&m.duration>0&&typeof m.id==='string'&&typeof m.content==='string'&&typeof m.field==='string'&&m.selected===true&&m.rule==='timer-v1'):[];
     const oldEnabled=new Set(Array.isArray(saved.enabled)?saved.enabled:[]);
     enabled=new Set(Array.from(oldEnabled).filter(key=>validKeys.has(key)));
     // Keep previously enabled observation categories when expanding their subtypes.
@@ -571,7 +589,9 @@ function begin(saved){
       if(oldEnabled.has(JSON.stringify(['관전형',c.field,c.source])))enabled.add(c.key);
       if(!enabled.has(c.key))continue;
       const savedNext=saved.observationNext&&saved.observationNext[c.key];
-      observationNext[c.key]=Number.isSafeInteger(savedNext)&&savedNext>=0?savedNext:elapsed;
+      let next=Number.isSafeInteger(savedNext)&&savedNext>=0?savedNext:elapsed;
+      if(hasServiceWindow(c)&&saved.serviceWindowRule!==SERVICE_WINDOW_RULE)next=Math.max(next,elapsed);
+      observationNext[c.key]=next;
     }
     nextSpawn=sameBuild?saved.nextSpawn:elapsed;
   }
