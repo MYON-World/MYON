@@ -43,7 +43,7 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
 .mission{background:#111b2a;border:1px solid #263243;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:9px}
 .mission-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .mission-name{font-size:15px;font-weight:700}
-.mission-time{color:#a5e5f6;font-variant-numeric:tabular-nums;font-size:14px}
+.mission-time{color:#b9edfa;font-variant-numeric:tabular-nums;font-size:15px;font-weight:650;text-align:right;line-height:1.3}
 .mission-track{height:5px;background:#263243;border-radius:999px;overflow:hidden}
 .mission-fill,.auto-fill{height:100%;width:100%;border-radius:999px;transform-origin:left center;will-change:transform}
 .mission-fill{background:#91def4;transform:scaleX(0)}
@@ -382,6 +382,17 @@ function formatTime(seconds){
   const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),secs=seconds%60;
   return [hours,minutes,secs].map(n=>String(n).padStart(2,'0')).join(':');
 }
+function formatMissionTime(seconds){
+  seconds=Math.max(0,Math.ceil(seconds));
+  const pad=n=>String(n).padStart(2,'0');
+  if(seconds<60)return pad(seconds);
+  if(seconds<3600)return pad(Math.floor(seconds/60))+':'+pad(seconds%60);
+  if(seconds<=7200)return formatTime(seconds);
+  const days=Math.floor(seconds/86400);
+  const hours=Math.floor(seconds%86400/3600);
+  const minutes=Math.floor(seconds%3600/60);
+  return (days?days+'일 ':'')+pad(hours)+':'+pad(minutes);
+}
 function createCard(m){
   const card=document.createElement('article');
   card.className=m.selected?'mission':'mission pending';
@@ -457,7 +468,7 @@ function animateBars(elapsed){
     const fraction=m.selected?clamp((elapsed-m.start)/m.duration):clamp((autoAt(m)-elapsed)/AUTO_ACCEPT);
     v.fill.style.transform='scaleX('+fraction+')';
     const remaining=Math.max(0,(m.selected?m.end:autoAt(m))-elapsed);
-    const text=formatTime(remaining);
+    const text=m.selected?formatMissionTime(remaining):formatTime(remaining);
     if(v.time.textContent!==text)v.time.textContent=text;
     const value=String(m.selected?Math.floor(fraction*100):Math.min(AUTO_ACCEPT,Math.ceil(remaining)));
     if(v.track.getAttribute('aria-valuenow')!==value)v.track.setAttribute('aria-valuenow',value);
