@@ -29,7 +29,12 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
 .clock-time{font-size:19px;font-weight:650}
 .clock-date{font-size:11px;color:#a3afc3;margin-top:2px}
 .section-title{font-size:15px;font-weight:700;margin:0 0 12px}
-.mission-style{font-size:13px;color:#a5e5f6;margin-top:4px}
+.mission-tag{display:inline-flex;align-items:center;flex-shrink:0;padding:3px 7px;border-radius:5px;font-size:11px;line-height:1.25;font-weight:650;white-space:nowrap;background:#263243;color:#a3afc3}
+.mission-tag[data-style="관전형"]{background:#182e3c;color:#91def4}
+.mission-tag[data-style="방치형"]{background:#19352b;color:#a6ddb5}
+.mission-tag[data-style="운영형"]{background:#302744;color:#c4b5fd}
+.mission-tag[data-style="운전형"]{background:#3b3022;color:#f2cd91}
+.mission-tag[data-style="리얼형"]{background:#402731;color:#f0a6af}
 .mission-select{min-height:0;border:1px solid #365a6d;border-radius:6px;padding:8px;background:transparent;color:#edf3ff;font-size:13px;white-space:nowrap}
 .mission-select:hover{background:#1a2b3d}
 .update-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#142a38;border:1px solid #365a6d;border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px;color:#a5e5f6}
@@ -44,8 +49,8 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
 .mission-fill{background:#91def4;transform:scaleX(0)}
 .auto-fill{background:#7b91ae;transform:scaleX(1)}
 .pending{padding:8px 12px;gap:5px}
-.pending .mission-info{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.pending .mission-style{margin-top:0;font-size:12px}
+.mission-info{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.mission-time{flex-shrink:0;white-space:nowrap}
 .pending .mission-select{padding:4px 8px;font-size:12px}
 .auto-row{display:flex;align-items:center;gap:8px}
 .auto-row .mission-track{flex:1;min-width:0}
@@ -384,13 +389,15 @@ function createCard(m){
   row.className='mission-row';
   const info=document.createElement('div');
   info.className='mission-info';
-  const name=document.createElement(m.selected?'div':'span');
+  const name=document.createElement('span');
   name.className='mission-name';
   name.textContent=m.content;
-  const style=document.createElement(m.selected?'div':'span');
-  style.className='mission-style';
-  style.textContent=m.type;
-  info.append(name,style);
+  const style=document.createElement('span');
+  style.className='mission-tag';
+  style.dataset.style=m.type;
+  style.textContent=m.type.endsWith('형')?m.type.slice(0,-1):m.type;
+  style.setAttribute('aria-label',m.type);
+  info.append(style,name);
   row.append(info);
   const time=document.createElement('span');
   const track=document.createElement('div');
