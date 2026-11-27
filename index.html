@@ -71,7 +71,8 @@ const list=document.getElementById('missions');
 const BUILD_REVISION='__MYON_BUILD_REVISION__';
 const SAVE_KEY='myon.session.20261128';
 const UPDATE_RESUME_KEY='myon.update.resume';
-const UPDATE_INTERVAL=60000;
+const UPDATE_INTERVAL=10000;
+const UPDATE_SCROLL_KEY='myon.update.scroll';
 const notice=document.getElementById('update-notice');
 const applyButton=document.getElementById('apply-update');
 const saveError=document.getElementById('save-error');
@@ -117,12 +118,16 @@ function readSession(){
     return null;
   }
 }
-async function checkUpdate(){
-  if(startedAt===null||checking||applying||performance.now()-lastCheck<UPDATE_INTERVAL||!/^[a-f0-9]{40}$/.test(BUILD_REVISION))return;
+async function checkUpdate(force=false){
+  if(startedAt===null||checking||applying||(!force&&performance.now()-lastCheck<UPDATE_INTERVAL)||!/^[a-f0-9]{40}$/.test(BUILD_REVISION))return;
   checking=true;
   lastCheck=performance.now();
+  const controller=new AbortController();
+  const timeout=window.setTimeout(()=>controller.abort(),8000);
   try{
-    const response=await fetch(new URL('revision.txt',location.href),{cache:'no-store'});
+    const url=new URL('revision.txt',location.href);
+    url.searchParams.set('_',String(Date.now()));
+    const response=await fetch(url,{cache:'no-store',signal:controller.signal});
     if(!response.ok)return;
     const revision=(await response.text()).trim();
     if(!/^[a-f0-9]{40}$/.test(revision))return;
@@ -130,23 +135,34 @@ async function checkUpdate(){
     notice.hidden=!availableRevision;
   }catch(error){
     // A failed check must never interrupt local play.
-  }finally{checking=false}
+  }finally{window.clearTimeout(timeout);checking=false}
 }
 applyButton.addEventListener('click',()=>{
   if(!availableRevision||applying)return;
   update();
   if(!saveSession())return;
-  applying=true;
-  applyButton.disabled=true;
   const url=new URL(location.href);
   url.searchParams.set('update',availableRevision);
-  try{sessionStorage.setItem(UPDATE_RESUME_KEY,availableRevision)}catch(error){/* Manual start remains available. */}
+  url.searchParams.set('_',String(Date.now()));
+  try{
+    sessionStorage.setItem(UPDATE_SCROLL_KEY,String(window.scrollY));
+    sessionStorage.setItem(UPDATE_RESUME_KEY,availableRevision);
+  }catch(error){
+    showSaveError('현재 화면을 유지할 수 없어 업데이트를 적용하지 않았습니다.');
+    return;
+  }
+  applying=true;
+  applyButton.disabled=true;
   location.replace(url.href);
 });
 function randomInt(min,max){return min+Math.floor(Math.random()*(max-min+1))}
 // The mission ID retains its original spawn tick even after acceptance.
 function spawnTick(m){return Number(m.id.slice(m.id.lastIndexOf(':')+1))}
-function newestFirst(a,b){return spawnTick(b)-spawnTick(a)}
+function missionOrder(a,b){
+  if(a.selected!==b.selected)return a.selected?1:-1;
+  if(a.selected&&a.end!==b.end)return a.end-b.end;
+  return spawnTick(b)-spawnTick(a)||a.id.localeCompare(b.id);
+}
 function spawn(tick){
   const duration=randomInt(MIN_DURATION,MAX_DURATION);
   const fields=Object.keys(CONTENT),field=fields[randomInt(0,fields.length-1)],items=CONTENT[field];
@@ -221,7 +237,7 @@ list.addEventListener('click',event=>{
   mission.selected=true;
   mission.start=tick;
   mission.end=tick+mission.duration;
-  active.sort(newestFirst);
+  active.sort(missionOrder);
   saveSession();
   render(tick);
 });
@@ -246,7 +262,7 @@ function update(){
     nextSpawn+=SPAWN_INTERVAL;
     changed=true;
   }
-  active.sort(newestFirst);
+  active.sort(missionOrder);
   if(changed)saveSession();
   render(tick);
 }
@@ -273,19 +289,26 @@ function begin(saved){
 start.addEventListener('click',()=>begin(readSession()));
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden)saveSession();
-  else{update();checkUpdate()}
+  else{update();checkUpdate(true)}
 });
+window.addEventListener('focus',()=>{if(!document.hidden)checkUpdate(true)});
+window.addEventListener('online',()=>checkUpdate(true));
 window.addEventListener('pagehide',()=>saveSession());
 // Only a deliberate update application may resume directly once.
-let resumeAfterUpdate=false;
+let resumeAfterUpdate=false, resumeScroll=0;
 try{
   const pending=sessionStorage.getItem(UPDATE_RESUME_KEY);
+  resumeScroll=Math.max(0,Number(sessionStorage.getItem(UPDATE_SCROLL_KEY))||0);
   sessionStorage.removeItem(UPDATE_RESUME_KEY);
+  sessionStorage.removeItem(UPDATE_SCROLL_KEY);
   resumeAfterUpdate=!!pending&&pending===new URL(location.href).searchParams.get('update');
 }catch(error){/* Ordinary loads always show the start screen. */}
 if(resumeAfterUpdate){
   const previousSession=readSession();
-  if(previousSession)begin(previousSession);
+  if(previousSession){
+    begin(previousSession);
+    window.requestAnimationFrame(()=>window.scrollTo(0,resumeScroll));
+  }
 }
 </script>
 </body>
