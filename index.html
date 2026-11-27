@@ -70,6 +70,7 @@ const start=document.getElementById('start');
 const list=document.getElementById('missions');
 const BUILD_REVISION='__MYON_BUILD_REVISION__';
 const SAVE_KEY='myon.session.20261128';
+const UPDATE_RESUME_KEY='myon.update.resume';
 const UPDATE_INTERVAL=60000;
 const notice=document.getElementById('update-notice');
 const applyButton=document.getElementById('apply-update');
@@ -139,9 +140,13 @@ applyButton.addEventListener('click',()=>{
   applyButton.disabled=true;
   const url=new URL(location.href);
   url.searchParams.set('update',availableRevision);
+  try{sessionStorage.setItem(UPDATE_RESUME_KEY,availableRevision)}catch(error){/* Manual start remains available. */}
   location.replace(url.href);
 });
 function randomInt(min,max){return min+Math.floor(Math.random()*(max-min+1))}
+// The mission ID retains its original spawn tick even after acceptance.
+function spawnTick(m){return Number(m.id.slice(m.id.lastIndexOf(':')+1))}
+function newestFirst(a,b){return spawnTick(b)-spawnTick(a)}
 function spawn(tick){
   const duration=randomInt(MIN_DURATION,MAX_DURATION);
   const fields=Object.keys(CONTENT),field=fields[randomInt(0,fields.length-1)],items=CONTENT[field];
@@ -216,7 +221,7 @@ list.addEventListener('click',event=>{
   mission.selected=true;
   mission.start=tick;
   mission.end=tick+mission.duration;
-  active.sort((a,b)=>a.end-b.end||a.start-b.start||a.id.localeCompare(b.id));
+  active.sort(newestFirst);
   saveSession();
   render(tick);
 });
@@ -237,11 +242,11 @@ function update(){
   }
   while(nextSpawn<=tick){
     const mission=spawn(nextSpawn);
-    if(mission.end>tick)active.push(mission);
+    if(mission.end>tick)active.unshift(mission);
     nextSpawn+=SPAWN_INTERVAL;
     changed=true;
   }
-  active.sort((a,b)=>a.end-b.end||a.start-b.start||a.id.localeCompare(b.id));
+  active.sort(newestFirst);
   if(changed)saveSession();
   render(tick);
 }
@@ -265,14 +270,23 @@ function begin(saved){
   window.setInterval(update,250);
   window.setInterval(checkUpdate,UPDATE_INTERVAL);
 }
-start.addEventListener('click',()=>begin(null));
+start.addEventListener('click',()=>begin(readSession()));
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden)saveSession();
   else{update();checkUpdate()}
 });
 window.addEventListener('pagehide',()=>saveSession());
-const previousSession=readSession();
-if(previousSession)begin(previousSession);
+// Only a deliberate update application may resume directly once.
+let resumeAfterUpdate=false;
+try{
+  const pending=sessionStorage.getItem(UPDATE_RESUME_KEY);
+  sessionStorage.removeItem(UPDATE_RESUME_KEY);
+  resumeAfterUpdate=!!pending&&pending===new URL(location.href).searchParams.get('update');
+}catch(error){/* Ordinary loads always show the start screen. */}
+if(resumeAfterUpdate){
+  const previousSession=readSession();
+  if(previousSession)begin(previousSession);
+}
 </script>
 </body>
 </html>
