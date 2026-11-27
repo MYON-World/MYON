@@ -23,7 +23,13 @@ button:focus-visible{outline:3px solid white;outline-offset:4px}
 .world{min-height:100vh;min-height:100svh;width:min(100%,680px);margin:0 auto;padding:20px clamp(16px,5vw,32px)}
 header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #263243;padding-bottom:16px;gap:16px;margin-bottom:16px}
 .brand{font-weight:750;color:#91def4}
-.stage{font-size:14px;font-weight:600}
+.clock{text-align:right;font-variant-numeric:tabular-nums;line-height:1.2}
+.clock-time{font-size:19px;font-weight:650}
+.clock-date{font-size:11px;color:#a3afc3;margin-top:2px}
+.section-title{font-size:15px;font-weight:700;margin:0 0 12px}
+.mission-style{font-size:13px;color:#a5e5f6;margin-top:4px}
+.mission-select{min-height:0;border:1px solid #365a6d;border-radius:6px;padding:8px;background:transparent;color:#edf3ff;font-size:13px;white-space:nowrap}
+.mission-select:hover{background:#1a2b3d}
 .missions{display:flex;flex-direction:column;gap:12px}
 .mission{background:#111b2a;border:1px solid #263243;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:9px}
 .mission-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -48,8 +54,9 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
   </section>
 </main>
 <main id="world" class="world" hidden>
-  <header><span class="brand">MYON</span><span id="rion-stage" class="stage" tabindex="-1">리온 0</span></header>
-  <section id="missions" class="missions" aria-label="진행 중인 임무"></section>
+  <header><span class="brand">MYON</span><div id="clock" class="clock" tabindex="-1"><div id="clock-time" class="clock-time"></div><div id="clock-date" class="clock-date"></div></div></header>
+  <h2 class="section-title">등장 임무</h2>
+  <section id="missions" class="missions" aria-label="등장 임무 및 진행 중인 임무"></section>
 </main>
 <script>
 'use strict';
@@ -57,40 +64,101 @@ const home=document.getElementById('home');
 const world=document.getElementById('world');
 const start=document.getElementById('start');
 const list=document.getElementById('missions');
+const CONTENT=Object.freeze({'교통':Object.freeze(['택시','버스','철도','항공','선박','우주'])});
 const TYPES=Object.freeze(['방치형','운영형','운송형','경제형']);
+const clockFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+function updateClock(){
+  const p=Object.fromEntries(clockFormat.formatToParts(new Date()).map(x=>[x.type,x.value]));
+  document.getElementById('clock-time').textContent=p.hour+':'+p.minute;
+  document.getElementById('clock-date').textContent=p.year+'.'+p.month+'.'+p.day;
+}
 // All timings are expressed in ticks. One tick equals one elapsed real second.
 const SPAWN_INTERVAL=30, MIN_DURATION=60, MAX_DURATION=600;
 let startedAt=null, nextSpawn=0, lastTick=-1, active=[];
 function randomInt(min,max){return min+Math.floor(Math.random()*(max-min+1))}
 function spawn(tick){
   const duration=randomInt(MIN_DURATION,MAX_DURATION);
-  return {type:TYPES[randomInt(0,TYPES.length-1)],start:tick,end:tick+duration,duration};
+  const fields=Object.keys(CONTENT),field=fields[randomInt(0,fields.length-1)],items=CONTENT[field];
+  return {id:tick,field,content:items[randomInt(0,items.length-1)],type:TYPES[randomInt(0,TYPES.length-1)],start:tick,end:tick+duration,duration,selected:false};
 }
 function formatTime(seconds){
   const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),secs=seconds%60;
   return [hours,minutes,secs].map(n=>String(n).padStart(2,'0')).join(':');
 }
 function render(tick){
+  const focused=document.activeElement?.dataset?.missionId;
   const fragment=document.createDocumentFragment();
   for(const m of active){
-    const remaining=m.end-tick, percent=100*(tick-m.start)/m.duration;
     const card=document.createElement('article');
     card.className='mission';
-    // Names originate only from the fixed TYPES array; numeric values are computed internally.
-    card.innerHTML='<div class="mission-row"><span class="mission-name">'+m.type+
-      '</span><span class="mission-time">'+formatTime(remaining)+'</span></div>'+
-      '<div class="mission-track" role="progressbar" aria-label="'+m.type+
-      ' 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.floor(percent)+
-      '"><div class="mission-fill" style="width:'+percent+'%"></div></div>';
+    const row=document.createElement('div');
+    row.className='mission-row';
+    const info=document.createElement('div');
+    const name=document.createElement('div');
+    name.className='mission-name';
+    name.textContent=m.content;
+    const style=document.createElement('div');
+    style.className='mission-style';
+    style.textContent=m.type;
+    info.append(name,style);
+    row.append(info);
+    if(m.selected){
+      const remaining=m.end-tick,percent=100*(tick-m.start)/m.duration;
+      const time=document.createElement('span');
+      time.className='mission-time';
+      time.textContent=formatTime(remaining);
+      row.append(time);
+      card.append(row);
+      const track=document.createElement('div');
+      track.className='mission-track';
+      track.setAttribute('role','progressbar');
+      track.setAttribute('aria-label',m.content+' '+m.type+' 진행률');
+      track.setAttribute('aria-valuemin','0');
+      track.setAttribute('aria-valuemax','100');
+      track.setAttribute('aria-valuenow',String(Math.floor(percent)));
+      const fill=document.createElement('div');
+      fill.className='mission-fill';
+      fill.style.width=percent+'%';
+      track.append(fill);
+      card.append(track);
+    }else{
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='mission-select';
+      button.dataset.missionId=String(m.id);
+      button.textContent='임무 선택';
+      button.setAttribute('aria-label',m.content+' '+m.type+' 임무 선택');
+      row.append(button);
+      card.append(row);
+    }
     fragment.append(card);
   }
   list.replaceChildren(fragment);
+  if(focused!==undefined){
+    const button=Array.from(list.querySelectorAll('[data-mission-id]')).find(b=>b.dataset.missionId===focused);
+    if(button)button.focus({preventScroll:true});
+  }
 }
+list.addEventListener('click',event=>{
+  const button=event.target.closest('[data-mission-id]');
+  if(!button||startedAt===null)return;
+  const id=Number(button.dataset.missionId);
+  update();
+  const mission=active.find(m=>m.id===id&&!m.selected);
+  if(!mission)return;
+  const tick=lastTick;
+  mission.selected=true;
+  mission.start=tick;
+  mission.end=tick+mission.duration;
+  active.sort((a,b)=>a.end-b.end||a.id-b.id);
+  render(tick);
+});
 function update(){
   if(startedAt===null)return;
   const tick=Math.max(0,Math.floor((performance.now()-startedAt)/1000));
   if(tick===lastTick)return;
   lastTick=tick;
+  updateClock();
   active=active.filter(m=>m.end>tick);
   // No reward or history exists yet. Expired unseen missions need not be replayed.
   if(nextSpawn<=tick-MAX_DURATION){
@@ -101,7 +169,7 @@ function update(){
     if(mission.end>tick)active.push(mission);
     nextSpawn+=SPAWN_INTERVAL;
   }
-  active.sort((a,b)=>a.end-b.end||a.start-b.start);
+  active.sort((a,b)=>a.end-b.end||a.id-b.id);
   render(tick);
 }
 start.addEventListener('click',()=>{
@@ -109,7 +177,7 @@ start.addEventListener('click',()=>{
   startedAt=performance.now();
   home.hidden=true;
   world.hidden=false;
-  document.getElementById('rion-stage').focus();
+  document.getElementById('clock').focus();
   update();
   window.setInterval(update,250);
 });
