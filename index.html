@@ -50,6 +50,21 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
 .auto-row{display:flex;align-items:center;gap:8px}
 .auto-row .mission-track{flex:1;min-width:0}
 .auto-label{font-size:10px;color:#a3afc3;font-variant-numeric:tabular-nums;white-space:nowrap}
+.world{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+.bottom-nav{position:fixed;z-index:10;bottom:0;left:50%;transform:translateX(-50%);width:min(100%,680px);display:grid;grid-template-columns:1fr 1fr;background:#0b101b;border-top:1px solid #263243;padding:5px clamp(16px,5vw,32px) calc(5px + env(safe-area-inset-bottom,0px))}
+.nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:transparent;border:0;color:#a3afc3;font-size:12px;min-height:49px;border-radius:6px}
+.nav-item[aria-current="page"]{color:#91def4}
+.nav-item svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.play-settings{display:flex;flex-direction:column;gap:8px}
+.style-group{background:#111b2a;border:1px solid #263243;border-radius:10px;overflow:hidden}
+.style-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;background:transparent;color:#edf3ff;border:0;padding:12px;min-height:44px;font-size:15px}
+.style-toggle svg{width:16px;height:16px;stroke:#a3afc3;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.style-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+.style-content{padding:0 12px 8px}
+.field-name{font-size:11px;color:#a3afc3;padding:0 0 6px}
+.receive-row{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #263243;padding:8px 0;font-size:13px}
+.receive-control{display:flex;align-items:center;gap:6px;color:#a3afc3;font-size:12px;cursor:pointer;white-space:nowrap}
+.receive-control input{margin:0;width:16px;height:16px;accent-color:#91def4}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
 </style>
 </head>
@@ -70,8 +85,18 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
   <header><span class="brand">MYON</span><div id="clock" class="clock" tabindex="-1"><div id="clock-time" class="clock-time"></div><div id="clock-date" class="clock-date"></div></div></header>
   <section id="update-notice" class="update-notice" aria-label="게임 업데이트" hidden><span role="status">신규 업데이트 있음</span><button id="apply-update" class="mission-select" type="button">적용</button></section>
   <p id="save-error" class="save-error" role="alert" hidden></p>
-  <h2 class="section-title">등장 임무</h2>
-  <section id="missions" class="missions" aria-label="등장 임무 및 진행 중인 임무"></section>
+  <section id="home-panel">
+    <h2 class="section-title">등장 임무</h2>
+    <section id="missions" class="missions" aria-label="등장 임무 및 진행 중인 임무"></section>
+  </section>
+  <section id="play-panel" hidden>
+    <h2 class="section-title">플레이</h2>
+    <div id="play-settings" class="play-settings"></div>
+  </section>
+  <nav class="bottom-nav" aria-label="하단 메뉴">
+    <button type="button" class="nav-item" data-page="home" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg><span>홈</span></button>
+    <button type="button" class="nav-item" data-page="play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12c2 0 3 2 4 7 .5 3-1 5-3 4l-4-3H9l-4 3c-2 1-3.5-1-3-4 1-5 2-7 4-7zM7 9v6m-3-3h6m6-1h.01m3 3h.01"/></svg><span>플레이</span></button>
+  </nav>
 </main>
 <script>
 'use strict';
@@ -84,12 +109,91 @@ const SAVE_KEY='myon.session.20261128';
 const UPDATE_RESUME_KEY='myon.update.resume';
 const UPDATE_INTERVAL=10000;
 const UPDATE_SCROLL_KEY='myon.update.scroll';
+const UPDATE_VIEW_KEY='myon.update.view';
 const notice=document.getElementById('update-notice');
 const applyButton=document.getElementById('apply-update');
 const saveError=document.getElementById('save-error');
 let availableRevision=null, checking=false, lastCheck=-Infinity, saveBlocked=false, applying=false;
 const CONTENT=Object.freeze({'교통':Object.freeze(['택시','버스','철도','항공','선박','우주'])});
 const TYPES=Object.freeze(['관전형','방치형','운영형','운전형','리얼형']);
+const COMBINATIONS=Object.freeze(TYPES.flatMap(type=>Object.entries(CONTENT).flatMap(([field,items])=>items.map(content=>Object.freeze({type,field,content,key:JSON.stringify([type,field,content])})))));
+const validKeys=new Set(COMBINATIONS.map(x=>x.key));
+let enabled=new Set(),currentPage='home',expandedStyle='';
+const settings=document.getElementById('play-settings');
+const homePanel=document.getElementById('home-panel');
+const playPanel=document.getElementById('play-panel');
+const navItems=Array.from(world.querySelectorAll('[data-page]'));
+function setPage(page,resetScroll=true){
+  currentPage=page==='play'?'play':'home';
+  homePanel.hidden=currentPage!=='home';
+  playPanel.hidden=currentPage!=='play';
+  for(const button of navItems){
+    if(button.dataset.page===currentPage)button.setAttribute('aria-current','page');
+    else button.removeAttribute('aria-current');
+  }
+  if(resetScroll)window.scrollTo(0,0);
+}
+function renderSettings(){
+  settings.replaceChildren();
+  for(const type of TYPES){
+    const group=document.createElement('section');
+    group.className='style-group';
+    const toggle=document.createElement('button');
+    toggle.type='button';
+    toggle.className='style-toggle';
+    toggle.setAttribute('aria-expanded',String(expandedStyle===type));
+    const label=document.createElement('span');
+    label.textContent=type;
+    toggle.append(label);
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 24 24');
+    svg.setAttribute('aria-hidden','true');
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d','m6 9 6 6 6-6');
+    svg.append(path);toggle.append(svg);
+    toggle.addEventListener('click',()=>{
+      expandedStyle=expandedStyle===type?'':type;
+      renderSettings();
+      const target=Array.from(settings.querySelectorAll('.style-toggle')).find(x=>x.textContent===type);
+      if(target)target.focus({preventScroll:true});
+    });
+    group.append(toggle);
+    if(expandedStyle===type){
+      const body=document.createElement('div');
+      body.className='style-content';
+      for(const field of Object.keys(CONTENT)){
+        const heading=document.createElement('div');
+        heading.className='field-name';
+        heading.textContent=field;
+        body.append(heading);
+        for(const c of COMBINATIONS.filter(x=>x.type===type&&x.field===field)){
+          const row=document.createElement('div');
+          row.className='receive-row';
+          const name=document.createElement('span');
+          name.textContent=c.content;
+          const control=document.createElement('label');
+          control.className='receive-control';
+          const checkbox=document.createElement('input');
+          checkbox.type='checkbox';
+          checkbox.checked=enabled.has(c.key);
+          checkbox.setAttribute('aria-label',type+' '+c.content+' 임무 받기');
+          checkbox.addEventListener('change',()=>{
+            update();
+            if(checkbox.checked)enabled.add(c.key);
+            else enabled.delete(c.key);
+            saveSession();
+          });
+          control.append(checkbox,'임무 받기');
+          row.append(name,control);
+          body.append(row);
+        }
+      }
+      group.append(body);
+    }
+    settings.append(group);
+  }
+}
+navItems.forEach(button=>button.addEventListener('click',()=>setPage(button.dataset.page)));
 const clockFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 function updateClock(){
   const p=Object.fromEntries(clockFormat.formatToParts(new Date()).map(x=>[x.type,x.value]));
@@ -108,7 +212,7 @@ function showSaveError(message){
 function saveSession(){
   if(startedAt===null||saveBlocked)return false;
   try{
-    localStorage.setItem(SAVE_KEY,JSON.stringify({revision:BUILD_REVISION,epoch,tick:Math.max(0,lastTick),nextSpawn,active}));
+    localStorage.setItem(SAVE_KEY,JSON.stringify({revision:BUILD_REVISION,epoch,tick:Math.max(0,lastTick),nextSpawn,active,enabled:Array.from(enabled)}));
     showSaveError('');
     return true;
   }catch(error){
@@ -159,6 +263,7 @@ applyButton.addEventListener('click',()=>{
   url.searchParams.set('_',String(Date.now()));
   try{
     sessionStorage.setItem(UPDATE_SCROLL_KEY,String(window.scrollY));
+    sessionStorage.setItem(UPDATE_VIEW_KEY,JSON.stringify({page:currentPage,style:expandedStyle}));
     sessionStorage.setItem(UPDATE_RESUME_KEY,availableRevision);
   }catch(error){
     showSaveError('현재 화면을 유지할 수 없어 업데이트를 적용하지 않았습니다.');
@@ -185,8 +290,10 @@ function accept(m,tick){
 }
 function spawn(tick){
   const duration=randomInt(MIN_DURATION,MAX_DURATION);
-  const fields=Object.keys(CONTENT),field=fields[randomInt(0,fields.length-1)],items=CONTENT[field];
-  return {id:BUILD_REVISION+':'+tick,field,content:items[randomInt(0,items.length-1)],type:TYPES[randomInt(0,TYPES.length-1)],start:tick,end:tick+AUTO_ACCEPT,duration,rule:'timer-v1',selected:false};
+  const choices=COMBINATIONS.filter(c=>enabled.has(c.key));
+  if(!choices.length)return null;
+  const {field,content,type}=choices[randomInt(0,choices.length-1)];
+  return {id:BUILD_REVISION+':'+tick,field,content,type,start:tick,end:tick+AUTO_ACCEPT,duration,rule:'timer-v1',selected:false};
 }
 function formatTime(seconds){
   seconds=Math.max(0,Math.ceil(seconds));
@@ -300,7 +407,8 @@ function update(){
       changed=true;
     }
     while(nextSpawn<=tick){
-      active.push(spawn(nextSpawn));
+      const mission=spawn(nextSpawn);
+      if(mission)active.push(mission);
       nextSpawn+=SPAWN_INTERVAL;
       changed=true;
     }
@@ -332,10 +440,13 @@ function begin(saved){
     // Accepted missions are immutable snapshots. Only offers use the new build.
     const sameBuild=saved.revision===BUILD_REVISION;
     active=saved.active.filter(m=>sameBuild||m.selected);
+    enabled=new Set(Array.isArray(saved.enabled)?saved.enabled.filter(key=>validKeys.has(key)):[]);
     nextSpawn=sameBuild?saved.nextSpawn:elapsed;
   }
   home.hidden=true;
   world.hidden=false;
+  renderSettings();
+  setPage('home',false);
   document.getElementById('clock').focus();
   update();
   saveSession();
@@ -353,18 +464,26 @@ window.addEventListener('focus',()=>{if(!document.hidden)checkUpdate(true)});
 window.addEventListener('online',()=>checkUpdate(true));
 window.addEventListener('pagehide',()=>saveSession());
 // Only a deliberate update application may resume directly once.
-let resumeAfterUpdate=false, resumeScroll=0;
+let resumeAfterUpdate=false, resumeScroll=0, resumeView=null;
 try{
   const pending=sessionStorage.getItem(UPDATE_RESUME_KEY);
   resumeScroll=Math.max(0,Number(sessionStorage.getItem(UPDATE_SCROLL_KEY))||0);
   sessionStorage.removeItem(UPDATE_RESUME_KEY);
   sessionStorage.removeItem(UPDATE_SCROLL_KEY);
+  const view=sessionStorage.getItem(UPDATE_VIEW_KEY);
+  sessionStorage.removeItem(UPDATE_VIEW_KEY);
+  try{resumeView=JSON.parse(view)}catch(error){resumeView=null}
   resumeAfterUpdate=!!pending&&pending===new URL(location.href).searchParams.get('update');
 }catch(error){/* Ordinary loads always show the start screen. */}
 if(resumeAfterUpdate){
   const previousSession=readSession();
   if(previousSession){
     begin(previousSession);
+    if(resumeView&&resumeView.page==='play'){
+      expandedStyle=TYPES.includes(resumeView.style)?resumeView.style:'';
+      renderSettings();
+      setPage('play',false);
+    }
     window.requestAnimationFrame(()=>window.scrollTo(0,resumeScroll));
   }
 }
