@@ -172,9 +172,10 @@ function randomInt(min,max){return min+Math.floor(Math.random()*(max-min+1))}
 // The mission ID retains its original spawn tick even after acceptance.
 function spawnTick(m){return Number(m.id.slice(m.id.lastIndexOf(':')+1))}
 function missionOrder(a,b){
-  if(a.selected!==b.selected)return a.selected?-1:1;
-  if(a.selected&&a.end!==b.end)return a.end-b.end;
-  return spawnTick(a)-spawnTick(b)||a.id.localeCompare(b.id);
+  if(a.selected!==b.selected)return a.selected?1:-1;
+  const deadlineA=a.selected?a.end:autoAt(a);
+  const deadlineB=b.selected?b.end:autoAt(b);
+  return deadlineA-deadlineB||spawnTick(a)-spawnTick(b)||a.id.localeCompare(b.id);
 }
 function autoAt(m){return spawnTick(m)+AUTO_ACCEPT}
 function accept(m,tick){
