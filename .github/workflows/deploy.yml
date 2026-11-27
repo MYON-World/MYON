@@ -19,7 +19,8 @@ jobs:
         run: |
           test -s index.html
           mkdir -p dist
-          cp index.html dist/index.html
+          sed "s/__MYON_BUILD_REVISION__/$GITHUB_SHA/g" index.html > dist/index.html
+          printf '%s\n' "$GITHUB_SHA" > dist/revision.txt
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

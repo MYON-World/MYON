@@ -30,6 +30,8 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
 .mission-style{font-size:13px;color:#a5e5f6;margin-top:4px}
 .mission-select{min-height:0;border:1px solid #365a6d;border-radius:6px;padding:8px;background:transparent;color:#edf3ff;font-size:13px;white-space:nowrap}
 .mission-select:hover{background:#1a2b3d}
+.update-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#142a38;border:1px solid #365a6d;border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px;color:#a5e5f6}
+.save-error{font-size:12px;color:#f6bf9d;margin:0 0 12px}
 .missions{display:flex;flex-direction:column;gap:12px}
 .mission{background:#111b2a;border:1px solid #263243;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:9px}
 .mission-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -55,6 +57,8 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
 </main>
 <main id="world" class="world" hidden>
   <header><span class="brand">MYON</span><div id="clock" class="clock" tabindex="-1"><div id="clock-time" class="clock-time"></div><div id="clock-date" class="clock-date"></div></div></header>
+  <section id="update-notice" class="update-notice" aria-label="게임 업데이트" hidden><span role="status">신규 업데이트 있음</span><button id="apply-update" class="mission-select" type="button">적용</button></section>
+  <p id="save-error" class="save-error" role="alert" hidden></p>
   <h2 class="section-title">등장 임무</h2>
   <section id="missions" class="missions" aria-label="등장 임무 및 진행 중인 임무"></section>
 </main>
@@ -64,6 +68,13 @@ const home=document.getElementById('home');
 const world=document.getElementById('world');
 const start=document.getElementById('start');
 const list=document.getElementById('missions');
+const BUILD_REVISION='__MYON_BUILD_REVISION__';
+const SAVE_KEY='myon.session.20261128';
+const UPDATE_INTERVAL=60000;
+const notice=document.getElementById('update-notice');
+const applyButton=document.getElementById('apply-update');
+const saveError=document.getElementById('save-error');
+let availableRevision=null, checking=false, lastCheck=-Infinity, saveBlocked=false, applying=false;
 const CONTENT=Object.freeze({'교통':Object.freeze(['택시','버스','철도','항공','선박','우주'])});
 const TYPES=Object.freeze(['관전형','방치형','운영형','운송형','경제형','리얼형']);
 const clockFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
@@ -74,12 +85,67 @@ function updateClock(){
 }
 // All timings are expressed in ticks. One tick equals one elapsed real second.
 const SPAWN_INTERVAL=30, MIN_DURATION=60, MAX_DURATION=600;
-let startedAt=null, nextSpawn=0, lastTick=-1, active=[];
+let startedAt=null, epoch=0, nextSpawn=0, lastTick=-1, active=[];
+function showSaveError(message){
+  saveError.textContent=message;
+  saveError.hidden=!message;
+}
+function saveSession(){
+  if(startedAt===null||saveBlocked)return false;
+  try{
+    localStorage.setItem(SAVE_KEY,JSON.stringify({revision:BUILD_REVISION,epoch,tick:Math.max(0,lastTick),nextSpawn,active}));
+    showSaveError('');
+    return true;
+  }catch(error){
+    showSaveError('저장할 수 없습니다. 브라우저 저장 공간을 확인해 주세요.');
+    return false;
+  }
+}
+function readSession(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(raw===null)return null;
+    const saved=JSON.parse(raw);
+    if(!saved||typeof saved.revision!=='string'||!Number.isFinite(saved.epoch)||!Number.isSafeInteger(saved.tick)||saved.tick<0||!Number.isSafeInteger(saved.nextSpawn)||saved.nextSpawn<0||!Array.isArray(saved.active)||!saved.active.every(m=>m&&typeof m.id==='string'&&typeof m.field==='string'&&typeof m.content==='string'&&typeof m.type==='string'&&typeof m.selected==='boolean'&&Number.isSafeInteger(m.start)&&Number.isSafeInteger(m.end)&&Number.isSafeInteger(m.duration)&&m.duration>0&&m.end>=m.start&&m.rule==='timer-v1')){
+      throw new Error('Invalid or unsupported save');
+    }
+    return saved;
+  }catch(error){
+    saveBlocked=true;
+    showSaveError('기존 저장 데이터를 읽을 수 없습니다. 덮어쓰지 않고 보존합니다.');
+    return null;
+  }
+}
+async function checkUpdate(){
+  if(startedAt===null||checking||applying||performance.now()-lastCheck<UPDATE_INTERVAL||!/^[a-f0-9]{40}$/.test(BUILD_REVISION))return;
+  checking=true;
+  lastCheck=performance.now();
+  try{
+    const response=await fetch(new URL('revision.txt',location.href),{cache:'no-store'});
+    if(!response.ok)return;
+    const revision=(await response.text()).trim();
+    if(!/^[a-f0-9]{40}$/.test(revision))return;
+    availableRevision=revision===BUILD_REVISION?null:revision;
+    notice.hidden=!availableRevision;
+  }catch(error){
+    // A failed check must never interrupt local play.
+  }finally{checking=false}
+}
+applyButton.addEventListener('click',()=>{
+  if(!availableRevision||applying)return;
+  update();
+  if(!saveSession())return;
+  applying=true;
+  applyButton.disabled=true;
+  const url=new URL(location.href);
+  url.searchParams.set('update',availableRevision);
+  location.replace(url.href);
+});
 function randomInt(min,max){return min+Math.floor(Math.random()*(max-min+1))}
 function spawn(tick){
   const duration=randomInt(MIN_DURATION,MAX_DURATION);
   const fields=Object.keys(CONTENT),field=fields[randomInt(0,fields.length-1)],items=CONTENT[field];
-  return {id:tick,field,content:items[randomInt(0,items.length-1)],type:TYPES[randomInt(0,TYPES.length-1)],start:tick,end:tick+duration,duration,selected:false};
+  return {id:BUILD_REVISION+':'+tick,field,content:items[randomInt(0,items.length-1)],type:TYPES[randomInt(0,TYPES.length-1)],start:tick,end:tick+duration,duration,rule:'timer-v1',selected:false};
 }
 function formatTime(seconds){
   const hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),secs=seconds%60;
@@ -142,7 +208,7 @@ function render(tick){
 list.addEventListener('click',event=>{
   const button=event.target.closest('[data-mission-id]');
   if(!button||startedAt===null)return;
-  const id=Number(button.dataset.missionId);
+  const id=button.dataset.missionId;
   update();
   const mission=active.find(m=>m.id===id&&!m.selected);
   if(!mission)return;
@@ -150,7 +216,8 @@ list.addEventListener('click',event=>{
   mission.selected=true;
   mission.start=tick;
   mission.end=tick+mission.duration;
-  active.sort((a,b)=>a.end-b.end||a.id-b.id);
+  active.sort((a,b)=>a.end-b.end||a.start-b.start||a.id.localeCompare(b.id));
+  saveSession();
   render(tick);
 });
 function update(){
@@ -159,29 +226,53 @@ function update(){
   if(tick===lastTick)return;
   lastTick=tick;
   updateClock();
+  const previousLength=active.length;
+  // Keep this legacy timer rule available for accepted missions in future builds.
   active=active.filter(m=>m.end>tick);
+  let changed=active.length!==previousLength;
   // No reward or history exists yet. Expired unseen missions need not be replayed.
   if(nextSpawn<=tick-MAX_DURATION){
     nextSpawn+=Math.ceil((tick-MAX_DURATION+1-nextSpawn)/SPAWN_INTERVAL)*SPAWN_INTERVAL;
+    changed=true;
   }
   while(nextSpawn<=tick){
     const mission=spawn(nextSpawn);
     if(mission.end>tick)active.push(mission);
     nextSpawn+=SPAWN_INTERVAL;
+    changed=true;
   }
-  active.sort((a,b)=>a.end-b.end||a.id-b.id);
+  active.sort((a,b)=>a.end-b.end||a.start-b.start||a.id.localeCompare(b.id));
+  if(changed)saveSession();
   render(tick);
 }
-start.addEventListener('click',()=>{
+function begin(saved){
   if(startedAt!==null)return;
-  startedAt=performance.now();
+  epoch=saved?saved.epoch:Date.now();
+  const elapsed=saved?Math.max(saved.tick,Math.floor((Date.now()-epoch)/1000),0):0;
+  startedAt=performance.now()-elapsed*1000;
+  if(saved){
+    // Accepted missions are immutable snapshots. Only offers use the new build.
+    const sameBuild=saved.revision===BUILD_REVISION;
+    active=saved.active.filter(m=>sameBuild||m.selected);
+    nextSpawn=sameBuild?saved.nextSpawn:elapsed;
+  }
   home.hidden=true;
   world.hidden=false;
   document.getElementById('clock').focus();
   update();
+  saveSession();
+  checkUpdate();
   window.setInterval(update,250);
+  window.setInterval(checkUpdate,UPDATE_INTERVAL);
+}
+start.addEventListener('click',()=>begin(null));
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden)saveSession();
+  else{update();checkUpdate()}
 });
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)update()});
+window.addEventListener('pagehide',()=>saveSession());
+const previousSession=readSession();
+if(previousSession)begin(previousSession);
 </script>
 </body>
 </html>
