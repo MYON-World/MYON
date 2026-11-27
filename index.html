@@ -89,7 +89,7 @@ const applyButton=document.getElementById('apply-update');
 const saveError=document.getElementById('save-error');
 let availableRevision=null, checking=false, lastCheck=-Infinity, saveBlocked=false, applying=false;
 const CONTENT=Object.freeze({'교통':Object.freeze(['택시','버스','철도','항공','선박','우주'])});
-const TYPES=Object.freeze(['관전형','방치형','운영형','운송형','경제형','리얼형']);
+const TYPES=Object.freeze(['관전형','방치형','운영형','운전형','리얼형']);
 const clockFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 function updateClock(){
   const p=Object.fromEntries(clockFormat.formatToParts(new Date()).map(x=>[x.type,x.value]));
