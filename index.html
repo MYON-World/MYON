@@ -59,7 +59,7 @@ const start=document.getElementById('start');
 const list=document.getElementById('missions');
 const TYPES=Object.freeze(['방치형','운영형','운송형','경제형']);
 // All timings are expressed in ticks. One tick equals one elapsed real second.
-const SPAWN_INTERVAL=5, MIN_DURATION=15, MAX_DURATION=60;
+const SPAWN_INTERVAL=30, MIN_DURATION=60, MAX_DURATION=600;
 let startedAt=null, nextSpawn=0, lastTick=-1, active=[];
 function randomInt(min,max){return min+Math.floor(Math.random()*(max-min+1))}
 function spawn(tick){
@@ -101,6 +101,7 @@ function update(){
     if(mission.end>tick)active.push(mission);
     nextSpawn+=SPAWN_INTERVAL;
   }
+  active.sort((a,b)=>a.end-b.end||a.start-b.start);
   render(tick);
 }
 start.addEventListener('click',()=>{
