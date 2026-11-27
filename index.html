@@ -65,6 +65,8 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
 .receive-row{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #263243;padding:8px 0;font-size:13px}
 .receive-control{display:flex;align-items:center;gap:6px;color:#a3afc3;font-size:12px;cursor:pointer;white-space:nowrap}
 .receive-control input{margin:0;width:16px;height:16px;accent-color:#91def4}
+.receive-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+.receive-detail{font-size:11px;color:#a3afc3;line-height:1.4}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
 </style>
 </head>
@@ -116,7 +118,22 @@ const saveError=document.getElementById('save-error');
 let availableRevision=null, checking=false, lastCheck=-Infinity, saveBlocked=false, applying=false;
 const CONTENT=Object.freeze({'교통':Object.freeze(['택시','버스','철도','항공','선박','우주'])});
 const TYPES=Object.freeze(['관전형','방치형','운영형','운전형','리얼형']);
-const COMBINATIONS=Object.freeze(TYPES.flatMap(type=>Object.entries(CONTENT).flatMap(([field,items])=>items.map(content=>Object.freeze({type,field,content,key:JSON.stringify([type,field,content])})))));
+const MINUTE=60,HOUR=3600,DAY=86400;
+// Observation missions use elapsed time only. A paired leg is a separate offer.
+const OBSERVATION=Object.freeze([
+  {content:'택시',source:'택시',min:4*MINUTE,max:13*MINUTE,interval:MINUTE,durationText:'4~13분 랜덤',intervalText:'1분'},
+  {content:'시내버스',source:'버스',min:30*MINUTE,max:30*MINUTE,interval:5*MINUTE,durationText:'30분',intervalText:'5분'},
+  {content:'광역버스',source:'버스',min:70*MINUTE,max:70*MINUTE,interval:10*MINUTE,durationText:'70분',intervalText:'10분'},
+  {content:'지하철',source:'철도',min:90*MINUTE,max:90*MINUTE,interval:15*MINUTE,durationText:'편도 1시간 30분',intervalText:'15분',out:'하행',back:'상행'},
+  {content:'일반열차',source:'철도',min:3*HOUR,max:3*HOUR,interval:30*MINUTE,durationText:'편도 3시간',intervalText:'30분',out:'하행',back:'상행'},
+  {content:'고속열차',source:'철도',min:2*HOUR,max:2*HOUR,interval:20*MINUTE,durationText:'편도 2시간',intervalText:'20분',out:'하행',back:'상행'},
+  {content:'국내선',source:'항공',min:90*MINUTE,max:90*MINUTE,interval:15*MINUTE,durationText:'편도 1시간 30분',intervalText:'15분',out:'출발편',back:'복귀편'},
+  {content:'국제선',source:'항공',min:14*HOUR,max:14*HOUR,interval:2*HOUR,durationText:'편도 14시간',intervalText:'2시간',out:'출발편',back:'복귀편'},
+  {content:'선박',source:'선박',min:14*HOUR,max:40*DAY,interval:DAY,durationText:'편도 14시간~40일 랜덤',intervalText:'1일',out:'출발편',back:'복귀편'},
+  {content:'우주',source:'우주',min:30*DAY,max:365*DAY,interval:7*DAY,durationText:'편도 30~365일 랜덤',intervalText:'7일',out:'출발편',back:'복귀편'}
+].map(x=>Object.freeze({...x,type:'관전형',field:'교통',key:JSON.stringify(['관전형','교통',x.content])})));
+const COMBINATIONS=Object.freeze([...OBSERVATION,...TYPES.filter(type=>type!=='관전형').flatMap(type=>Object.entries(CONTENT).flatMap(([field,items])=>items.map(content=>Object.freeze({type,field,content,key:JSON.stringify([type,field,content])}))))]);
+let observationNext=Object.create(null);
 const validKeys=new Set(COMBINATIONS.map(x=>x.key));
 let enabled=new Set(),currentPage='home',expandedStyle='';
 const settings=document.getElementById('play-settings');
@@ -171,6 +188,15 @@ function renderSettings(){
           row.className='receive-row';
           const name=document.createElement('span');
           name.textContent=c.content;
+          let info=name;
+          if(c.type==='관전형'){
+            info=document.createElement('div');
+            info.className='receive-info';
+            const detail=document.createElement('span');
+            detail.className='receive-detail';
+            detail.textContent=c.durationText+' · '+c.intervalText+'마다 등장';
+            info.append(name,detail);
+          }
           const control=document.createElement('label');
           control.className='receive-control';
           const checkbox=document.createElement('input');
@@ -179,8 +205,18 @@ function renderSettings(){
           checkbox.setAttribute('aria-label',type+' '+c.content+' 임무 받기');
           checkbox.addEventListener('change',()=>{
             update();
-            if(checkbox.checked)enabled.add(c.key);
-            else enabled.delete(c.key);
+            if(checkbox.checked){
+              enabled.add(c.key);
+              if(c.type==='관전형'){
+                observationNext[c.key]=Math.max(0,lastTick);
+                advanceObservation(Math.max(0,lastTick));
+                syncCards();
+                animateBars(Math.max(0,(performance.now()-startedAt)/1000));
+              }
+            }else{
+              enabled.delete(c.key);
+              if(c.type==='관전형')delete observationNext[c.key];
+            }
             saveSession();
           });
           control.append(checkbox,'임무 받기');
@@ -212,7 +248,7 @@ function showSaveError(message){
 function saveSession(){
   if(startedAt===null||saveBlocked)return false;
   try{
-    localStorage.setItem(SAVE_KEY,JSON.stringify({revision:BUILD_REVISION,epoch,tick:Math.max(0,lastTick),nextSpawn,active,enabled:Array.from(enabled)}));
+    localStorage.setItem(SAVE_KEY,JSON.stringify({revision:BUILD_REVISION,epoch,tick:Math.max(0,lastTick),nextSpawn,active,enabled:Array.from(enabled),observationNext}));
     showSaveError('');
     return true;
   }catch(error){
@@ -290,10 +326,51 @@ function accept(m,tick){
 }
 function spawn(tick){
   const duration=randomInt(MIN_DURATION,MAX_DURATION);
-  const choices=COMBINATIONS.filter(c=>enabled.has(c.key));
+  const choices=COMBINATIONS.filter(c=>c.type!=='관전형'&&enabled.has(c.key));
   if(!choices.length)return null;
   const {field,content,type}=choices[randomInt(0,choices.length-1)];
   return {id:BUILD_REVISION+':'+tick,field,content,type,start:tick,end:tick+AUTO_ACCEPT,duration,rule:'timer-v1',selected:false};
+}
+function observationOffer(c,tick){
+  const duration=randomInt(c.min,c.max);
+  return {id:BUILD_REVISION+':observation:'+c.content+':'+tick,field:c.field,content:c.content+(c.out?' · '+c.out:''),type:c.type,start:tick,end:tick+AUTO_ACCEPT,duration,rule:'timer-v1',selected:false,returnContent:c.back?c.content+' · '+c.back:null};
+}
+function advanceObservation(tick){
+  let changed=false;
+  for(const c of OBSERVATION){
+    if(!enabled.has(c.key))continue;
+    let next=observationNext[c.key];
+    if(!Number.isSafeInteger(next)||next<0)next=tick;
+    // Bound offline reconstruction by the maximum lifetime of both legs.
+    const horizon=(c.back?2:1)*(c.max+AUTO_ACCEPT);
+    if(next<=tick-horizon)next+=Math.ceil((tick-horizon+1-next)/c.interval)*c.interval;
+    while(next<=tick){
+      active.push(observationOffer(c,next));
+      next+=c.interval;
+      changed=true;
+    }
+    if(observationNext[c.key]!==next){observationNext[c.key]=next;changed=true;}
+  }
+  return changed;
+}
+function advanceMissions(tick){
+  let changed=false;
+  const remaining=[];
+  for(const original of active){
+    let m=original;
+    while(m){
+      if(!m.selected&&tick>=autoAt(m)){accept(m,autoAt(m));changed=true;}
+      if(!m.selected||m.end>tick){remaining.push(m);break;}
+      changed=true;
+      // The return is part of the already-started trip; it inherits its exact duration.
+      if(m.returnContent){
+        const departure=m.end;
+        m={id:m.id+':return:'+departure,field:m.field,content:m.returnContent,type:m.type,start:departure,end:departure+AUTO_ACCEPT,duration:m.duration,rule:'timer-v1',selected:false,pairedReturn:true};
+      }else m=null;
+    }
+  }
+  active=remaining;
+  return changed;
 }
 function formatTime(seconds){
   seconds=Math.max(0,Math.ceil(seconds));
@@ -412,15 +489,8 @@ function update(){
       nextSpawn+=SPAWN_INTERVAL;
       changed=true;
     }
-    for(const m of active){
-      if(!m.selected&&tick>=autoAt(m)){
-        accept(m,autoAt(m));
-        changed=true;
-      }
-    }
-    const previousLength=active.length;
-    active=active.filter(m=>!m.selected||m.end>tick);
-    changed=changed||active.length!==previousLength;
+    changed=advanceObservation(tick)||changed;
+    changed=advanceMissions(tick)||changed;
     if(first||changed)syncCards();
     if(changed)saveSession();
   }
@@ -439,8 +509,16 @@ function begin(saved){
   if(saved){
     // Accepted missions are immutable snapshots. Only offers use the new build.
     const sameBuild=saved.revision===BUILD_REVISION;
-    active=saved.active.filter(m=>sameBuild||m.selected);
-    enabled=new Set(Array.isArray(saved.enabled)?saved.enabled.filter(key=>validKeys.has(key)):[]);
+    active=saved.active.filter(m=>sameBuild||m.selected||m.pairedReturn===true);
+    const oldEnabled=new Set(Array.isArray(saved.enabled)?saved.enabled:[]);
+    enabled=new Set(Array.from(oldEnabled).filter(key=>validKeys.has(key)));
+    // Keep previously enabled observation categories when expanding their subtypes.
+    for(const c of OBSERVATION){
+      if(oldEnabled.has(JSON.stringify(['관전형',c.field,c.source])))enabled.add(c.key);
+      if(!enabled.has(c.key))continue;
+      const savedNext=saved.observationNext&&saved.observationNext[c.key];
+      observationNext[c.key]=Number.isSafeInteger(savedNext)&&savedNext>=0?savedNext:elapsed;
+    }
     nextSpawn=sameBuild?saved.nextSpawn:elapsed;
   }
   home.hidden=true;
