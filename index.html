@@ -35,7 +35,8 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
 .mission-tag[data-style="운영형"]{background:#302744;color:#c4b5fd}
 .mission-tag[data-style="운전형"]{background:#3b3022;color:#f2cd91}
 .mission-tag[data-style="리얼형"]{background:#402731;color:#f0a6af}
-.mission-new{display:inline-flex;align-items:center;flex-shrink:0;background:#19352b;color:#a6ddb5;font-size:10px;font-weight:750;line-height:1.25;padding:3px 5px;border-radius:4px;white-space:nowrap}
+.mission-new{display:inline-flex;align-items:center;flex-shrink:0;background:#166534;color:#86efac;font-size:10px;font-weight:750;line-height:1.25;padding:3px 5px;border-radius:4px;white-space:nowrap;transition:background-color .25s,color .25s}
+.mission-new[data-phase="soft"]{background:#1b2b25;color:#81a58d}
 .mission-select{min-height:0;border:1px solid #365a6d;border-radius:6px;padding:8px;background:transparent;color:#edf3ff;font-size:13px;white-space:nowrap}
 .mission-select:hover{background:#1a2b3d}
 .update-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#142a38;border:1px solid #365a6d;border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px;color:#a5e5f6}
@@ -396,9 +397,10 @@ function formatMissionTime(seconds){
   const minutes=Math.floor(seconds%3600/60);
   return (days?days+'일 ':'')+pad(hours)+':'+pad(minutes);
 }
-function isNewObservation(m,elapsed){
+function newObservationPhase(m,elapsed){
   const age=elapsed-spawnTick(m);
-  return m.type==='관전형'&&age>=0&&age<10;
+  if(m.type!=='관전형'||age<0||age>=120)return '';
+  return age<60?'strong':'soft';
 }
 function createCard(m){
   const card=document.createElement('article');
@@ -417,9 +419,11 @@ function createCard(m){
   style.setAttribute('aria-label',m.type);
   info.append(style,name);
   let newTag=null;
-  if(isNewObservation(m,Math.max(0,lastTick))){
+  const newPhase=newObservationPhase(m,Math.max(0,lastTick));
+  if(newPhase){
     newTag=document.createElement('span');
     newTag.className='mission-new';
+    newTag.dataset.phase=newPhase;
     newTag.textContent='NEW';
     info.append(newTag);
   }
@@ -479,9 +483,14 @@ function animateBars(elapsed){
   for(const m of active){
     const v=views.get(m.id);
     if(!v)continue;
-    if(v.newTag&&!isNewObservation(m,elapsed)){
-      v.newTag.remove();
-      v.newTag=null;
+    if(v.newTag){
+      const phase=newObservationPhase(m,elapsed);
+      if(!phase){
+        v.newTag.remove();
+        v.newTag=null;
+      }else if(v.newTag.dataset.phase!==phase){
+        v.newTag.dataset.phase=phase;
+      }
     }
     const fraction=m.selected?clamp((elapsed-m.start)/m.duration):clamp((autoAt(m)-elapsed)/AUTO_ACCEPT);
     v.fill.style.transform='scaleX('+fraction+')';
