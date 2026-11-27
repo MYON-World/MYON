@@ -338,7 +338,7 @@ function spawn(tick){
 }
 function observationOffer(c,tick){
   const duration=randomInt(c.min,c.max);
-  return {id:BUILD_REVISION+':observation:'+c.content+':'+tick,field:c.field,content:c.content+(c.out?' · '+c.out:''),type:c.type,start:tick,end:tick+AUTO_ACCEPT,duration,rule:'timer-v1',selected:false,returnContent:c.back?c.content+' · '+c.back:null};
+  return {id:BUILD_REVISION+':observation:'+c.content+':'+tick,field:c.field,content:c.content+(c.out?' · '+c.out:''),type:c.type,start:tick,end:tick+duration,duration,rule:'timer-v1',selected:true,returnContent:c.back?c.content+' · '+c.back:null};
 }
 function advanceObservation(tick){
   let changed=false;
@@ -347,10 +347,11 @@ function advanceObservation(tick){
     let next=observationNext[c.key];
     if(!Number.isSafeInteger(next)||next<0)next=tick;
     // Bound offline reconstruction by the maximum lifetime of both legs.
-    const horizon=(c.back?2:1)*(c.max+AUTO_ACCEPT);
+    const horizon=(c.back?2:1)*c.max;
     if(next<=tick-horizon)next+=Math.ceil((tick-horizon+1-next)/c.interval)*c.interval;
     while(next<=tick){
-      active.push(observationOffer(c,next));
+      const mission=observationOffer(c,next);
+      if(!active.some(m=>m.id===mission.id))active.push(mission);
       next+=c.interval;
       changed=true;
     }
@@ -364,13 +365,14 @@ function advanceMissions(tick){
   for(const original of active){
     let m=original;
     while(m){
-      if(!m.selected&&tick>=autoAt(m)){accept(m,autoAt(m));changed=true;}
+      if(!m.selected&&m.type==='관전형'){accept(m,Math.min(tick,autoAt(m)));changed=true;}
+      else if(!m.selected&&tick>=autoAt(m)){accept(m,autoAt(m));changed=true;}
       if(!m.selected||m.end>tick){remaining.push(m);break;}
       changed=true;
       // The return is part of the already-started trip; it inherits its exact duration.
       if(m.returnContent){
         const departure=m.end;
-        m={id:m.id+':return:'+departure,field:m.field,content:m.returnContent,type:m.type,start:departure,end:departure+AUTO_ACCEPT,duration:m.duration,rule:'timer-v1',selected:false,pairedReturn:true};
+        m={id:m.id+':return:'+departure,field:m.field,content:m.returnContent,type:m.type,start:departure,end:departure+(m.type==='관전형'?m.duration:AUTO_ACCEPT),duration:m.duration,rule:'timer-v1',selected:m.type==='관전형',pairedReturn:true};
       }else m=null;
     }
   }
@@ -527,7 +529,7 @@ function begin(saved){
   if(saved){
     // Accepted missions are immutable snapshots. Only offers use the new build.
     const sameBuild=saved.revision===BUILD_REVISION;
-    active=saved.active.filter(m=>sameBuild||m.selected||m.pairedReturn===true);
+    active=saved.active.filter(m=>sameBuild||m.selected||m.pairedReturn===true||m.type==='관전형');
     const oldEnabled=new Set(Array.isArray(saved.enabled)?saved.enabled:[]);
     enabled=new Set(Array.from(oldEnabled).filter(key=>validKeys.has(key)));
     // Keep previously enabled observation categories when expanding their subtypes.
