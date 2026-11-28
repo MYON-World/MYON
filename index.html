@@ -86,6 +86,31 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
 .growth-fill{height:100%;background:#91def4;border-radius:999px;transition:width .2s}
 .growth-card .receive-control{font-size:11px}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+
+/* Keep every screen within the device viewport; preserve vertical scrolling. */
+html,body{width:100%;max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
+@supports(overflow:clip){html,body{overflow-x:clip}}
+.screen,.intro,.world,#home-panel,#play-panel,.missions,.play-settings,.mission,.growth-card{min-width:0;max-width:100%}
+.world{padding-left:max(clamp(16px,5vw,32px),env(safe-area-inset-left,0px));padding-right:max(clamp(16px,5vw,32px),env(safe-area-inset-right,0px))}
+.bottom-nav{left:0;right:0;margin-inline:auto;transform:none;max-width:100%;padding-left:max(clamp(16px,5vw,32px),env(safe-area-inset-left,0px));padding-right:max(clamp(16px,5vw,32px),env(safe-area-inset-right,0px));grid-template-columns:repeat(2,minmax(0,1fr))}
+.mission-row,.growth-row,.update-notice,header{min-width:0;max-width:100%;flex-wrap:wrap}
+.mission-info{flex:1 1 auto;max-width:100%}
+.mission-name{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.mission-time{min-width:0;max-width:100%;margin-left:auto;white-space:normal;overflow-wrap:anywhere}
+.mission-select,.auto-label,.clock{max-width:100%}
+.growth-name{min-width:0;white-space:normal;overflow-wrap:anywhere}
+.growth-track{min-width:0;flex:1 1 0}
+.growth-spacer{min-width:0}
+.growth-xp,.growth-card .receive-control{max-width:100%;flex-shrink:0}
+.growth-card .receive-control{margin-left:auto}
+.growth-card .receive-control input{flex-shrink:0}
+@media(max-width:360px){
+  .world,.bottom-nav{padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px))}
+  .growth-row,.mission-row,.mission-info{gap:5px}
+  .growth-card{padding-inline:9px}
+  .mission{padding-inline:9px}
+  .mission-time{font-size:14px}
+}
 </style>
 </head>
 <body>
