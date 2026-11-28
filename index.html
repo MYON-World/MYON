@@ -74,6 +74,17 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
 .receive-control input{margin:0;width:16px;height:16px;accent-color:#91def4}
 .receive-info{display:flex;flex-direction:column;gap:3px;min-width:0}
 .receive-detail{font-size:11px;color:#a3afc3;line-height:1.4}
+.growth-card{background:#111b2a;border:1px solid #263243;border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;gap:7px}
+.growth-card[data-character="임무"]{border-color:#365a6d}
+.growth-row{display:flex;align-items:center;gap:8px;min-width:0}
+.growth-icon{width:19px;height:19px;flex-shrink:0;fill:none;stroke:#91def4;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.growth-name{font-size:14px;font-weight:700;white-space:nowrap}
+.growth-level{font-size:12px;color:#91def4;white-space:nowrap;font-weight:650}
+.growth-spacer{flex:1}
+.growth-xp{font-size:11px;color:#a3afc3;font-variant-numeric:tabular-nums;white-space:nowrap}
+.growth-track{height:4px;flex:1;border-radius:999px;background:#263243;overflow:hidden}
+.growth-fill{height:100%;background:#91def4;border-radius:999px;transition:width .2s}
+.growth-card .receive-control{font-size:11px}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
 </style>
 </head>
@@ -99,7 +110,6 @@ header{display:flex;align-items:center;justify-content:space-between;border-bott
     <section id="missions" class="missions" aria-label="등장 임무 및 진행 중인 임무"></section>
   </section>
   <section id="play-panel" hidden>
-    <h2 class="section-title">플레이</h2>
     <div id="play-settings" class="play-settings"></div>
   </section>
   <nav class="bottom-nav" aria-label="하단 메뉴">
@@ -141,6 +151,31 @@ const OBSERVATION=Object.freeze([
 ].map(x=>Object.freeze({...x,type:'관전형',field:'교통',key:JSON.stringify(['관전형','교통',x.content])})));
 const COMBINATIONS=Object.freeze([...OBSERVATION,...TYPES.filter(type=>type!=='관전형').flatMap(type=>Object.entries(CONTENT).flatMap(([field,items])=>items.map(content=>Object.freeze({type,field,content,key:JSON.stringify([type,field,content])}))))]);
 let observationNext=Object.create(null),scheduledReturns=[];
+const GROWTH_MAX=10,GROWTH_RULE='completion-growth-v1';
+let growthStart=0,missionXP=0,fieldXP=Object.create(null),growthDirty=false;
+function growthStats(total,mission=false){
+  let xp=Math.max(0,Number.isSafeInteger(total)?total:0),level=0;
+  const required=lv=>mission?(lv+1)*1000:lv===0?10:lv*100;
+  while(level<GROWTH_MAX&&xp>=required(level)){xp-=required(level);level++;}
+  return {level,xp,need:level===GROWTH_MAX?0:required(level)};
+}
+function fieldStats(c){return growthStats(fieldXP[c.content]||0)}
+function awardCompletion(m){
+  if(m.end<growthStart)return;
+  missionXP++;
+  const name=m.content.split(' · ')[0];
+  if(OBSERVATION.some(c=>c.content===name))fieldXP[name]=(fieldXP[name]||0)+1;
+  growthDirty=true;
+}
+function restoreGrowth(saved,elapsed){
+  const valid=n=>Number.isSafeInteger(n)&&n>=0;
+  const existing=saved&&saved.growthRule===GROWTH_RULE&&valid(saved.growthStart)&&valid(saved.missionXP);
+  growthStart=existing?saved.growthStart:elapsed;
+  missionXP=existing?saved.missionXP:0;
+  fieldXP=Object.create(null);
+  for(const c of OBSERVATION)fieldXP[c.content]=existing&&valid(saved.fieldXP?.[c.content])?saved.fieldXP[c.content]:0;
+  return !!existing;
+}
 const SERVICE_WINDOW_RULE='kst-05-23-v1';
 function hasServiceWindow(c){return c.source==='버스'||c.source==='철도'||c.content==='국내선'}
 function nextServiceTick(tick,origin=epoch){
@@ -164,86 +199,76 @@ function setPage(page,resetScroll=true){
     if(button.dataset.page===currentPage)button.setAttribute('aria-current','page');
     else button.removeAttribute('aria-current');
   }
+  if(currentPage==='play'&&growthDirty)renderSettings();
   if(resetScroll)window.scrollTo(0,0);
 }
+const GROWTH_ICONS={
+  '임무':'M8 5h8M9 3h6v4H9zM7 5H5v16h14V5h-2M8 11h8M8 15h8M8 18h5',
+  '택시':'M3 16v-4l3-6h12l3 6v4H3M5 16v3M19 16v3M3 12h18M7 14h1M16 14h1M9 6V3h6v3',
+  '버스':'M5 18V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v13H5M5 9h14M8 15h1M15 15h1M7 18v3M17 18v3',
+  '철도':'M6 16V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v11H6M6 10h12M9 13h1M14 13h1M8 16l-3 5M16 16l3 5M7 19h10',
+  '항공':'M12 2v20M12 7l9 7v2l-9-4-9 4v-2l9-7M8 20l4-2 4 2',
+  '선박':'M3 13l9-4 9 4-3 6H6l-3-6M7 11V5h10v6M12 5V2M2 22l5-1 5 1 5-1 5 1',
+  '우주':'M12 2c4 3 6 7 5 12l-5 4-5-4c-1-5 1-9 5-12M7 11l-4 5v4l5-3M17 11l4 5v4l-5-3M10 20l2 3 2-3M10 8a2 2 0 1 0 4 0 2 2 0 1 0-4 0'
+};
 function renderSettings(){
   settings.replaceChildren();
-  for(const type of TYPES){
-    const group=document.createElement('section');
-    group.className='style-group';
-    const toggle=document.createElement('button');
-    toggle.type='button';
-    toggle.className='style-toggle';
-    toggle.setAttribute('aria-expanded',String(expandedStyle===type));
-    const label=document.createElement('span');
-    label.textContent=type;
-    toggle.append(label);
+  for(const c of [null,...OBSERVATION]){
+    const name=c?c.content:'임무';
+    const stats=c?fieldStats(c):growthStats(missionXP,true);
+    const card=document.createElement('section');
+    card.className='growth-card';
+    card.dataset.character=name;
+    const row=document.createElement('div');
+    row.className='growth-row';
     const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
     svg.setAttribute('viewBox','0 0 24 24');
     svg.setAttribute('aria-hidden','true');
+    svg.setAttribute('class','growth-icon');
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d','m6 9 6 6 6-6');
-    svg.append(path);toggle.append(svg);
-    toggle.addEventListener('click',()=>{
-      expandedStyle=expandedStyle===type?'':type;
-      renderSettings();
-      const target=Array.from(settings.querySelectorAll('.style-toggle')).find(x=>x.textContent===type);
-      if(target)target.focus({preventScroll:true});
-    });
-    group.append(toggle);
-    if(expandedStyle===type){
-      const body=document.createElement('div');
-      body.className='style-content';
-      for(const field of Object.keys(CONTENT)){
-        const heading=document.createElement('div');
-        heading.className='field-name';
-        heading.textContent=field;
-        body.append(heading);
-        for(const c of COMBINATIONS.filter(x=>x.type===type&&x.field===field)){
-          const row=document.createElement('div');
-          row.className='receive-row';
-          const name=document.createElement('span');
-          name.textContent=c.content;
-          let info=name;
-          if(c.type==='관전형'){
-            info=document.createElement('div');
-            info.className='receive-info';
-            const detail=document.createElement('span');
-            detail.className='receive-detail';
-            detail.textContent=c.durationText+' · '+c.intervalText+'마다 등장';
-            info.append(name,detail);
-          }
-          const control=document.createElement('label');
-          control.className='receive-control';
-          const checkbox=document.createElement('input');
-          checkbox.type='checkbox';
-          checkbox.checked=enabled.has(c.key);
-          checkbox.setAttribute('aria-label',type+' '+c.content+' 임무 받기');
-          checkbox.addEventListener('change',()=>{
-            update();
-            if(checkbox.checked){
-              enabled.add(c.key);
-              if(c.type==='관전형'){
-                observationNext[c.key]=Math.max(0,lastTick);
-                advanceObservation(Math.max(0,lastTick));
-                syncCards();
-                animateBars(Math.max(0,(performance.now()-startedAt)/1000));
-              }
-            }else{
-              enabled.delete(c.key);
-              if(c.type==='관전형')delete observationNext[c.key];
-            }
-            saveSession();
-          });
-          control.append(checkbox,'임무 받기');
-          row.append(name,control);
-          body.append(row);
+    path.setAttribute('d',GROWTH_ICONS[c?c.source:'임무']);
+    svg.append(path);
+    const title=document.createElement('span');
+    title.className='growth-name';title.textContent=name;
+    const level=document.createElement('span');
+    level.className='growth-level';level.textContent='Lv.'+stats.level;
+    const spacer=document.createElement('span');spacer.className='growth-spacer';
+    row.append(svg,title,level,spacer);
+    const count=document.createElement('span');
+    count.className='growth-xp';
+    count.textContent=stats.need?stats.xp.toLocaleString('ko-KR')+' / '+stats.need.toLocaleString('ko-KR'):'MAX';
+    const bottom=document.createElement('div');bottom.className='growth-row';
+    const track=document.createElement('div');track.className='growth-track';
+    track.setAttribute('role','progressbar');track.setAttribute('aria-label',name+' 숙련경험치');
+    track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax',String(stats.need||100));
+    track.setAttribute('aria-valuenow',String(stats.need?stats.xp:100));
+    const fill=document.createElement('div');fill.className='growth-fill';
+    fill.style.width=(stats.need?stats.xp/stats.need*100:100)+'%';
+    track.append(fill);bottom.append(track);
+    if(c&&stats.level>=1){
+      const control=document.createElement('label');control.className='receive-control';
+      const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=enabled.has(c.key);
+      checkbox.setAttribute('aria-label',name+' 임무 받기');
+      checkbox.addEventListener('change',()=>{
+        const checked=checkbox.checked;
+        update();
+        if(checked){
+          enabled.add(c.key);
+          observationNext[c.key]=Math.max(0,lastTick);
+          advanceObservation(Math.max(0,lastTick));
+          syncCards();
+          animateBars(Math.max(0,(performance.now()-startedAt)/1000));
+        }else{
+          enabled.delete(c.key);
+          delete observationNext[c.key];
         }
-      }
-      group.append(body);
-    }
-    settings.append(group);
+        saveSession();renderSettings();
+      });
+      control.append(checkbox,'임무 받기');row.append(control);bottom.append(count);
+    }else row.append(count);
+    card.append(row,bottom);settings.append(card);
   }
+  growthDirty=false;
 }
 navItems.forEach(button=>button.addEventListener('click',()=>setPage(button.dataset.page)));
 const clockFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
@@ -264,7 +289,7 @@ function showSaveError(message){
 function saveSession(){
   if(startedAt===null||saveBlocked)return false;
   try{
-    localStorage.setItem(SAVE_KEY,JSON.stringify({revision:BUILD_REVISION,epoch,tick:Math.max(0,lastTick),nextSpawn,active,enabled:Array.from(enabled),observationNext,scheduledReturns,serviceWindowRule:SERVICE_WINDOW_RULE}));
+    localStorage.setItem(SAVE_KEY,JSON.stringify({revision:BUILD_REVISION,epoch,tick:Math.max(0,lastTick),nextSpawn,active,enabled:Array.from(enabled),observationNext,scheduledReturns,serviceWindowRule:SERVICE_WINDOW_RULE,growthRule:GROWTH_RULE,growthStart,missionXP,fieldXP}));
     showSaveError('');
     return true;
   }catch(error){
@@ -358,6 +383,7 @@ function observationOffer(c,tick){
 }
 function advanceObservation(tick){
   let changed=false;
+  const existingIds=new Set(active.map(m=>m.id));
   for(const c of OBSERVATION){
     if(!enabled.has(c.key))continue;
     let next=observationNext[c.key];
@@ -365,11 +391,13 @@ function advanceObservation(tick){
     // Bound offline reconstruction by the maximum lifetime of both legs.
     const limited=hasServiceWindow(c);
     const horizon=(c.back?2:1)*c.max+(limited&&c.back?6*HOUR:0);
-    if(next<=tick-horizon)next+=Math.ceil((tick-horizon+1-next)/c.interval)*c.interval;
+    // Never skip completions eligible for growth, even after a long offline period.
+    const earliest=Math.min(tick,growthStart)-horizon;
+    if(next<=earliest)next+=Math.ceil((earliest+1-next)/c.interval)*c.interval;
     if(limited)next=nextServiceTick(next);
     while(next<=tick){
       const mission=observationOffer(c,next);
-      if(!active.some(m=>m.id===mission.id))active.push(mission);
+      if(!existingIds.has(mission.id))settleMission(mission,tick,active);
       next+=c.interval;
       if(limited)next=nextServiceTick(next);
       changed=true;
@@ -378,29 +406,28 @@ function advanceObservation(tick){
   }
   return changed;
 }
+function settleMission(original,tick,remaining){
+  let changed=false,m=original;
+  while(m){
+    if(!m.selected&&m.type==='관전형'){accept(m,Math.min(tick,autoAt(m)));changed=true;}
+    else if(!m.selected&&tick>=autoAt(m)){accept(m,autoAt(m));changed=true;}
+    if(!m.selected||m.end>tick){remaining.push(m);break;}
+    changed=true;
+    awardCompletion(m);
+    if(m.returnContent){
+      const departure=m.serviceWindow===true?nextServiceTick(m.end):m.end;
+      m={id:m.id+':return:'+departure,field:m.field,content:m.returnContent,type:m.type,start:departure,end:departure+(m.type==='관전형'?m.duration:AUTO_ACCEPT),duration:m.duration,rule:'timer-v1',selected:m.type==='관전형',pairedReturn:true};
+      if(departure>tick){scheduledReturns.push(m);m=null;}
+    }else m=null;
+  }
+  return changed;
+}
 function advanceMissions(tick){
   let changed=false;
   const remaining=[];
   const readyReturns=scheduledReturns.filter(m=>m.start<=tick);
-  if(readyReturns.length){
-    scheduledReturns=scheduledReturns.filter(m=>m.start>tick);
-    changed=true;
-  }
-  for(const original of [...active,...readyReturns]){
-    let m=original;
-    while(m){
-      if(!m.selected&&m.type==='관전형'){accept(m,Math.min(tick,autoAt(m)));changed=true;}
-      else if(!m.selected&&tick>=autoAt(m)){accept(m,autoAt(m));changed=true;}
-      if(!m.selected||m.end>tick){remaining.push(m);break;}
-      changed=true;
-      // The return is part of the already-started trip; it inherits its exact duration.
-      if(m.returnContent){
-        const departure=m.serviceWindow===true?nextServiceTick(m.end):m.end;
-        m={id:m.id+':return:'+departure,field:m.field,content:m.returnContent,type:m.type,start:departure,end:departure+(m.type==='관전형'?m.duration:AUTO_ACCEPT),duration:m.duration,rule:'timer-v1',selected:m.type==='관전형',pairedReturn:true};
-        if(departure>tick){scheduledReturns.push(m);m=null;}
-      }else m=null;
-    }
-  }
+  if(readyReturns.length){scheduledReturns=scheduledReturns.filter(m=>m.start>tick);changed=true;}
+  for(const original of [...active,...readyReturns])changed=settleMission(original,tick,remaining)||changed;
   active=remaining;
   return changed;
 }
@@ -563,6 +590,7 @@ function update(){
     changed=advanceObservation(tick)||changed;
     changed=advanceMissions(tick)||changed;
     if(first||changed)syncCards();
+    if(growthDirty&&currentPage==='play')renderSettings();
     if(changed)saveSession();
   }
   animateBars(elapsed);
@@ -577,23 +605,26 @@ function begin(saved){
   epoch=saved?saved.epoch:Date.now();
   const elapsed=saved?Math.max(saved.tick,Math.floor((Date.now()-epoch)/1000),0):0;
   startedAt=performance.now()-elapsed*1000;
+  const hasGrowth=restoreGrowth(saved,elapsed);
   if(saved){
     // Accepted missions are immutable snapshots. Only offers use the new build.
     const sameBuild=saved.revision===BUILD_REVISION;
     active=saved.active.filter(m=>sameBuild||m.selected||m.pairedReturn===true||m.type==='관전형');
     scheduledReturns=Array.isArray(saved.scheduledReturns)?saved.scheduledReturns.filter(m=>m&&m.pairedReturn===true&&m.type==='관전형'&&Number.isSafeInteger(m.start)&&Number.isSafeInteger(m.end)&&Number.isSafeInteger(m.duration)&&m.duration>0&&typeof m.id==='string'&&typeof m.content==='string'&&typeof m.field==='string'&&m.selected===true&&m.rule==='timer-v1'):[];
     const oldEnabled=new Set(Array.isArray(saved.enabled)?saved.enabled:[]);
-    enabled=new Set(Array.from(oldEnabled).filter(key=>validKeys.has(key)));
-    // Keep previously enabled observation categories when expanding their subtypes.
+    enabled=new Set();
     for(const c of OBSERVATION){
-      if(oldEnabled.has(JSON.stringify(['관전형',c.field,c.source])))enabled.add(c.key);
+      const wasEnabled=oldEnabled.has(c.key)||(!hasGrowth&&oldEnabled.has(JSON.stringify(['관전형',c.field,c.source])));
+      if(fieldStats(c).level===0||wasEnabled)enabled.add(c.key);
       if(!enabled.has(c.key))continue;
       const savedNext=saved.observationNext&&saved.observationNext[c.key];
-      let next=Number.isSafeInteger(savedNext)&&savedNext>=0?savedNext:elapsed;
+      let next=wasEnabled&&Number.isSafeInteger(savedNext)&&savedNext>=0?savedNext:elapsed;
       if(hasServiceWindow(c)&&saved.serviceWindowRule!==SERVICE_WINDOW_RULE)next=Math.max(next,elapsed);
       observationNext[c.key]=next;
     }
     nextSpawn=sameBuild?saved.nextSpawn:elapsed;
+  }else{
+    for(const c of OBSERVATION){enabled.add(c.key);observationNext[c.key]=elapsed;}
   }
   home.hidden=true;
   world.hidden=false;
@@ -632,7 +663,6 @@ if(resumeAfterUpdate){
   if(previousSession){
     begin(previousSession);
     if(resumeView&&resumeView.page==='play'){
-      expandedStyle=TYPES.includes(resumeView.style)?resumeView.style:'';
       renderSettings();
       setPage('play',false);
     }
